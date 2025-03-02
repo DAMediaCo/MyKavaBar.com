@@ -4,6 +4,7 @@ import { users, bannedPhoneNumbers, userActivityLogs, kavaBars } from "@db/schem
 import { eq } from "drizzle-orm";
 import { requireAdmin } from "../middleware/admin";
 import { crypto } from "../utils/crypto";
+import { fetchKavaBarsByCoordinates } from "../scripts/fetch-by-coordinates";
 
 const router = Router();
 
@@ -41,7 +42,7 @@ router.get("/users", requireAdmin, async (req, res) => {
       }
     });
 
-    console.log(`Found ${usersList.length} users:`, 
+    console.log(`Found ${usersList.length} users:`,
       usersList.map(u => ({ id: u.id, username: u.username, isAdmin: u.isAdmin }))
     );
 
@@ -54,9 +55,9 @@ router.get("/users", requireAdmin, async (req, res) => {
     res.json(usersList);
   } catch (error: any) {
     console.error("Error fetching users:", error);
-    res.status(500).json({ 
+    res.status(500).json({
       error: "Failed to fetch users",
-      details: process.env.NODE_ENV === 'development' ? error.message : undefined 
+      details: process.env.NODE_ENV === 'development' ? error.message : undefined
     });
   }
 });
@@ -105,7 +106,7 @@ router.post("/users", requireAdmin, async (req, res) => {
         isPhoneVerified: false
       })
       .returning();
-    
+
     const newUser = result[0];
 
     // Log the user creation
@@ -288,64 +289,20 @@ router.post("/users/:id/ban", requireAdmin, async (req, res) => {
 router.post("/update-google-maps-data", requireAdmin, async (req, res) => {
   try {
     // Extract latitude and longitude from request body
-    const { latitude, longitude, barId } = req.body;
-    
-    console.log("Admin requested Google Maps data update:", { 
-      latitude, 
+    const { latitude, longitude } = req.body;
+
+    console.log("Admin requested Google Maps data update:", {
+      latitude,
       longitude,
-      barId,
       user: req.user?.id
     });
-    
-    // If barId is provided, update that specific bar's coordinates
-    // Otherwise, it's just a general request for location update
-    if (barId && typeof latitude === 'number' && typeof longitude === 'number') {
-      try {
-        const barIdNum = parseInt(barId);
-        
-        // Update the bar's location in the database
-        const updatedBar = await db.query.kavaBars.findFirst({
-          where: (kavaBars, { eq }) => eq(kavaBars.id, barIdNum)
-        });
-        
-        if (!updatedBar) {
-          return res.status(404).json({
-            success: false,
-            error: "Bar not found"
-          });
-        }
-        
-        // Update the bar with the new coordinates
-        await db.update(kavaBars)
-          .set({
-            location: JSON.stringify({ lat: latitude, lng: longitude }),
-            updatedAt: new Date()
-          })
-          .where(eq(kavaBars.id, barIdNum));
-          
-        return res.status(200).json({
-          success: true,
-          message: "Bar coordinates updated successfully",
-          barId: barIdNum,
-          coordinates: {
-            latitude,
-            longitude
-          },
-          timestamp: new Date().toISOString()
-        });
-      } catch (updateError: any) {
-        console.error("Error updating bar coordinates:", updateError);
-        return res.status(500).json({
-          success: false,
-          error: "Failed to update bar coordinates",
-          details: process.env.NODE_ENV === 'development' ? updateError.message : undefined
-        });
-      }
+
+    if (typeof latitude === 'number' && typeof longitude === 'number') {
+      await fetchKavaBarsByCoordinates(latitude, longitude);
     }
-    
-    // If no specific bar ID was provided, just acknowledge the coordinates
-    res.status(200).json({ 
-      success: true, 
+
+    res.status(200).json({
+      success: true,
       message: "Google Maps data update request received",
       coordinates: {
         latitude: latitude || null,
@@ -355,10 +312,10 @@ router.post("/update-google-maps-data", requireAdmin, async (req, res) => {
     });
   } catch (error: any) {
     console.error("Error in Google Maps update endpoint:", error);
-    res.status(500).json({ 
+    res.status(500).json({
       success: false,
       error: "Failed to process Google Maps update request",
-      details: process.env.NODE_ENV === 'development' ? error.message : undefined 
+      details: process.env.NODE_ENV === 'development' ? error.message : undefined
     });
   }
 });

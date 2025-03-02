@@ -71,13 +71,11 @@ export default function ManageBars() {
       return response.json();
     }
   });
-  
+
   // State for latitude and longitude inputs
   const [latitude, setLatitude] = useState<string>("");
   const [longitude, setLongitude] = useState<string>("");
 
-  // State for the currently selected bar for coordinate updates
-  const [selectedBarId, setSelectedBarId] = useState<number | null>(null);
 
   // Mutation for updating Google Maps data
   const updateGoogleMapsMutation = useMutation({
@@ -85,38 +83,29 @@ export default function ManageBars() {
       // Parse to numbers or use null if invalid
       const lat = latitude ? parseFloat(latitude) : null;
       const lng = longitude ? parseFloat(longitude) : null;
-      
+
       const response = await fetch("/api/admin/update-google-maps-data", {
         method: "POST",
         credentials: "include",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ 
-          latitude: lat, 
+        body: JSON.stringify({
+          latitude: lat,
           longitude: lng,
-          barId: selectedBarId
         })
       });
       if (!response.ok) throw new Error(await response.text());
       return response.json();
     },
     onSuccess: (data) => {
-      toast({ 
-        title: "Success", 
-        description: data.barId 
-          ? `Coordinates updated for bar ID: ${data.barId}` 
-          : "Google Maps data update request processed successfully"
+      toast({
+        title: "Success",
+        description: "Google Maps data update request processed successfully"
       });
       console.log("Google Maps update response:", data);
-      
-      // If a specific bar was updated, refresh the bar data
-      if (data.barId) {
-        queryClient.invalidateQueries({ queryKey: ["admin-bars", sortBy] });
-      }
-      
+
       // Reset input fields after successful update
       setLatitude("");
       setLongitude("");
-      setSelectedBarId(null);
     },
     onError: (error: Error) => {
       toast({
@@ -250,19 +239,19 @@ export default function ManageBars() {
   // Safe sorting function with proper fallbacks for missing properties
   const sortedBars = [...bars].sort((a, b) => {
     if (sortBy === "name") return (a.name || "").localeCompare(b.name || "");
-    
+
     if (sortBy === "state") {
       const stateA = a.state || (a.address || "").split(",").pop()?.trim() || "";
       const stateB = b.state || (b.address || "").split(",").pop()?.trim() || "";
       return stateA.localeCompare(stateB);
     }
-    
+
     if (sortBy === "city") {
       const cityA = a.city || (a.address || "").split(",")[0]?.trim() || "";
       const cityB = b.city || (b.address || "").split(",")[0]?.trim() || "";
       return cityA.localeCompare(cityB);
     }
-    
+
     return 0;
   });
 
@@ -271,9 +260,9 @@ export default function ManageBars() {
       <div className="flex justify-between items-center mb-6">
         <div className="flex items-center gap-4">
           <h1 className="text-3xl font-bold">Manage Kava Bars</h1>
-          <select 
-            className="ml-2 p-2 border rounded-md" 
-            value={sortBy} 
+          <select
+            className="ml-2 p-2 border rounded-md"
+            value={sortBy}
             onChange={(e) => setSortBy(e.target.value as "name" | "state" | "city")}
           >
             <option value="name">Sort by Name</option>
@@ -281,7 +270,7 @@ export default function ManageBars() {
             <option value="city">Sort by City</option>
           </select>
         </div>
-        
+
         <div className="flex items-center gap-2">
           {/* Google Maps Update Section with Latitude and Longitude inputs */}
           <div className="flex items-center gap-2">
@@ -299,8 +288,8 @@ export default function ManageBars() {
               onChange={(e) => setLongitude(e.target.value)}
               className="w-32"
             />
-            <Button 
-              variant="outline" 
+            <Button
+              variant="outline"
               className="gap-2"
               onClick={() => updateGoogleMapsMutation.mutate()}
               disabled={updateGoogleMapsMutation.isPending}
@@ -313,7 +302,7 @@ export default function ManageBars() {
               Update from Google Maps
             </Button>
           </div>
-          
+
           {/* Add New Bar Dialog */}
           <Dialog open={isAddDialogOpen} onOpenChange={setIsAddDialogOpen}>
             <DialogTrigger asChild>
@@ -476,7 +465,7 @@ export default function ManageBars() {
                     <Trash className="h-4 w-4" />
                   </Button>
                 </div>
-                
+
                 <div className="flex items-center gap-1 mt-1">
                   <Input
                     type="text"
@@ -500,19 +489,16 @@ export default function ManageBars() {
                     onClick={() => {
                       const latInput = document.getElementById(`lat-${bar.id}`) as HTMLInputElement;
                       const lngInput = document.getElementById(`lng-${bar.id}`) as HTMLInputElement;
-                      
+
                       if (latInput && lngInput) {
                         const lat = parseFloat(latInput.value);
                         const lng = parseFloat(lngInput.value);
-                        
+
                         if (!isNaN(lat) && !isNaN(lng)) {
                           // Set the latitude and longitude fields
                           setLatitude(lat.toString());
                           setLongitude(lng.toString());
-                          
-                          // Set the selected bar ID
-                          setSelectedBarId(bar.id);
-                          
+
                           // Update with the specific bar ID
                           updateGoogleMapsMutation.mutate();
                         } else {
