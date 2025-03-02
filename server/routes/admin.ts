@@ -1,6 +1,6 @@
 import { Router } from "express";
 import { db } from "@db";
-import { users, bannedPhoneNumbers, userActivityLogs } from "@db/schema";
+import { users, bannedPhoneNumbers, userActivityLogs, kavaBars } from "@db/schema";
 import { eq } from "drizzle-orm";
 import { requireAdmin } from "../middleware/admin";
 import { crypto } from "../utils/crypto";
@@ -92,7 +92,8 @@ router.post("/users", requireAdmin, async (req, res) => {
 
     const hashedPassword = await crypto.hash(password);
 
-    const [newUser] = await db
+    // Insert the new user
+    const result = await db
       .insert(users)
       .values({
         username,
@@ -104,6 +105,8 @@ router.post("/users", requireAdmin, async (req, res) => {
         isPhoneVerified: false
       })
       .returning();
+    
+    const newUser = result[0];
 
     // Log the user creation
     await db.insert(userActivityLogs).values({
@@ -251,11 +254,11 @@ router.post("/users/:id/ban", requireAdmin, async (req, res) => {
         .where(eq(users.id, userId));
 
       // If user has a phone number, add it to banned numbers
-      if (user.phoneNumber) {
+      if (user.phoneNumber && req.user?.id) {
         await tx.insert(bannedPhoneNumbers).values({
-          phoneNumber: user.phoneNumber,
+          phoneNumber: user.phoneNumber, // Match the schema field
           reason,
-          bannedBy: req.user?.id,
+          bannedBy: req.user.id, // Match the schema field
           notes: `User ${user.username} banned`
         });
       }
@@ -284,13 +287,70 @@ router.post("/users/:id/ban", requireAdmin, async (req, res) => {
 // Google Maps API update endpoint
 router.post("/update-google-maps-data", requireAdmin, async (req, res) => {
   try {
-    // For now, just return a 200 status with a success message
-    // In the future, this will fetch and update bars from the Google Maps API
-    console.log("Admin requested Google Maps data update");
+    // Extract latitude and longitude from request body
+    const { latitude, longitude, barId } = req.body;
     
+    console.log("Admin requested Google Maps data update:", { 
+      latitude, 
+      longitude,
+      barId,
+      user: req.user?.id
+    });
+    
+    // If barId is provided, update that specific bar's coordinates
+    // Otherwise, it's just a general request for location update
+    if (barId && typeof latitude === 'number' && typeof longitude === 'number') {
+      try {
+        const barIdNum = parseInt(barId);
+        
+        // Update the bar's location in the database
+        const updatedBar = await db.query.kavaBars.findFirst({
+          where: (kavaBars, { eq }) => eq(kavaBars.id, barIdNum)
+        });
+        
+        if (!updatedBar) {
+          return res.status(404).json({
+            success: false,
+            error: "Bar not found"
+          });
+        }
+        
+        // Update the bar with the new coordinates
+        await db.update(kavaBars)
+          .set({
+            location: JSON.stringify({ lat: latitude, lng: longitude }),
+            updatedAt: new Date()
+          })
+          .where(eq(kavaBars.id, barIdNum));
+          
+        return res.status(200).json({
+          success: true,
+          message: "Bar coordinates updated successfully",
+          barId: barIdNum,
+          coordinates: {
+            latitude,
+            longitude
+          },
+          timestamp: new Date().toISOString()
+        });
+      } catch (updateError: any) {
+        console.error("Error updating bar coordinates:", updateError);
+        return res.status(500).json({
+          success: false,
+          error: "Failed to update bar coordinates",
+          details: process.env.NODE_ENV === 'development' ? updateError.message : undefined
+        });
+      }
+    }
+    
+    // If no specific bar ID was provided, just acknowledge the coordinates
     res.status(200).json({ 
       success: true, 
       message: "Google Maps data update request received",
+      coordinates: {
+        latitude: latitude || null,
+        longitude: longitude || null
+      },
       timestamp: new Date().toISOString()
     });
   } catch (error: any) {

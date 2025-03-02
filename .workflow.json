@@ -1,7 +1,7 @@
 {
   "workflows": [
     {
-      "name": "Start Server",
+      "name": "Start application",
       "command": "npm run dev",
       "restartOn": {
         "files": [

@@ -19,7 +19,7 @@ import {
   DialogTitle,
   DialogTrigger,
 } from "@/components/ui/dialog";
-import { Loader2, Pencil, Trash, Plus, RefreshCw } from "lucide-react";
+import { Loader2, Pencil, Trash, Plus, RefreshCw, MapPin } from "lucide-react";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { useForm } from "react-hook-form";
 import * as z from "zod";
@@ -72,13 +72,29 @@ export default function ManageBars() {
     }
   });
   
+  // State for latitude and longitude inputs
+  const [latitude, setLatitude] = useState<string>("");
+  const [longitude, setLongitude] = useState<string>("");
+
+  // State for the currently selected bar for coordinate updates
+  const [selectedBarId, setSelectedBarId] = useState<number | null>(null);
+
   // Mutation for updating Google Maps data
   const updateGoogleMapsMutation = useMutation({
     mutationFn: async () => {
+      // Parse to numbers or use null if invalid
+      const lat = latitude ? parseFloat(latitude) : null;
+      const lng = longitude ? parseFloat(longitude) : null;
+      
       const response = await fetch("/api/admin/update-google-maps-data", {
         method: "POST",
         credentials: "include",
-        headers: { "Content-Type": "application/json" }
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ 
+          latitude: lat, 
+          longitude: lng,
+          barId: selectedBarId
+        })
       });
       if (!response.ok) throw new Error(await response.text());
       return response.json();
@@ -86,9 +102,21 @@ export default function ManageBars() {
     onSuccess: (data) => {
       toast({ 
         title: "Success", 
-        description: "Google Maps data update request processed successfully" 
+        description: data.barId 
+          ? `Coordinates updated for bar ID: ${data.barId}` 
+          : "Google Maps data update request processed successfully"
       });
       console.log("Google Maps update response:", data);
+      
+      // If a specific bar was updated, refresh the bar data
+      if (data.barId) {
+        queryClient.invalidateQueries({ queryKey: ["admin-bars", sortBy] });
+      }
+      
+      // Reset input fields after successful update
+      setLatitude("");
+      setLongitude("");
+      setSelectedBarId(null);
     },
     onError: (error: Error) => {
       toast({
@@ -254,21 +282,37 @@ export default function ManageBars() {
           </select>
         </div>
         
-        <div className="flex gap-2">
-          {/* Google Maps Update Button */}
-          <Button 
-            variant="outline" 
-            className="gap-2"
-            onClick={() => updateGoogleMapsMutation.mutate()}
-            disabled={updateGoogleMapsMutation.isPending}
-          >
-            {updateGoogleMapsMutation.isPending ? (
-              <Loader2 className="h-4 w-4 animate-spin" />
-            ) : (
-              <RefreshCw className="h-4 w-4" />
-            )}
-            Update from Google Maps
-          </Button>
+        <div className="flex items-center gap-2">
+          {/* Google Maps Update Section with Latitude and Longitude inputs */}
+          <div className="flex items-center gap-2">
+            <Input
+              type="text"
+              placeholder="Latitude"
+              value={latitude}
+              onChange={(e) => setLatitude(e.target.value)}
+              className="w-32"
+            />
+            <Input
+              type="text"
+              placeholder="Longitude"
+              value={longitude}
+              onChange={(e) => setLongitude(e.target.value)}
+              className="w-32"
+            />
+            <Button 
+              variant="outline" 
+              className="gap-2"
+              onClick={() => updateGoogleMapsMutation.mutate()}
+              disabled={updateGoogleMapsMutation.isPending}
+            >
+              {updateGoogleMapsMutation.isPending ? (
+                <Loader2 className="h-4 w-4 animate-spin" />
+              ) : (
+                <RefreshCw className="h-4 w-4" />
+              )}
+              Update from Google Maps
+            </Button>
+          </div>
           
           {/* Add New Bar Dialog */}
           <Dialog open={isAddDialogOpen} onOpenChange={setIsAddDialogOpen}>
@@ -407,24 +451,83 @@ export default function ManageBars() {
                 {bar.phone && (
                   <p className="text-sm text-muted-foreground">{bar.phone}</p>
                 )}
+                {bar.location && (
+                  <p className="text-xs text-muted-foreground mt-1">
+                    Lat: {bar.location.lat.toFixed(6)}, Lng: {bar.location.lng.toFixed(6)}
+                  </p>
+                )}
               </div>
-              <div className="flex gap-2">
-                <Button
-                  variant="outline"
-                  size="icon"
-                  onClick={() => handleEdit(bar)}
-                  title="Edit bar"
-                >
-                  <Pencil className="h-4 w-4" />
-                </Button>
-                <Button
-                  variant="destructive"
-                  size="icon"
-                  onClick={() => handleDelete(bar.id)}
-                  title="Delete bar"
-                >
-                  <Trash className="h-4 w-4" />
-                </Button>
+              <div className="flex flex-col gap-2">
+                <div className="flex gap-2">
+                  <Button
+                    variant="outline"
+                    size="icon"
+                    onClick={() => handleEdit(bar)}
+                    title="Edit bar"
+                  >
+                    <Pencil className="h-4 w-4" />
+                  </Button>
+                  <Button
+                    variant="destructive"
+                    size="icon"
+                    onClick={() => handleDelete(bar.id)}
+                    title="Delete bar"
+                  >
+                    <Trash className="h-4 w-4" />
+                  </Button>
+                </div>
+                
+                <div className="flex items-center gap-1 mt-1">
+                  <Input
+                    type="text"
+                    placeholder="Lat"
+                    className="w-24 h-7 text-xs"
+                    id={`lat-${bar.id}`}
+                    defaultValue={bar.location?.lat.toString() || ""}
+                  />
+                  <Input
+                    type="text"
+                    placeholder="Lng"
+                    className="w-24 h-7 text-xs"
+                    id={`lng-${bar.id}`}
+                    defaultValue={bar.location?.lng.toString() || ""}
+                  />
+                  <Button
+                    variant="outline"
+                    size="icon"
+                    className="h-7 w-7"
+                    title="Update coordinates"
+                    onClick={() => {
+                      const latInput = document.getElementById(`lat-${bar.id}`) as HTMLInputElement;
+                      const lngInput = document.getElementById(`lng-${bar.id}`) as HTMLInputElement;
+                      
+                      if (latInput && lngInput) {
+                        const lat = parseFloat(latInput.value);
+                        const lng = parseFloat(lngInput.value);
+                        
+                        if (!isNaN(lat) && !isNaN(lng)) {
+                          // Set the latitude and longitude fields
+                          setLatitude(lat.toString());
+                          setLongitude(lng.toString());
+                          
+                          // Set the selected bar ID
+                          setSelectedBarId(bar.id);
+                          
+                          // Update with the specific bar ID
+                          updateGoogleMapsMutation.mutate();
+                        } else {
+                          toast({
+                            variant: "destructive",
+                            title: "Invalid coordinates",
+                            description: "Please enter valid latitude and longitude values"
+                          });
+                        }
+                      }
+                    }}
+                  >
+                    <MapPin className="h-3 w-3" />
+                  </Button>
+                </div>
               </div>
             </CardContent>
           </Card>
