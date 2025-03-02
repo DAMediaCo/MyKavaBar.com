@@ -1,0 +1,69 @@
+ Please create a complete web-based game (using HTML, CSS, and JavaScript, or a lightweight framework if you prefer) with the following requirements: Add this above the search bar and with the text, “Not sure what Bar to go to? Click here and spin the wheel.”
+
+
+
+1. **User Location & Bar List**  
+
+   - Prompt the user for their location or utilize the browser’s Geolocation API.
+
+   - Accept or integrate a list (or API endpoint) of local bars, each with a name and coordinates (latitude & longitude).
+
+
+
+2. **Distance Radius & Sorting**  
+
+   - Allow the user to specify a distance radius (e.g., 5 miles or kilometers).
+
+   - Filter and sort the bar list so only bars within the user-chosen radius appear on the spinning wheel.
+
+   - Show a simple list or map of which bars are included.
+
+
+
+3. **Spinning Wheel Interface**  
+
+   - Display a spinning wheel (or similar “wheel of fortune” style) that visually includes the filtered bars as segments.
+
+   - Provide a “Spin” button that, when clicked, rotates the wheel with a random outcome.
+
+   - At the end of the spin, highlight the winning bar and display its details (name, distance, possibly an address).
+
+
+
+4. **Technical Implementation**  
+
+   - Implement distance calculations between the user’s location and each bar’s coordinates (use Haversine formula or any reliable method).
+
+   - Write clean, well-commented code that explains how you are:
+
+     - Getting user location or prompting for address input
+
+     - Sorting/filtering the bar list based on distance
+
+     - Generating and animating the wheel
+
+     - Selecting a random outcome
+
+
+
+5. **Visual/UI Design**  
+
+   - Create a user-friendly interface that showcases the bars on the wheel.
+
+   - Include basic styling (e.g., using CSS) so the game looks appealing and is easy to use.
+
+
+
+6. **Instructions & Documentation**  
+
+   - In comments or separate instructions, briefly describe:
+
+     - How to change or add bars to the dataset.
+
+     - How to switch between miles and kilometers for distance.
+
+     - How the random selection is determined.
+
+
+
+Provide all the necessary files (HTML, CSS, and JavaScript) so that this spinning wheel game can run in a standard web browser without additional dependencies, unless absolutely necessary. Once complete, summarize how everything works.

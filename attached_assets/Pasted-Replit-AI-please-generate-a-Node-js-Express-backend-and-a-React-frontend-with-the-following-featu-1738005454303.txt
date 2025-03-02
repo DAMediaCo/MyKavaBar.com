@@ -1,0 +1,104 @@
+Replit AI, please generate a Node.js + Express backend and a React frontend with the following features:
+
+1) **Project Context & Goals**:
+   - We have a site featuring multiple bars.
+   - Each bar should have:
+     - A publicly visible weekly event calendar (when users click on that bar’s page).
+     - Operating hours (open/close times) for each day of the week.
+   - Bar owners must be able to:
+     - Claim/verify ownership of their specific bar.
+     - Securely log in and manage their bar only (no access to other bars).
+     - Edit the bar’s operating hours.
+     - Create, edit, and delete weekly events.
+
+2) **Data Model Suggestions** (MongoDB preferred, but any DB is fine):
+   - **users** collection:
+     ```
+     {
+       _id: ObjectId,
+       email: String,
+       passwordHash: String,
+       role: String, // "owner", "admin", or "user"
+       ownedBarId: ObjectId // If user is an owner, reference to the bar
+     }
+     ```
+   - **bars** collection:
+     ```
+     {
+       _id: ObjectId,
+       name: String,
+       address: String,
+       ownerId: ObjectId, // references the user who owns this bar
+       operatingHours: {
+         monday: { open: String, close: String },
+         tuesday: { open: String, close: String },
+         ...
+       }
+       // Possibly a verified flag if needed
+     }
+     ```
+   - **events** collection:
+     ```
+     {
+       _id: ObjectId,
+       barId: ObjectId,   // references the bar
+       title: String,
+       description: String,
+       dayOfWeek: Number, // 0=Sun, 1=Mon, etc.
+       startTime: Date,
+       endTime: Date
+     }
+     ```
+
+3) **Backend Requirements (Node.js + Express)**:
+   - **Authentication** (JWT or session-based):
+     - `/auth/register` (POST)
+     - `/auth/login` (POST)
+     - Hash passwords, store securely.
+   - **Bar Ownership Verification**:
+     - Possibly `/bars/:barId/claim` (POST) if needed, or an admin can set `ownerId`.
+   - **Operating Hours Management**:
+     - `PUT /bars/:barId/hours`
+       - Only the verified bar owner (or admin) can update the bar’s operating hours.
+   - **Event Management**:
+     - `GET /bars/:barId/events` — Fetch all events for the bar.
+     - `POST /bars/:barId/events` — Create a new event (owner only).
+     - `PUT /bars/:barId/events/:eventId` — Update an event (owner only).
+     - `DELETE /bars/:barId/events/:eventId` — Delete an event (owner only).
+   - **Ensure** only the bar’s owner or an admin can write/update data for that specific bar.
+
+4) **Sample Express Routes**:
+
+   **bars.js**:
+   ```js
+   const express = require('express');
+   const router = express.Router();
+   // import Bar model, auth middleware, etc.
+
+   // GET bar details
+   router.get('/:barId', async (req, res) => {
+     try {
+       const bar = await Bar.findById(req.params.barId);
+       res.json(bar);
+     } catch (err) {
+       res.status(500).json({ error: err.message });
+     }
+   });
+
+   // PUT update bar operating hours
+   router.put('/:barId/hours', authMiddleware, async (req, res) => {
+     try {
+       // Verify ownership: req.user.id === bar.ownerId or req.user.role === 'admin'
+       const { operatingHours } = req.body;
+       const bar = await Bar.findByIdAndUpdate(
+         req.params.barId,
+         { operatingHours },
+         { new: true }
+       );
+       res.json(bar);
+     } catch (err) {
+       res.status(500).json({ error: err.message });
+     }
+   });
+
+   module.exports = router;

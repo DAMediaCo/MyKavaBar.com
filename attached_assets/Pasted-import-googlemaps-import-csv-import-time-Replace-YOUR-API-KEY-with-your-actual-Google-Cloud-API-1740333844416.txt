@@ -1,0 +1,72 @@
+import googlemaps
+import csv
+import time
+
+# Replace 'YOUR_API_KEY' with your actual Google Cloud API key
+API_KEY = 'YOUR_API_KEY'
+gmaps = googlemaps.Client(key=API_KEY)
+
+# List of cities and states to search (expand this list as needed)
+locations = [
+    {"city": "Miami", "state": "Florida"},
+    {"city": "Los Angeles", "state": "California"},
+    # Add more cities and states here
+]
+
+# Function to search for kava bars in a specific city and state
+def search_kava_bars(city, state):
+    """
+    Searches for kava bars in the specified city and state using the Google Places API.
+    Returns a list of dictionaries containing the bar name, address, phone number, and hours.
+    """
+    query = f"kava bar in {city}, {state}"
+    try:
+        # Perform a text search for kava bars
+        places = gmaps.places(query=query)
+        results = []
+        for place in places['results']:
+            place_id = place['place_id']
+            # Get detailed information for each place
+            details = gmaps.place(place_id=place_id, fields=['name', 'formatted_address', 'formatted_phone_number', 'opening_hours'])
+            name = details['result'].get('name', 'N/A')
+            address = details['result'].get('formatted_address', 'N/A')
+            phone = details['result'].get('formatted_phone_number', 'N/A')
+            hours = details['result'].get('opening_hours', {}).get('weekday_text', 'N/A')
+            results.append({
+                'name': name,
+                'address': address,
+                'phone': phone,
+                'hours': hours
+            })
+        return results
+    except Exception as e:
+        print(f"Error searching for kava bars in {city}, {state}: {e}")
+        return []
+
+# Main function to iterate through locations and save data to CSV
+def main():
+    """
+    Iterates through the list of cities and states, searches for kava bars,
+    and saves the data to a CSV file.
+    """
+    all_kava_bars = []
+    for location in locations:
+        city = location['city']
+        state = location['state']
+        print(f"Searching for kava bars in {city}, {state}...")
+        kava_bars = search_kava_bars(city, state)
+        all_kava_bars.extend(kava_bars)
+        # Sleep to respect API rate limits
+        time.sleep(2)
+
+    # Save the data to a CSV file
+    with open('kava_bars.csv', mode='w', newline='', encoding='utf-8') as file:
+        writer = csv.DictWriter(file, fieldnames=['name', 'address', 'phone', 'hours'])
+        writer.writeheader()
+        for bar in all_kava_bars:
+            writer.writerow(bar)
+
+    print("Data saved to kava_bars.csv")
+
+if __name__ == "__main__":
+    main()

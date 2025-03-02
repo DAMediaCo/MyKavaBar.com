@@ -1,0 +1,123 @@
+Here’s the updated prompt for mykavashop with your new requirements:
+
+Project Prompt: “mykavashop” Rating Web App
+
+Overview:
+
+Build a web app called “mykavashop” that allows users to discover, review, and rate Kava Bars across the United States. The app will include features for users to leave reviews, pull existing Google reviews, and introduce a gamified experience with a point-based competition system for active users. The app should support dark mode by default for a modern, visually pleasing user experience.
+
+Core Features:
+
+1. Kava Bar Discovery:
+	•	Use Google Maps API and Google Places API to fetch and display all Kava Bars in the US.
+	•	Display essential details for each Kava Bar:
+	•	Name
+	•	Address
+	•	Phone Number
+	•	Hours of Operation
+	•	Current Google Reviews (with user ratings and review text).
+	•	Provide filtering options for:
+	•	Location (by city/state or proximity).
+	•	Ratings (e.g., only show bars with 4 stars and above).
+	•	Hours of Operation (e.g., open now).
+	•	Allow Kava Bars to update their own details via a verified login.
+
+2. User Accounts:
+	•	Signup/Login Options:
+	•	Email and secure password.
+	•	Social login via Google and 𝕏.com (formerly Twitter).
+	•	Upon signup:
+	•	Let users create a unique username.
+	•	Implement strong password validation (e.g., minimum 12 characters, at least one uppercase, one number, one special character).
+	•	Allow users to:
+	•	View their profile (track reviews, points, and favorites).
+	•	Edit their username or password.
+
+3. User Reviews and Ratings:
+	•	Pull existing Google reviews and display them alongside user-submitted reviews.
+	•	Allow users to leave their own reviews and rate Kava Bars on a scale of 1-5 stars.
+	•	Enable sorting of reviews by:
+	•	Most recent
+	•	Highest/Lowest ratings
+	•	Most helpful (based on upvotes by other users).
+
+4. Gamification:
+	•	Introduce a point system:
+	•	Users earn points for leaving reviews, upvoting helpful reviews, and engaging with the app.
+	•	Bonus points for detailed or highly upvoted reviews.
+	•	Display a leaderboard of top reviewers to create competition.
+	•	Award badges or titles (e.g., “Kava King” or “Local Legend”) based on milestones (e.g., 10 reviews, 100 points, etc.).
+
+5. Advertising/Sponsored Listings:
+	•	Allow Kava Bars to pay for premium placement in search results.
+	•	Sponsored listings should appear at the top with a clear “Sponsored” badge or highlight.
+	•	Use Stripe API for handling payments securely.
+
+6. Dark Mode UI:
+	•	Build the app in dark mode by default:
+	•	Use modern dark UI themes with accessible contrast.
+	•	Allow a toggle to switch between dark and light modes for user preference.
+
+7. Admin Dashboard:
+	•	Allow admins to:
+	•	Manage users (ban users, reset passwords, etc.).
+	•	Moderate reviews (flag inappropriate content for manual approval).
+	•	Approve or manage sponsorships.
+	•	Add, update, or delete Kava Bar listings if required.
+
+Additional Features:
+	1.	Security:
+	•	Store passwords securely with hashing (e.g., bcrypt).
+	•	Use SSL for secure data transmission.
+	•	Enable reCAPTCHA or hCaptcha to prevent spam accounts and fake reviews.
+	2.	Engagement Tools:
+	•	Notify users when:
+	•	Someone upvotes or responds to their review.
+	•	New Kava Bars are added in their area.
+	•	Allow users to bookmark their favorite Kava Bars.
+	3.	Mobile-First Design:
+	•	Optimize the UI for mobile devices while maintaining responsiveness for desktops.
+	•	Include location-based search using GPS for mobile users.
+	4.	Analytics:
+	•	Track user activity (number of reviews, average ratings, etc.).
+	•	Provide insights to bar owners on performance and user engagement.
+
+UI/UX Features:
+	•	Homepage:
+	•	Map view of the US showing Kava Bars with filters.
+	•	Top-rated Kava Bars and featured (sponsored) listings.
+	•	Kava Bar Details Page:
+	•	Comprehensive info including user reviews, Google reviews, and ratings.
+	•	Highlight user-submitted photos (if any).
+	•	User Profile:
+	•	Display username, total points, and badges earned.
+	•	List all reviews left by the user.
+
+Tech Stack:
+
+Frontend:
+	•	Framework: React.js (or Next.js for enhanced SEO)
+	•	Styling: TailwindCSS (with dark mode support)
+	•	State Management: Redux or Context API
+
+Backend:
+	•	Framework: Node.js with Express.js
+	•	Database: PostgreSQL (or MongoDB for more flexibility with reviews)
+	•	Authentication: Firebase Auth or Auth0 for secure login
+	•	Payments: Stripe API for handling premium sponsorships
+
+APIs:
+	•	Google Maps API and Google Places API for Kava Bar data.
+	•	𝕏.com API for login functionality.
+	•	OpenAI API (optional) for review moderation (to detect inappropriate content).
+
+Hosting:
+	•	Frontend: Vercel or Netlify
+	•	Backend: AWS or Heroku
+
+Deliverables:
+	1.	A fully functional web app deployed to mykavashop.com.
+	2.	Documentation on app setup, usage, and administration.
+	3.	Clear instructions for deploying the app locally.
+
+This expanded prompt ensures all essential features are included for a functional, engaging, and modern web app tailored for Kava Bar enthusiasts.

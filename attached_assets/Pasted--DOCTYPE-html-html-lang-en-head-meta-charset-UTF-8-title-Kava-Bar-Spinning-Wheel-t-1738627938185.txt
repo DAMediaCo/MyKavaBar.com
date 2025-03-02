@@ -1,0 +1,197 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>Kava Bar Spinning Wheel</title>
+  <style>
+    /* Basic styling for a clean, modern look */
+    body {
+      text-align: center;
+      font-family: Arial, sans-serif;
+      background: #f0f0f0;
+      margin: 0;
+      padding: 20px;
+    }
+    h1 {
+      margin-bottom: 20px;
+    }
+    #wheelCanvas {
+      border: 5px solid #333;
+      border-radius: 50%;
+      background: #fff;
+      box-shadow: 0 4px 10px rgba(0,0,0,0.1);
+    }
+    #spinButton {
+      margin-top: 20px;
+      padding: 10px 20px;
+      font-size: 1.2em;
+      background: #007BFF;
+      color: #fff;
+      border: none;
+      border-radius: 5px;
+      cursor: pointer;
+      transition: background 0.3s ease;
+    }
+    #spinButton:hover {
+      background: #0056b3;
+    }
+    #result {
+      margin-top: 20px;
+      font-size: 1.5em;
+      font-weight: bold;
+      color: #333;
+    }
+  </style>
+</head>
+<body>
+  <h1>Kava Bar Spinner</h1>
+  <!-- Canvas for drawing the spinning wheel -->
+  <canvas id="wheelCanvas" width="500" height="500"></canvas>
+  <br>
+  <button id="spinButton">Spin the Wheel!</button>
+  <div id="result"></div>
+
+  <script>
+    (function() {
+      // Get references to DOM elements
+      const canvas = document.getElementById('wheelCanvas');
+      const ctx = canvas.getContext('2d');
+      const spinButton = document.getElementById('spinButton');
+      const resultDiv = document.getElementById('result');
+
+      // Define wheel properties
+      const centerX = canvas.width / 2;
+      const centerY = canvas.height / 2;
+      const outerRadius = Math.min(centerX, centerY) - 10; // leave a margin
+
+      // Sample segments representing local kava bars
+      // (These can be dynamically generated as needed)
+      let segments = [
+        { label: "Kava Bar A", color: "#FF5733" },
+        { label: "Kava Bar B", color: "#33FF57" },
+        { label: "Kava Bar C", color: "#3357FF" },
+        { label: "Kava Bar D", color: "#FF33A8" },
+        { label: "Kava Bar E", color: "#A833FF" },
+        { label: "Kava Bar F", color: "#33FFF6" }
+      ];
+      const totalSegments = segments.length;
+
+      // Variables to control spinning
+      let startAngle = 0;      // current rotation (in radians)
+      let spinVelocity = 0;    // current angular velocity
+      let spinning = false;    // spinning flag
+      const friction = 0.995;  // friction coefficient to simulate deceleration
+
+      /**
+       * Draws the entire spinning wheel including segments and the pointer.
+       */
+      function drawWheel() {
+        const arcSize = (2 * Math.PI) / totalSegments;
+        ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+        // Draw each segment
+        for (let i = 0; i < totalSegments; i++) {
+          const angle = startAngle + i * arcSize;
+          ctx.beginPath();
+          ctx.moveTo(centerX, centerY);
+          ctx.arc(centerX, centerY, outerRadius, angle, angle + arcSize, false);
+          ctx.closePath();
+          ctx.fillStyle = segments[i].color;
+          ctx.fill();
+
+          // Draw segment borders for a crisp look
+          ctx.strokeStyle = "#ffffff";
+          ctx.lineWidth = 2;
+          ctx.stroke();
+
+          // Draw the label for each segment
+          ctx.save();
+          ctx.translate(centerX, centerY);
+          ctx.rotate(angle + arcSize / 2);
+          ctx.textAlign = "right";
+          ctx.fillStyle = "#000";
+          ctx.font = "bold 16px sans-serif";
+          ctx.fillText(segments[i].label, outerRadius - 10, 10);
+          ctx.restore();
+        }
+
+        // Draw a center circle for a polished finish
+        ctx.beginPath();
+        ctx.arc(centerX, centerY, 50, 0, 2 * Math.PI);
+        ctx.fillStyle = "#ffffff";
+        ctx.fill();
+        ctx.strokeStyle = "#000";
+        ctx.stroke();
+
+        // Draw the fixed pointer at the top of the wheel
+        drawPointer();
+      }
+
+      /**
+       * Draws a triangular pointer at the top of the wheel.
+       */
+      function drawPointer() {
+        ctx.fillStyle = "#000";
+        ctx.beginPath();
+        ctx.moveTo(centerX - 10, centerY - outerRadius - 20);
+        ctx.lineTo(centerX + 10, centerY - outerRadius - 20);
+        ctx.lineTo(centerX, centerY - outerRadius - 5);
+        ctx.closePath();
+        ctx.fill();
+      }
+
+      /**
+       * Animation loop for spinning the wheel.
+       */
+      function spin() {
+        if (!spinning) return;  // stop the animation if not spinning
+
+        // Apply friction to gradually reduce spin velocity
+        spinVelocity *= friction;
+        if (spinVelocity < 0.001) {
+          spinning = false;
+          spinVelocity = 0;
+          determineWinner();
+          return;
+        }
+        // Update the start angle and redraw the wheel
+        startAngle += spinVelocity;
+        drawWheel();
+        requestAnimationFrame(spin);
+      }
+
+      /**
+       * Determines which segment is selected based on the final rotation.
+       * The pointer is fixed at the top (i.e., at -90° or 270°).
+       */
+      function determineWinner() {
+        // Calculate pointer angle relative to the wheel’s rotation
+        let pointerAngle = (-Math.PI / 2 - startAngle) % (2 * Math.PI);
+        if (pointerAngle < 0) pointerAngle += 2 * Math.PI;
+
+        const arcSize = (2 * Math.PI) / totalSegments;
+        const winningIndex = Math.floor(pointerAngle / arcSize);
+        const winningSegment = segments[winningIndex];
+
+        resultDiv.innerHTML = "Selected: " + winningSegment.label;
+      }
+
+      /**
+       * Handler for the spin button click event.
+       */
+      spinButton.addEventListener('click', function() {
+        // Prevent multiple simultaneous spins
+        if (spinning) return;
+        resultDiv.innerHTML = "";
+        spinning = true;
+        // Set a random initial spin velocity (in radians per frame)
+        spinVelocity = Math.random() * 0.3 + 0.3;
+        spin();
+      });
+
+      // Draw the wheel for the first time on page load
+      drawWheel();
+    })();
+  </script>
+</body>
+</html>
