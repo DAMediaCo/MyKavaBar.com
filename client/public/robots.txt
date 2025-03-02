@@ -1,0 +1,17 @@
+# Allow Termly scanner
+User-agent: TermlyBot
+Allow: /
+
+# Allow Termly scanner IPs
+Allow: 54.188.91.132
+Allow: 44.241.76.145 
+Allow: 54.149.84.59
+Allow: 54.71.228.250
+Allow: 34.217.4.132
+Allow: 35.80.252.61
+
+# General rules
+User-agent: *
+Allow: /
+Disallow: /api/
+Disallow: /admin/

@@ -1,0 +1,1 @@
+// This file is intentionally left empty as screenshots are no longer needed

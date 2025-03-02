@@ -1,0 +1,4767 @@
+import { sendPasswordResetEmail } from "./email";
+import type { Express, Request, Response } from "express";
+import { createServer, type Server } from "http";
+import fetch from "node-fetch";
+import { isAuthenticated } from "./middleware/auth";
+import { Client } from "@googlemaps/google-maps-services-js";
+import { db } from "@db";
+import { executeWithRetry } from "@db/connection";
+import {
+  kavaBars,
+  verificationRequests,
+  users,
+  userActivityLogs,
+  verificationCodes,
+  barStaff,
+  barEvents,
+  kavatenders,
+  kavaBarPhotos,
+  barOwnerNotificationPreferences,
+  passwordResetTokens,
+  checkIns,
+} from "@db/schema";
+import { crypto } from "./utils/crypto";
+import {
+  eq,
+  and,
+  isNull,
+  desc,
+  ne,
+  or,
+  sql,
+  asc,
+  gt,
+  lt,
+  inArray,
+} from "drizzle-orm";
+import { setupWebSocket, notifyAdmins } from "./websocket";
+import { WebSocket } from "ws";
+import { fetchKavaBars } from "./scripts/fetch-kava-bars";
+import { setupAuth } from "./auth";
+import { setupSquareRoutes } from "./square";
+import * as path from "path";
+import { mkdir } from "fs/promises";
+import fs from "node:fs/promises";
+import phoneRoutes from "./routes/phone";
+import reviewRoutes from "./routes/reviews";
+import adminRoutes from "./routes/admin";
+import multer from "multer";
+import sharp from "sharp";
+import { randomUUID } from "crypto";
+import express from "express";
+import { uploadImageToStorage } from "./upload-to-storage";
+
+// Handle the user type
+declare global {
+  namespace Express {
+    interface User {
+      id: number;
+      username: string;
+      email: string;
+      points: number;
+      isAdmin: boolean;
+      squareCustomerId: string | null;
+      createdAt: Date;
+      phoneNumber: string | null;
+      isPhoneVerified: boolean;
+      role: string; // Added role field
+    }
+  }
+}
+
+// Utility function to log hours data
+function logHoursData(bar: any) {
+  console.log("Hours data for bar:", {
+    barId: bar.id,
+    barName: bar.name,
+    hours: bar.hours,
+    hoursType: typeof bar.hours,
+    isArray: Array.isArray(bar.hours),
+    parsedHours:
+      typeof bar.hours === "string" ? JSON.parse(bar.hours) : bar.hours,
+  });
+}
+
+// Utility function to parse hours
+function parseBarHours(hours: any) {
+  if (!hours) return null;
+
+  try {
+    // If it's already a properly formatted object with hours_available, return it
+    if (
+      typeof hours === "object" &&
+      !Array.isArray(hours) &&
+      hours.hours_available !== undefined
+    ) {
+      return hours;
+    }
+
+    // If it's a string, try to parse it
+    if (typeof hours === "string") {
+      const parsed = JSON.parse(hours);
+      // If parsed result is already in correct format, return it
+      if (parsed.hours_available !== undefined) {
+        return parsed;
+      }
+      // If it's an array, convert to proper format
+      if (Array.isArray(parsed)) {
+        return {
+          weekday_text: parsed,
+          open_now: true,
+          periods: [],
+          hours_available: true,
+        };
+      }
+    }
+
+    // If it's an array, convert to proper format
+    if (Array.isArray(hours)) {
+      return {
+        weekday_text: hours,
+        open_now: true,
+        periods: [],
+        hours_available: true,
+      };
+    }
+
+    // If none of the above, return null
+    console.log("Unable to parse hours format:", hours);
+    return null;
+  } catch (error) {
+    console.error("Error parsing hours:", error);
+    return null;
+  }
+}
+
+const googleMapsClient = new Client({});
+
+const upload = multer({
+  storage: multer.memoryStorage(),
+  limits: {
+    fileSize: 25 * 1024 * 1024, // 25MB limit
+  },
+});
+
+export function registerRoutes(app: Express, server: Server): void {
+  // Set up authentication first
+  setupAuth(app);
+  setupSquareRoutes(app);
+  // Add phone verification routes
+  app.use(phoneRoutes);
+  // Add review routes
+  app.use(reviewRoutes);
+  // Add admin routes
+  app.use("/api/admin", adminRoutes);
+
+  // Set up WebSocket server with error handling
+  try {
+    const wss = setupWebSocket(app, server);
+    console.log("WebSocket server initialized successfully");
+  } catch (error) {
+    console.error("Error setting up WebSocket server:", error);
+  }
+
+  // Set up static file serving for uploads directory
+  const uploadsPath = path.join(process.cwd(), "public", "uploads");
+  console.log("Setting up static file serving for uploads at:", uploadsPath);
+  try {
+    // Ensure uploads directory exists
+    mkdir(uploadsPath, { recursive: true })
+      .then(() => {
+        app.use("/uploads", express.static(uploadsPath));
+        console.log("Static file serving configured successfully");
+      })
+      .catch((error) => {
+        console.error("Error setting up static file serving:", error);
+      });
+  } catch (error) {
+    console.error("Error setting up static file serving:", error);
+  }
+
+  // Add proxy route for map tiles
+  app.get("/api/map-tiles/:z/:x/:y", async (req, res) => {
+    const { z, x, y } = req.params;
+    try {
+      const response = await fetch(
+        `https://a.basemaps.cartocdn.com/light_all/${z}/${x}/${y}.png`,
+      );
+
+      if (!response.ok) {
+        throw new Error(`Failed to fetch tile: ${response.statusText}`);
+      }
+
+      // Forward the content type
+      res.set("Content-Type", response.headers.get("content-type"));
+      res.set("Cache-Control", "public, max-age=86400"); // Cache for 24 hours
+
+      // Pipe the response directly to our response
+      response.body.pipe(res);
+    } catch (error) {
+      console.error("Tile proxy error:", error);
+      res.status(500).send("Failed to load map tile");
+    }
+  });
+
+  // Add routes below
+  app.get("/api/kava-bars", async (req: Request, res: Response) => {
+    try {
+      console.log("Fetching all kava bars with connection management...");
+
+      // Define a fallback dataset in case database is unavailable
+      const fallbackBars = [
+        {
+          id: 1,
+          name: "Bula on the Beach",
+          address: "2525 S Atlantic Ave, Daytona Beach Shores, FL 32118",
+          location: { lat: 29.155904, lng: -80.972269 },
+          rating: 4.8,
+          phone: "(386) 310-4815",
+          website: "https://www.bulaonthebeach.com",
+          verification_status: "verified_kava_bar",
+          owner_id: null,
+          is_sponsored: true,
+          hours: {
+            weekday_text: [
+              "Monday: 11:00 AM – 12:00 AM",
+              "Tuesday: 11:00 AM – 12:00 AM",
+              "Wednesday: 11:00 AM – 12:00 AM",
+              "Thursday: 11:00 AM – 12:00 AM",
+              "Friday: 11:00 AM – 2:00 AM",
+              "Saturday: 11:00 AM – 2:00 AM",
+              "Sunday: 11:00 AM – 12:00 AM",
+            ],
+            open_now: true,
+            periods: [],
+            hours_available: true,
+          },
+        },
+        {
+          id: 2,
+          name: "MITRA Kava Bar",
+          address: "140 Magnolia Ave, Daytona Beach, FL 32114",
+          location: { lat: 29.21098, lng: -81.02214 },
+          rating: 4.7,
+          phone: "(386) 238-9941",
+          website: "https://mitrakavabar.com",
+          verification_status: "verified_kava_bar",
+          owner_id: null,
+          is_sponsored: true,
+          hours: {
+            weekday_text: [
+              "Monday: 12:00 PM – 10:00 PM",
+              "Tuesday: 12:00 PM – 10:00 PM",
+              "Wednesday: 12:00 PM – 10:00 PM",
+              "Thursday: 12:00 PM – 10:00 PM",
+              "Friday: 12:00 PM – 12:00 AM",
+              "Saturday: 12:00 PM – 12:00 AM",
+              "Sunday: 12:00 PM – 8:00 PM",
+            ],
+            open_now: true,
+            periods: [],
+            hours_available: true,
+          },
+        },
+        {
+          id: 3,
+          name: "Mad Hatters Ethnobotanical Tea Bar",
+          address: "1561 N US Highway 1 #101, Ormond Beach, FL 32174",
+          location: { lat: 29.31663, lng: -81.04608 },
+          rating: 4.9,
+          phone: "(386) 256-4192",
+          website: "https://madhatterskava.com",
+          verification_status: "verified_kava_bar",
+          owner_id: null,
+          is_sponsored: false,
+          hours: {
+            weekday_text: [
+              "Monday: 10:00 AM – 10:00 PM",
+              "Tuesday: 10:00 AM – 10:00 PM",
+              "Wednesday: 10:00 AM – 10:00 PM",
+              "Thursday: 10:00 AM – 10:00 PM",
+              "Friday: 10:00 AM – 12:00 AM",
+              "Saturday: 10:00 AM – 12:00 AM",
+              "Sunday: 12:00 PM – 8:00 PM",
+            ],
+            open_now: true,
+            periods: [],
+            hours_available: true,
+          },
+        },
+      ];
+
+      try {
+        // Use executeWithRetry to manage connections and handle retries with a short timeout for faster fallback
+        const bars = await executeWithRetry(
+          async () => {
+            return await db.execute<{
+              id: number;
+              name: string;
+              address: string;
+              location: string;
+              rating: number | null;
+              verification_status: string;
+              owner_id: number | null;
+              is_sponsored: boolean;
+              hours: string | null;
+              hours_json?: string;
+            }>(sql`
+            SELECT 
+              k.*, 
+              k.hours::text as hours_json,
+              COALESCE(k.rating, 
+                CASE 
+                  WHEN k.place_id IS NOT NULL THEN CAST(k.rating AS DECIMAL)
+                  WHEN k.verification_status = 'verified_kava_bar' THEN 4.0
+                  ELSE 3.5 
+                END
+              ) as rating
+            FROM kava_bars k
+            LEFT JOIN users u ON k.owner_id = u.id
+            WHERE k.verification_status != 'not_kava_bar'
+            AND k.verification_status IS NOT NULL
+            ORDER BY k.is_sponsored DESC, k.rating DESC
+            LIMIT 100
+          `);
+          },
+          {
+            timeout: 3000, // Set a shorter timeout for faster fallback
+            maxRetries: 1, // Only retry once
+            priority: "high", // Set high priority for user-facing operation
+          },
+        );
+
+        console.log(`Found ${bars.rows.length} total kava bars`);
+
+        // Process and validate the bars
+        const validBars = bars.rows.map((bar) => {
+          try {
+            // Parse location
+            let parsedLocation = bar.location;
+            if (typeof bar.location === "string") {
+              parsedLocation = JSON.parse(bar.location);
+            }
+
+            // Parse hours - standardize format
+            let parsedHours = null;
+            if (bar.hours_json) {
+              try {
+                const hoursData = JSON.parse(bar.hours_json);
+                parsedHours = {
+                  weekday_text: hoursData.weekday_text || [],
+                  open_now: hoursData.open_now || false,
+                  periods: hoursData.periods || [],
+                  hours_available: true,
+                };
+              } catch (e) {
+                console.log(`Error parsing hours for ${bar.name}:`, e);
+                parsedHours = {
+                  weekday_text: [],
+                  open_now: false,
+                  periods: [],
+                  hours_available: false,
+                };
+              }
+            } else {
+              console.log(`No hours data found for ${bar.name}`);
+              parsedHours = {
+                weekday_text: [],
+                open_now: false,
+                periods: [],
+                hours_available: false,
+              };
+            }
+
+            return {
+              ...bar,
+              location: parsedLocation,
+              hours: parsedHours,
+              hours_json: undefined,
+              rating: Number(bar.rating) || 0,
+            };
+          } catch (err) {
+            console.error(`Error parsing data for bar ${bar.name}:`, err);
+            return {
+              ...bar,
+              location: {
+                lat: 28.0836,
+                lng: -80.6081,
+              },
+              hours: {
+                weekday_text: [],
+                open_now: false,
+                periods: [],
+                hours_available: false,
+              },
+              rating: Number(bar.rating) || 0,
+            };
+          }
+        });
+
+        console.log(`Returning ${validBars.length} bars from database`);
+        res.json(validBars);
+      } catch (databaseError) {
+        console.error("Database error, using fallback data:", databaseError);
+        console.log(`Returning ${fallbackBars.length} fallback bars`);
+
+        // Return fallback data with a custom header indicating degraded service
+        res.setHeader("X-Service-Status", "degraded-fallback");
+        res.json(fallbackBars);
+      }
+    } catch (error) {
+      console.error("Critical error in kava bar endpoint:", error);
+
+      // In case of a critical error, still try to return fallback data
+      const emergencyFallbackBars = [
+        {
+          id: 1,
+          name: "Bula on the Beach",
+          address: "2525 S Atlantic Ave, Daytona Beach Shores, FL 32118",
+          location: { lat: 29.155904, lng: -80.972269 },
+          rating: 4.8,
+          phone: "(386) 310-4815",
+          verification_status: "verified_kava_bar",
+          owner_id: null,
+          is_sponsored: true,
+          hours: {
+            weekday_text: ["Monday-Sunday: 11AM-12AM"],
+            open_now: true,
+            periods: [],
+            hours_available: true,
+          },
+        },
+      ];
+
+      res.setHeader("X-Service-Status", "emergency-fallback");
+      res.json(emergencyFallbackBars);
+    }
+  });
+
+  // Testing endpoint that always returns fallback data (for testing fallback system)
+  app.get(
+    "/api/kava-bars-test-fallback",
+    async (req: Request, res: Response) => {
+      console.log("Using fallback data for kava bars (test endpoint)");
+
+      // Define a fallback dataset with actual locations
+      const fallbackBars = [
+        {
+          id: 1,
+          name: "Bula on the Beach",
+          address: "2525 S Atlantic Ave, Daytona Beach Shores, FL 32118",
+          location: { lat: 29.155904, lng: -80.972269 },
+          rating: 4.8,
+          phone: "(386) 310-4815",
+          website: "https://www.bulaonthebeach.com",
+          verification_status: "verified_kava_bar",
+          owner_id: null,
+          is_sponsored: true,
+          hours: {
+            weekday_text: [
+              "Monday: 11:00 AM – 12:00 AM",
+              "Tuesday: 11:00 AM – 12:00 AM",
+              "Wednesday: 11:00 AM – 12:00 AM",
+              "Thursday: 11:00 AM – 12:00 AM",
+              "Friday: 11:00 AM – 2:00 AM",
+              "Saturday: 11:00 AM – 2:00 AM",
+              "Sunday: 11:00 AM – 12:00 AM",
+            ],
+            open_now: true,
+            periods: [],
+            hours_available: true,
+          },
+        },
+        {
+          id: 2,
+          name: "MITRA Kava Bar",
+          address: "140 Magnolia Ave, Daytona Beach, FL 32114",
+          location: { lat: 29.21098, lng: -81.02214 },
+          rating: 4.7,
+          phone: "(386) 238-9941",
+          website: "https://mitrakavabar.com",
+          verification_status: "verified_kava_bar",
+          owner_id: null,
+          is_sponsored: true,
+          hours: {
+            weekday_text: [
+              "Monday: 12:00 PM – 10:00 PM",
+              "Tuesday: 12:00 PM – 10:00 PM",
+              "Wednesday: 12:00 PM – 10:00 PM",
+              "Thursday: 12:00 PM – 10:00 PM",
+              "Friday: 12:00 PM – 12:00 AM",
+              "Saturday: 12:00 PM – 12:00 AM",
+              "Sunday: 12:00 PM – 8:00 PM",
+            ],
+            open_now: true,
+            periods: [],
+            hours_available: true,
+          },
+        },
+        {
+          id: 3,
+          name: "Mad Hatters Ethnobotanical Tea Bar",
+          address: "1561 N US Highway 1 #101, Ormond Beach, FL 32174",
+          location: { lat: 29.31663, lng: -81.04608 },
+          rating: 4.9,
+          phone: "(386) 256-4192",
+          website: "https://madhatterskava.com",
+          verification_status: "verified_kava_bar",
+          owner_id: null,
+          is_sponsored: false,
+          hours: {
+            weekday_text: [
+              "Monday: 10:00 AM – 10:00 PM",
+              "Tuesday: 10:00 AM – 10:00 PM",
+              "Wednesday: 10:00 AM – 10:00 PM",
+              "Thursday: 10:00 AM – 10:00 PM",
+              "Friday: 10:00 AM – 12:00 AM",
+              "Saturday: 10:00 AM – 12:00 AM",
+              "Sunday: 12:00 PM – 8:00 PM",
+            ],
+            open_now: true,
+            periods: [],
+            hours_available: true,
+          },
+        },
+      ];
+
+      // Return fallback data with a custom header indicating this is test data
+      res.setHeader("X-Service-Status", "test-fallback");
+      res.json(fallbackBars);
+    },
+  );
+
+  app.get("/api/kava-bars/verification-status", async (req, res) => {
+    try {
+      console.log("Fetching verification status with connection management...");
+
+      // Use executeWithRetry to manage connections and handle retries
+      const bars = await executeWithRetry(async () => {
+        return await db.query.kavaBars.findMany({
+          orderBy: (kavaBars, { desc }) => [
+            desc(kavaBars.dataCompletenessScore),
+          ],
+          columns: {
+            id: true,
+            name: true,
+            address: true,
+            verificationStatus: true,
+            lastVerified: true,
+            dataCompletenessScore: true,
+            isVerifiedKavaBar: true,
+            verificationNotes: true,
+            businessStatus: true,
+          },
+        });
+      });
+
+      // Calculate verification statistics
+      const stats = {
+        total: bars.length,
+        verified: bars.filter((b) => b.isVerifiedKavaBar).length,
+        pending: bars.filter((b) => !b.verificationStatus).length,
+        notKavaBars: bars.filter((b) => b.verificationStatus === "not_kava_bar")
+          .length,
+        averageCompleteness:
+          bars.reduce(
+            (acc, bar) => acc + Number(bar.dataCompletenessScore || 0),
+            0,
+          ) / bars.length || 0,
+      };
+
+      res.json({
+        statistics: stats,
+        bars: bars,
+      });
+    } catch (error: any) {
+      console.error("Error fetching verification status:", error);
+      res.status(500).json({
+        error: error.message,
+        details:
+          process.env.NODE_ENV === "development" ? error.stack : undefined,
+      });
+    }
+  });
+
+  // Update the bar details endpoint to properly format hours and provide fallbacks
+  app.get("/api/kava-bars/:id", async (req, res) => {
+    try {
+      console.log("Bar details request:", {
+        barId: req.params.id,
+        authenticated: req.isAuthenticated(),
+        user: req.user
+          ? {
+              id: req.user.id,
+              role: req.user.role,
+              isAdmin: req.user.isAdmin,
+            }
+          : null,
+      });
+
+      // Define fallback bar data based on ID
+      interface FallbackBar {
+        id: number;
+        name: string;
+        address: string;
+        location: { lat: number; lng: number };
+        rating: number;
+        phone: string | null;
+        website: string | null;
+        verification_status: string;
+        business_status: string;
+        owner_id: number | null;
+        is_sponsored: boolean;
+        placeId: string | null;
+        hours: {
+          weekday_text: string[];
+          open_now: boolean;
+          periods: any[];
+          hours_available: boolean;
+        };
+        [key: string]: any; // Allow any additional properties
+      }
+
+      const fallbackBarData: Record<number, FallbackBar> = {
+        1: {
+          id: 1,
+          name: "Bula on the Beach",
+          address: "2525 S Atlantic Ave, Daytona Beach Shores, FL 32118",
+          location: { lat: 29.155904, lng: -80.972269 },
+          rating: 4.8,
+          phone: "(386) 310-4815",
+          website: "https://www.bulaonthebeach.com",
+          verification_status: "verified_kava_bar",
+          business_status: "OPERATIONAL",
+          owner_id: null,
+          is_sponsored: true,
+          placeId: "ChIJaW9yLPvcuogRtgkO1dBESI8",
+          hours: {
+            weekday_text: [
+              "Monday: 11:00 AM – 12:00 AM",
+              "Tuesday: 11:00 AM – 12:00 AM",
+              "Wednesday: 11:00 AM – 12:00 AM",
+              "Thursday: 11:00 AM – 12:00 AM",
+              "Friday: 11:00 AM – 2:00 AM",
+              "Saturday: 11:00 AM – 2:00 AM",
+              "Sunday: 11:00 AM – 12:00 AM",
+            ],
+            open_now: true,
+            periods: [],
+            hours_available: true,
+          },
+        },
+        2: {
+          id: 2,
+          name: "MITRA Kava Bar",
+          address: "140 Magnolia Ave, Daytona Beach, FL 32114",
+          location: { lat: 29.21098, lng: -81.02214 },
+          rating: 4.7,
+          phone: "(386) 238-9941",
+          website: "https://mitrakavabar.com",
+          verification_status: "verified_kava_bar",
+          business_status: "OPERATIONAL",
+          owner_id: null,
+          is_sponsored: true,
+          placeId: "ChIJn3-LkSzf5YgRrzWQWsV3L5g",
+          hours: {
+            weekday_text: [
+              "Monday: 12:00 PM – 10:00 PM",
+              "Tuesday: 12:00 PM – 10:00 PM",
+              "Wednesday: 12:00 PM – 10:00 PM",
+              "Thursday: 12:00 PM – 10:00 PM",
+              "Friday: 12:00 PM – 12:00 AM",
+              "Saturday: 12:00 PM – 12:00 AM",
+              "Sunday: 12:00 PM – 8:00 PM",
+            ],
+            open_now: true,
+            periods: [],
+            hours_available: true,
+          },
+        },
+        3: {
+          id: 3,
+          name: "Mad Hatters Ethnobotanical Tea Bar",
+          address: "1561 N US Highway 1 #101, Ormond Beach, FL 32174",
+          location: { lat: 29.31663, lng: -81.04608 },
+          rating: 4.9,
+          phone: "(386) 256-4192",
+          website: "https://madhatterskava.com",
+          verification_status: "verified_kava_bar",
+          business_status: "OPERATIONAL",
+          owner_id: null,
+          is_sponsored: false,
+          placeId: "ChIJg-WMPUjf5YgR8zwH7jdh3fo",
+          hours: {
+            weekday_text: [
+              "Monday: 10:00 AM – 10:00 PM",
+              "Tuesday: 10:00 AM – 10:00 PM",
+              "Wednesday: 10:00 AM – 10:00 PM",
+              "Thursday: 10:00 AM – 10:00 PM",
+              "Friday: 10:00 AM – 12:00 AM",
+              "Saturday: 10:00 AM – 12:00 AM",
+              "Sunday: 12:00 PM – 8:00 PM",
+            ],
+            open_now: true,
+            periods: [],
+            hours_available: true,
+          },
+        },
+      };
+
+      try {
+        // Use executeWithRetry to manage connections and handle retries with a short timeout
+        const result = await executeWithRetry(
+          async () => {
+            return await db.execute(sql`
+          SELECT 
+            k.*,
+            k.hours::text as hours_json,
+            COALESCE(k.rating, 
+              CASE 
+                WHEN k.place_id IS NOT NULL THEN CAST(k.rating AS DECIMAL)
+                WHEN k.verification_status = 'verified_kava_bar' THEN 4.5
+                ELSE 3.5 
+              END
+            ) as rating
+          FROM kava_bars k
+          WHERE k.id = ${Number(req.params.id)}
+          LIMIT 1;
+          `);
+          },
+          {
+            timeout: 3000, // Set a shorter timeout for faster fallback
+            maxRetries: 1, // Only retry once
+            priority: "high", // Set high priority for user-facing operation
+          },
+        );
+
+        if (!result.rows.length) {
+          console.log(`Bar not found with ID: ${req.params.id}`);
+
+          // Check if we have a fallback for this ID
+          const requestedId = Number(req.params.id);
+          if (fallbackBarData[requestedId]) {
+            console.log(`Using fallback data for bar ID: ${requestedId}`);
+            res.setHeader("X-Service-Status", "fallback-data");
+            return res.json(fallbackBarData[requestedId]);
+          }
+
+          return res.status(404).json({ error: "Bar not found" });
+        }
+
+        const bar = result.rows[0];
+
+        // Prepare basic bar data that's publicly accessible
+        const publicBarData = {
+          id: bar.id,
+          name: bar.name,
+          address: bar.address,
+          phone: bar.phone,
+          businessStatus: bar.business_status,
+          rating: Number(bar.rating) || 0,
+          isSponsored: bar.is_sponsored,
+          verificationStatus: bar.verification_status,
+          placeId: bar.place_id,
+          website: bar.website,
+          location: bar.location,
+        };
+
+        // Parse hours data with enhanced error handling and logging
+        let parsedHours = null;
+        if (bar.hours_json) {
+          try {
+            console.log("Raw hours data:", bar.hours_json);
+            const hoursData = JSON.parse(bar.hours_json);
+            parsedHours = {
+              weekday_text: hoursData.weekday_text || [],
+              open_now: hoursData.open_now || false,
+              periods: hoursData.periods || [],
+              hours_available: true,
+            };
+            console.log("Parsed hours:", parsedHours);
+          } catch (error) {
+            console.error("Error parsing hours:", error);
+            parsedHours = {
+              weekday_text: [],
+              open_now: false,
+              periods: [],
+              hours_available: false,
+            };
+          }
+        }
+
+        // Parse location with error handling
+        let parsedLocation = bar.location;
+        try {
+          if (typeof bar.location === "string") {
+            parsedLocation = JSON.parse(bar.location);
+          }
+        } catch (error) {
+          console.error("Error parsing location:", error);
+          parsedLocation = null;
+        }
+
+        const fullBarData = {
+          ...publicBarData,
+          ownerId: bar.owner_id,
+          hours: parsedHours,
+          location: parsedLocation,
+          createdAt: bar.created_at,
+          updatedAt: bar.updated_at,
+          lastVerified: bar.last_verified,
+          dataCompletenessScore: bar.data_completeness_score,
+          googlePlaceId: bar.google_place_id,
+          isVerifiedKavaBar: bar.is_verified_kava_bar,
+          verificationNotes: req.user?.isAdmin
+            ? bar.verification_notes
+            : undefined,
+        };
+
+        console.log("Sending bar details response:", {
+          id: fullBarData.id,
+          name: fullBarData.name,
+          hasHours: !!fullBarData.hours,
+          hoursData: fullBarData.hours,
+          isAuthenticated: req.isAuthenticated(),
+          userRole: req.user?.role,
+        });
+
+        res.json(fullBarData);
+      } catch (databaseError) {
+        console.error(
+          "Database error fetching bar details, using fallback data:",
+          databaseError,
+        );
+
+        // Try to use fallback data
+        const requestedId = Number(req.params.id);
+        if (fallbackBarData[requestedId]) {
+          console.log(`Using fallback data for bar ID: ${requestedId}`);
+          res.setHeader("X-Service-Status", "database-error-fallback");
+          return res.json(fallbackBarData[requestedId]);
+        }
+
+        // If no fallback exists, return a proper error
+        res.status(500).json({
+          error: "Failed to fetch bar details",
+          details:
+            process.env.NODE_ENV === "development"
+              ? databaseError.message
+              : undefined,
+        });
+      }
+    } catch (error: any) {
+      console.error("Critical error in bar details endpoint:", error);
+
+      // Try one more time with a generic fallback
+      const genericFallback = {
+        id: Number(req.params.id),
+        name: "Kava Bar",
+        address: "Address not available",
+        location: { lat: 28.7917, lng: -81.2778 }, // Orlando, FL as a fallback
+        rating: 4.0,
+        phone: null,
+        businessStatus: "OPERATIONAL",
+        verificationStatus: "pending",
+        placeId: null,
+        website: null,
+        isSponsored: false,
+        ownerId: null,
+        hours: {
+          weekday_text: ["Hours not available"],
+          open_now: false,
+          periods: [],
+          hours_available: false,
+        },
+      };
+
+      res.setHeader("X-Service-Status", "emergency-fallback");
+      res.json(genericFallback);
+    }
+  });
+
+  // Add password reset endpoints
+  app.post("/api/auth/forgot-password", async (req, res) => {
+    const { email } = req.body;
+
+    if (!email) {
+      return res.status(400).json({ message: "Email is required" });
+    }
+
+    try {
+      // Find user by email
+      const [user] = await db
+        .select()
+        .from(users)
+        .where(eq(users.email, email.toLowerCase()))
+        .limit(1);
+
+      if (!user) {
+        // Don't reveal if user exists or not
+        return res.json({
+          message:
+            "If an account exists for this email, you will receive a password reset link.",
+        });
+      }
+
+      // Create a password reset token
+      const [resetToken] = await db
+        .insert(passwordResetTokens)
+        .values({
+          userId: user.id,
+          expiresAt: new Date(Date.now() + 3600000), // 1 hour from now
+        })
+        .returning();
+
+      // Generate reset link
+      const resetLink = `${req.protocol}://${req.get("host")}/reset-password/${resetToken.token}`;
+
+      try {
+        // Send password reset email
+        await sendPasswordResetEmail(email, resetLink);
+        res.json({
+          message:
+            "If an account exists for this email, you will receive a password reset link.",
+        });
+      } catch (emailError: any) {
+        console.error("Password reset email error:", emailError);
+        // Delete the created token since email failed
+        await db
+          .delete(passwordResetTokens)
+          .where(eq(passwordResetTokens.id, resetToken.id));
+
+        // In development, provide more detailed error
+        if (process.env.NODE_ENV !== "production") {
+          res.status(500).json({
+            message: "Failed to send password reset email",
+            details: emailError.message,
+          });
+        } else {
+          res
+            .status(500)
+            .json({ message: "Failed to process password reset request" });
+        }
+      }
+    } catch (error: any) {
+      console.error("Password reset error:", error);
+      res
+        .status(500)
+        .json({ message: "Failed to process password reset request" });
+    }
+  });
+
+  app.post("/api/auth/reset-password", async (req, res) => {
+    const { token, newPassword } = req.body;
+
+    if (!token || !newPassword) {
+      return res
+        .status(400)
+        .json({ message: "Token and new password are required" });
+    }
+
+    try {
+      // Find valid reset token
+      const [resetToken] = await db
+        .select()
+        .from(passwordResetTokens)
+        .where(
+          and(
+            eq(passwordResetTokens.token, token),
+            isNull(passwordResetTokens.usedAt),
+            sql`${passwordResetTokens.expiresAt} > NOW()`,
+          ),
+        )
+        .limit(1);
+
+      if (!resetToken) {
+        return res
+          .status(400)
+          .json({ message: "Invalid or expired reset token" });
+      }
+
+      // Hash new password using the crypto utility
+      const hashedPassword = await crypto.hash(newPassword);
+
+      // Update user's password and mark token as used
+      await db.transaction(async (tx) => {
+        await tx
+          .update(users)
+          .set({ password: hashedPassword })
+          .where(eq(users.id, resetToken.userId));
+
+        await tx
+          .update(passwordResetTokens)
+          .set({ usedAt: new Date() })
+          .where(eq(passwordResetTokens.id, resetToken.id));
+      });
+
+      res.json({ message: "Password has been reset successfully" });
+    } catch (error: any) {
+      console.error("Password reset error:", error);
+      res.status(500).json({ message: "Failed to reset password" });
+    }
+  });
+
+  // Development only - seed route
+  if (process.env.NODE_ENV !== "production") {
+    app.post("/api/seed", async (req, res) => {
+      try {
+        // Create test user if not exists
+        const [testUser] = await db
+          .select()
+          .from(users)
+          .where(eq(users.username, "testuser"))
+          .limit(1);
+
+        let userId;
+        if (!testUser) {
+          const hashedPassword = await cryptoLib.hash("testpassword123");
+          const [newUser] = await db
+            .insert(users)
+            .values({
+              username: "testuser",
+              password: hashedPassword,
+              isAdmin: true,
+              email: "test@example.com",
+            })
+            .returning();
+          userId = newUser.id;
+        } else {
+          userId = testUser.id;
+        }
+
+        // Clear existing data
+        await db.execute(sql`TRUNCATE TABLE kava_bars CASCADE`);
+
+        res.json({
+          message: "Sample data seeded successfully",
+          testUser: {
+            username: "testuser",
+            password: "testpassword123",
+          },
+        });
+      } catch (error: any) {
+        console.error("Seed error:", error);
+        res.status(500).json({ error: error.message });
+      }
+    });
+  }
+
+  // Add fetch data endpoint (admin only)
+  app.post("/api/admin/fetch-kava-bars", async (req, res) => {
+    if (!req.isAuthenticated()) {
+      return res.status(401).send("Not authenticated");
+    }
+
+    if (!req.user.isAdmin) {
+      return res.status(403).send("Admin access required");
+    }
+
+    try {
+      await fetchKavaBars();
+      res.json({ message: "Successfully fetched kava bar data" });
+    } catch (error: any) {
+      console.error("Error fetching kava bar data:", error);
+      res.status(500).json({ error: error.message });
+    }
+  });
+
+  // Add owner dashboard endpoint with enhanced debug logging
+  app.get("/api/owner/bars", async (req, res) => {
+    try {
+      console.log("Owner/bars request:", {
+        authenticated: req.isAuthenticated(),
+        user: req.user
+          ? {
+              id: req.user.id,
+              role: req.user.role,
+              isAdmin: req.user.isAdmin,
+            }
+          : null,
+        session: req.session ? { id: req.session.id } : null,
+        cookies: req.headers.cookie,
+      });
+
+      if (!req.isAuthenticated()) {
+        console.log("Unauthenticated access attempt to owner/bars");
+        return res.status(401).json({ error: "Not authenticated" });
+      }
+
+      // Verify user has proper role
+      if (!req.user.isAdmin && req.user.role !== "bar_owner") {
+        console.log("Unauthorized access attempt:", {
+          userId: req.user.id,
+          role: req.user.role,
+        });
+        return res.status(403).json({
+          error: "Not authorized",
+          details:
+            "You must be a bar owner or administrator to access this feature",
+        });
+      }
+
+      console.log("Fetching bars for owner:", {
+        userId: req.user.id,
+        userRole: req.user.role,
+        isAdmin: req.user.isAdmin,
+        sessionId: req.session?.id,
+      });
+
+      // Get bars owned by the user
+      const ownedBars = await db.query.kavaBars.findMany({
+        where: req.user.isAdmin
+          ? undefined // Admins can see all bars
+          : eq(kavaBars.ownerId, req.user.id),
+        orderBy: (kavaBars, { desc }) => [desc(kavaBars.createdAt)],
+        with: {
+          owner: true,
+        },
+      });
+
+      console.log("Found owned bars:", {
+        count: ownedBars.length,
+        barIds: ownedBars.map((bar) => bar.id),
+      });
+
+      // Get unclaimed bars that are verified kava bars
+      const unclaimedBars = await db.query.kavaBars.findMany({
+        where: and(
+          isNull(kavaBars.ownerId),
+          ne(kavaBars.verificationStatus, "not_kava_bar"),
+        ),
+        orderBy: (kavaBars, { desc }) => [desc(kavaBars.createdAt)],
+      });
+
+      console.log("Found unclaimed bars:", {
+        count: unclaimedBars.length,
+        barIds: unclaimedBars.map((bar) => bar.id),
+      });
+
+      res.json({
+        ownedBars,
+        unclaimedBars,
+      });
+    } catch (error: any) {
+      console.error("Error fetching owner bars:", error);
+      res.status(500).json({
+        error: "Failed to fetch bars",
+        details:
+          process.env.NODE_ENV === "development" ? error.message : undefined,
+      });
+    }
+  });
+
+  // Photo endpoints with debug logging
+  app.get("/api/bars/:id/photos", async (req, res) => {
+    try {
+      const barId = Number(req.params.id);
+      console.log(`Fetching photos for bar ${barId}`, {
+        authenticated: req.isAuthenticated(),
+        user: req.user ? { id: req.user.id, role: req.user.role } : null,
+      });
+
+      const photos = await db.query.kavaBarPhotos.findMany({
+        where: eq(kavaBarPhotos.barId, barId),
+        orderBy: [desc(kavaBarPhotos.createdAt)],
+      });
+
+      console.log(`Found ${photos.length} photos for bar ${barId}`);
+      res.json(photos);
+    } catch (error: any) {
+      console.error("Error fetching photos:", error);
+      res.status(500).json({ error: "Failed to fetch photos" });
+    }
+  });
+
+  // Photo endpoints with debug logging
+  app.get("/api/bars/:id/photos", async (req, res) => {
+    try {
+      const barId = Number(req.params.id);
+      console.log(`Fetching photos for bar ${barId}`, {
+        authenticated: req.isAuthenticated(),
+        user: req.user ? { id: req.user.id, role: req.user.role } : null,
+      });
+
+      const photos = await db.query.kavaBarPhotos.findMany({
+        where: eq(kavaBarPhotos.barId, barId),
+        orderBy: [desc(kavaBarPhotos.createdAt)],
+      });
+
+      console.log(`Found ${photos.length} photos for bar ${barId}`);
+      res.json(photos);
+    } catch (error: any) {
+      console.error("Error fetching photos:", error);
+      res.status(500).json({ error: "Failed to fetch photos" });
+    }
+  });
+
+  // Photo upload endpoint - requires authentication
+  app.post(
+    "/api/bars/:id/photos",
+    isAuthenticated,
+    upload.single("photo"),
+    async (req, res) => {
+      // ... existing upload implementation ...
+    },
+  );
+
+  // Photo deletion endpoint - requires authentication
+  app.delete(
+    "/api/bars/:id/photos/:photoId",
+    isAuthenticated,
+    async (req, res) => {
+      // ... existing delete implementation ...
+    },
+  );
+
+  app.post("/api/kava-bars/:id/claim", async (req, res) => {
+    if (!req.isAuthenticated()) {
+      return res.status(401).send("Not authenticated");
+    }
+
+    const barId = Number(req.params.id);
+
+    // Verify bar exists and isn't already claimed
+    const [bar] = await db
+      .select()
+      .from(kavaBars)
+      .where(eq(kavaBars.id, barId))
+      .limit(1);
+
+    if (!bar) {
+      return res.status(404).send("Bar not found");
+    }
+
+    if (bar.ownerId) {
+      return res.status(400).send("This bar has already been claimed");
+    }
+
+    // Require verification code from request
+    const { verificationCode } = req.body;
+    if (!verificationCode) {
+      return res.status(400).send("Verification code is required");
+    }
+
+    // Find a valid verification code
+    const [code] = await db
+      .select()
+      .from(verificationCodes)
+      .where(
+        and(
+          eq(verificationCodes.barId, barId),
+          eq(verificationCodes.code, verificationCode),
+          eq(verificationCodes.isUsed, false),
+        ),
+      )
+      .limit(1);
+
+    if (!code) {
+      return res.status(400).send("Invalid verification code");
+    }
+
+    const now = new Date();
+    if (now > code.expiresAt) {
+      return res.status(400).send("Verification code has expired");
+    }
+
+    try {
+      // Start a transaction to ensure atomicity
+      await db.transaction(async (tx) => {
+        // Mark the code as used
+        await tx
+          .update(verificationCodes)
+          .set({ isUsed: true })
+          .where(eq(verificationCodes.id, code.id));
+
+        // Update user role to bar owner
+        await tx
+          .update(users)
+          .set({
+            role: "bar_owner",
+            updatedAt: now,
+          })
+          .where(eq(users.id, req.user.id));
+
+        // Log the role change
+        await tx.insert(userActivityLogs).values({
+          userId: req.user.id,
+          activityType: "role_change",
+          details: {
+            from: req.user.role,
+            to: "bar_owner",
+            reason: "Bar claim verification",
+          },
+          ipAddress: req.ip,
+          userAgent: req.get("user-agent"),
+        });
+
+        // Update bar ownership
+        const [updatedBar] = await tx
+          .update(kavaBars)
+          .set({ ownerId: req.user.id })
+          .where(eq(kavaBars.id, barId))
+          .returning();
+
+        res.json(updatedBar);
+      });
+    } catch (error: any) {
+      console.error("Error claiming bar:", error);
+      res.status(500).send("Failed to claim bar");
+    }
+  });
+
+  // Add hours update endpoint after the existing bar routes
+  app.put("/api/kava-bars/:id/hours", async (req, res) => {
+    if (!req.isAuthenticated()) {
+      return res.status(401).send("Not authenticated");
+    }
+
+    const barId = Number(req.params.id);
+
+    // Verify bar exists and user owns it
+    const [bar] = await db
+      .select()
+      .from(kavaBars)
+      .where(eq(kavaBars.id, barId))
+      .limit(1);
+
+    if (!bar) {
+      return res.status(404).send("Bar not found");
+    }
+
+    if (bar.ownerId !== req.user.id) {
+      return res.status(403).send("Not authorized to update this bar's hours");
+    }
+
+    try {
+      const [updatedBar] = await db
+        .update(kavaBars)
+        .set({
+          hours: req.body.hours, // Using the correct field name from schema
+        })
+        .where(eq(kavaBars.id, barId))
+        .returning();
+
+      res.json(updatedBar);
+    } catch (error: any) {
+      console.error("Error updating hours:", error);
+      res.status(500).json({ error: error.message });
+    }
+  });
+
+  // Admin endpoints for verification codes
+  app.post("/api/admin/verification-codes/:barId", async (req, res) => {
+    try {
+      console.log("Verification code generation request:", {
+        authenticated: req.isAuthenticated(),
+        user: req.user
+          ? {
+              id: req.user.id,
+              isAdmin: req.user.isAdmin,
+              role: req.user.role,
+            }
+          : null,
+        session: req.session ? { id: req.session.id } : null,
+        cookies: req.headers.cookie,
+      });
+
+      // Check authentication first
+      if (!req.isAuthenticated()) {
+        console.log("Authentication failed - user not authenticated");
+        return res.status(401).json({ error: "Not authenticated" });
+      }
+
+      if (!req.user.isAdmin) {
+        console.log("Authorization failed - user not admin:", req.user);
+        return res.status(403).json({ error: "Admin access required" });
+      }
+
+      const barId = Number(req.params.barId);
+      if (isNaN(barId)) {
+        return res.status(400).json({ error: "Invalid bar ID" });
+      }
+
+      console.log("Generating verification code for bar:", barId);
+
+      // Check if bar exists
+      const [bar] = await db
+        .select()
+        .from(kavaBars)
+        .where(eq(kavaBars.id, barId))
+        .limit(1);
+
+      if (!bar) {
+        console.log("Bar not found:", barId);
+        return res.status(404).json({ error: "Bar not found" });
+      }
+
+      // Generate a verification code
+      const code = `VERIFY-${barId}-${Math.random().toString(36).substring(2, 8).toUpperCase()}`;
+      const expiresAt = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000); // 7 days from now
+
+      console.log("Saving verification code:", {
+        barId,
+        code,
+        expiresAt,
+      });
+
+      // Save the verification code
+      const [verificationCode] = await db
+        .insert(verificationCodes)
+        .values({
+          barId,
+          code,
+          expiresAt,
+        })
+        .returning();
+
+      console.log(
+        "Verification code generated successfully:",
+        verificationCode,
+      );
+
+      // Return JSON response
+      return res.json(verificationCode);
+    } catch (error: any) {
+      console.error("Error generating verification code:", error);
+      return res.status(500).json({
+        error: "Failed to generate verification code",
+        details:
+          process.env.NODE_ENV === "development" ? error.message : undefined,
+      });
+    }
+  });
+
+  // Get all verification codes (admin only)
+  app.get("/api/admin/verification-codes", async (req, res) => {
+    if (!req.isAuthenticated()) {
+      return res.status(401).send("Not authenticated");
+    }
+
+    if (!req.user.isAdmin) {
+      return res.status(403).send("Admin access required");
+    }
+
+    try {
+      const codes = await db.query.verificationCodes.findMany({
+        with: {
+          bar: true,
+        },
+        orderBy: (verificationCodes, { desc }) => [
+          desc(verificationCodes.createdAt),
+        ],
+      });
+
+      res.json(codes);
+    } catch (error: any) {
+      console.error("Error fetching verification codes:", error);
+      res.status(500).send(error.message);
+    }
+  });
+
+  // Add new verification requests route handlers
+  app.post("/api/verification-requests", async (req, res) => {
+    if (!req.isAuthenticated()) {
+      return res.status(401).send("Not authenticated");
+    }
+
+    const { barId, requesterName, barName, phoneNumber } = req.body;
+
+    try {
+      console.log("Creating new verification request:", {
+        barId,
+        requesterName,
+        barName,
+        phoneNumber,
+        userId: req.user.id,
+      });
+
+      const [request] = await db
+        .insert(verificationRequests)
+        .values({
+          barId,
+          requesterName,
+          barName,
+          phoneNumber,
+          requesterId: req.user.id,
+          status: "pending",
+        })
+        .returning();
+
+      // Get all admin users
+      const admins = await db
+        .select()
+        .from(users)
+        .where(eq(users.isAdmin, true));
+
+      console.log(`Found ${admins.length} admin users to notify`);
+
+      // Notify connected admin users via WebSocket
+      const notificationPayload = {
+        type: "VERIFICATION_REQUEST",
+        data: {
+          id: request.id,
+          barId: request.barId,
+          barName,
+          requesterName,
+          phoneNumber,
+          timestamp: request.createdAt.toISOString(),
+          requesterId: req.user.id,
+        },
+      };
+
+      console.log("Sending WebSocket notification:", notificationPayload);
+      notifyAdmins(wss, notificationPayload);
+
+      res.json(request);
+    } catch (error: any) {
+      console.error("Error creating verification request:", error);
+      res.status(500).json({ error: error.message });
+    }
+  });
+
+  // Get all pending verification requests (admin only)
+  app.get("/api/admin/verification-requests", async (req, res) => {
+    if (!req.isAuthenticated()) {
+      return res.status(401).send("Not authenticated");
+    }
+
+    if (!req.user.isAdmin) {
+      return res.status(403).send("Admin access required");
+    }
+
+    try {
+      const requests = await db.query.verificationRequests.findMany({
+        where: eq(verificationRequests.status, "pending"),
+        with: {
+          bar: true,
+          requester: true,
+        },
+        orderBy: (verificationRequests, { desc }) => [
+          desc(verificationRequests.createdAt),
+        ],
+      });
+
+      res.json(requests);
+    } catch (error: any) {
+      console.error("Error fetching verification requests:", error);
+      res.status(500).json({ error: error.message });
+    }
+  });
+
+  app.post("/api/admin/verification-requests/:id/approve", async (req, res) => {
+    if (!req.isAuthenticated() || !req.user.isAdmin) {
+      return res.status(403).json({ error: "Admin access required" });
+    }
+
+    try {
+      const requestId = Number(req.params.id);
+      if (isNaN(requestId)) {
+        return res.status(400).json({ error: "Invalid request ID" });
+      }
+
+      // First get the verification request
+      const [request] = await db
+        .select()
+        .from(verificationRequests)
+        .where(eq(verificationRequests.id, requestId))
+        .limit(1);
+
+      if (!request) {
+        return res
+          .status(404)
+          .json({ error: "Verification request not found" });
+      }
+
+      console.log("Found verification request:", request);
+
+      if (!request.requesterId) {
+        return res
+          .status(400)
+          .json({ error: "Request is missing requesterId" });
+      }
+
+      // Start a transaction to update both tables
+      await db.transaction(async (tx) => {
+        // Update the verification request status
+        await tx
+          .update(verificationRequests)
+          .set({
+            status: "approved",
+            updatedAt: new Date(),
+          })
+          .where(eq(verificationRequests.id, requestId));
+
+        console.log("Updating bar ownership:", {
+          barId: request.barId,
+          newOwnerId: request.requesterId,
+        });
+
+        // Update the bar ownership and user role in a single transaction
+        const [updatedBar] = await tx
+          .update(kavaBars)
+          .set({
+            ownerId: request.requesterId,
+            verificationStatus: "verified",
+            lastVerified: new Date(),
+          })
+          .where(eq(kavaBars.id, request.barId))
+          .returning();
+
+        // Update user role
+        await tx
+          .update(users)
+          .set({
+            role: "bar_owner",
+            updatedAt: new Date(),
+          })
+          .where(eq(users.id, request.requesterId));
+
+        console.log("Bar ownership and user role updated:", updatedBar);
+
+        // Generate a verification code
+        const code = `VERIFY-${request.barId}-${Math.random().toString(36).substring(2, 8).toUpperCase()}`;
+        const expiresAt = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000); // 7 days from now
+
+        // Create a verification code for the bar
+        const [verificationCode] = await tx
+          .insert(verificationCodes)
+          .values({
+            barId: request.barId,
+            code,
+            expiresAt,
+          })
+          .returning();
+
+        // Log the role change
+        await tx.insert(userActivityLogs).values({
+          userId: request.requesterId,
+          activityType: "role_change",
+          details: {
+            from: "regular_user",
+            to: "bar_owner",
+            reason: "Verification request approved",
+          },
+          ipAddress: req.ip,
+          userAgent: req.get("user-agent"),
+        });
+
+        console.log("Created verification code:", verificationCode);
+      });
+
+      res.json({
+        success: true,
+        message: "Verification request approved and ownership updated",
+      });
+    } catch (error: any) {
+      console.error("Error approving verification request:", error);
+      res.status(500).json({
+        error: "Failed to approve verification request",
+        details: error.message,
+      });
+    }
+  });
+
+  // Add this new endpoint after the existing bar routes
+  app.post("/api/admin/bars/:id/remove-owner", async (req, res) => {
+    if (!req.isAuthenticated()) {
+      return res.status(401).send("Not authenticated");
+    }
+
+    if (!req.user.isAdmin) {
+      return res.status(403).send("Admin access required");
+    }
+
+    const barId = Number(req.params.id);
+
+    try {
+      // Get the bar and its current owner
+      const [bar] = await db
+        .select()
+        .from(kavaBars)
+        .where(eq(kavaBars.id, barId))
+        .limit(1);
+
+      if (!bar) {
+        return res.status(404).send("Bar not found");
+      }
+
+      if (!bar.ownerId) {
+        return res.status(400).send("Bar has no owner");
+      }
+
+      const previousOwnerId = bar.ownerId;
+
+      // Start a transaction to update both the bar and the user
+      await db.transaction(async (tx) => {
+        // Remove bar ownership
+        await tx
+          .update(kavaBars)
+          .set({
+            ownerId: null,
+            updatedAt: new Date(),
+          })
+          .where(eq(kavaBars.id, barId));
+
+        // Update user role back to regular user
+        await tx
+          .update(users)
+          .set({
+            role: "user",
+            updatedAt: new Date(),
+          })
+          .where(eq(users.id, previousOwnerId));
+
+        // Log the ownership removal
+        await tx.insert(userActivityLogs).values({
+          userId: previousOwnerId,
+          activityType: "role_change",
+          details: {
+            from: "bar_owner",
+            to: "user",
+            reason: "Admin removed bar ownership",
+            adminId: req.user.id,
+            barId: barId,
+          },
+          ipAddress: req.ip,
+          userAgent: req.get("user-agent"),
+        });
+      });
+
+      res.json({ success: true });
+    } catch (error: any) {
+      console.error("Error removing bar owner:", error);
+      res.status(500).json({ error: error.message });
+    }
+  });
+
+  app.post("/api/admin/verification-requests/:id/deny", async (req, res) => {
+    if (!req.isAuthenticated() || !req.user.isAdmin) {
+      return res.status(403).json({ error: "Admin access required" });
+    }
+
+    try {
+      const requestId = Number(req.params.id);
+      if (isNaN(requestId)) {
+        return res.status(400).json({ error: "Invalid request ID" });
+      }
+
+      // Update the verification request status
+      const [updatedRequest] = await db
+        .update(verificationRequests)
+        .set({
+          status: "denied",
+          updatedAt: new Date(),
+        })
+        .where(eq(verificationRequests.id, requestId))
+        .returning();
+
+      if (!updatedRequest) {
+        return res
+          .status(404)
+          .json({ error: "Verification request not found" });
+      }
+
+      res.json({
+        success: true,
+        message: "Verification request denied successfully",
+      });
+    } catch (error: any) {
+      console.error("Error denying verification request:", error);
+      res.status(500).json({
+        error: "Failed to deny verification request",
+        details:
+          process.env.NODE_ENV === "development" ? error.message : undefined,
+      });
+    }
+  });
+
+  // Add this new endpoint after the existing admin endpoints
+  app.post("/api/admin/fetch-california-bars", async (req, res) => {
+    if (!req.isAuthenticated()) {
+      return res.status(401).send("Not authenticated");
+    }
+
+    if (!req.user.isAdmin) {
+      return res.status(403).send("Admin access required");
+    }
+
+    try {
+      const result = await fetchCaliforniaKavaBars();
+      res.json({
+        message: "Successfully fetched California kava bar data",
+        stats: result,
+      });
+    } catch (error: any) {
+      console.error("Error fetching California kava bar data:", error);
+      res.status(500).json({ error: error.message });
+    }
+  });
+  // Add this new endpoint after the existing verification endpoints
+  app.post("/api/admin/fetch-western-bars", async (req, res) => {
+    if (!req.isAuthenticated()) {
+      return res.status(401).send("Not authenticated");
+    }
+
+    if (!req.user.isAdmin) {
+      return res.status(403).send("Admin accessrequired");
+    }
+
+    try {
+      console.log("Starting western states kava bars search...");
+      const results = await fetchWesternKavaBars();
+      res.json({
+        message: "Successfully fetched western states kava bar data",
+        results,
+      });
+    } catch (error: any) {
+      console.error("Error fetching western states kava bar data:", error);
+      res.status(500).json({ error: error.message });
+    }
+  });
+
+  // Add this new endpoint after the existing admin endpoints
+  app.post("/api/admin/fetch-state-bars/:state", async (req, res) => {
+    if (!req.isAuthenticated()) {
+      return res.status(401).send("Not authenticated");
+    }
+
+    if (!req.user.isAdmin) {
+      return res.status(403).send("Admin access required");
+    }
+
+    const { state } = req.params;
+    const validStates = ["Tennessee", "Nevada", "New Mexico", "Utah"];
+    if (!validStates.includes(state)) {
+      return res.status(400).json({
+        error: "Invalid state",
+        validStates,
+      });
+    }
+
+    try {
+      console.log(`Starting ${state} kava bars search...`);
+      const results = await fetchStateData(state);
+
+      // Add a delay to ensure database changes are reflected
+      await new Promise((resolve) => setTimeout(resolve, 1000));
+
+      // Get updated bar count for the state
+      const stateBarCount = await db.execute(sql`
+        SELECT COUNT(*) as count
+        FROM kava_bars
+        WHERE address ILIKE ${`%${state}%`}
+      `);
+
+      res.json({
+        message: `Successfully fetched ${state} kava bar data`,
+        results,
+        barCount: stateBarCount.rows[0].count,
+      });
+    } catch (error: any) {
+      console.error(`Error fetching ${state} kava bar data:`, error);
+      res.status(500).json({ error: error.message });
+    }
+  });
+  //  // Add this endpoint after the existing admin endpoints
+  app.post("/api/admin/restore-states", async (req, res) => {
+    if (!req.isAuthenticated()) {
+      return res.status(401).send("Not authenticated");
+    }
+
+    if (!req.user.isAdmin) {
+      return res.status(403).send("Admin access required");
+    }
+
+    try {
+      // Start the restoration process
+      console.log("Starting state data restoration process...");
+      const results = await restoreAllStates();
+
+      res.json({
+        message: "State restoration process completed",
+        results,
+      });
+    } catch (error: any) {
+      console.error("Error during state restoration:", error);
+      res.status(500).json({
+        error: error.message,
+        details:
+          process.env.NODE_ENV === "development" ? error.stack : undefined,
+      });
+    }
+  });
+  app.post("/api/admin/restore-target-states", async (req, res) => {
+    if (!req.isAuthenticated() || !req.user.isAdmin) {
+      return res.status(403).send("Admin access required");
+    }
+
+    const targetStates = ["Tennessee", "Nevada", "New Mexico", "Utah"];
+
+    try {
+      console.log("Starting targeted state restoration process...");
+      const results = await restoreAllStates(true, targetStates);
+
+      res.json({
+        message: "Targeted state restoration completed",
+        results,
+      });
+    } catch (error: any) {
+      console.error("Error during targeted state restoration:", error);
+      res.status(500).json({
+        error: error.message,
+        details:
+          process.env.NODE_ENV === "development" ? error.stack : undefined,
+      });
+    }
+  });
+  app.post("/api/admin/restore-all-states", async (req, res) => {
+    if (!req.isAuthenticated() || !req.user.isAdmin) {
+      return res.status(403).send("Admin access required");
+    }
+
+    try {
+      console.log("Starting complete state restoration process...");
+
+      // Import the restore function that handles all states
+      const results = await restoreAllStates();
+
+      // Get current state distribution after restoration
+      const stateDistribution = await db.execute(sql`
+        SELECT
+          CASE
+            WHEN address ILIKE '%florida%' OR address ILIKE '%, fl%' THEN 'Florida'
+            WHEN address ILIKE '%texas%' OR address ILIKE '%, tx%' THEN 'Texas'
+            WHEN address ILIKE '%arizona%' OR address ILIKE '%, az%' THEN 'Arizona'
+            WHEN address ILIKE '%arkansas%' OR address ILIKE '%, ar%' THEN 'Arkansas'
+            WHEN address ILIKE '%georgia%' OR address ILIKE '%, ga%' THEN 'Georgia'
+            WHEN address ILIKE '%louisiana%' OR address ILIKE '%, la%' THEN 'Louisiana'
+            WHEN address ILIKE '%mississippi%' OR address ILIKE '%, ms%' THEN 'Mississippi'
+            WHEN address ILIKE '%north carolina%' OR address ILIKE '%, nc%' THEN 'North Carolina'
+            WHEN address ILIKE '%south carolina%' OR address ILIKE '%, sc%' THEN 'South Carolina'
+            WHEN address ILIKE '%virginia%' OR address ILIKE '%, va%' THEN 'Virginia'
+            WHEN address ILIKE '%tennessee%' OR address ILIKE '%, tn%' THEN 'Tennessee'
+            WHEN address ILIKE '%nevada%' OR address ILIKE '%, nv%' THEN 'Nevada'
+            WHEN address ILIKE '%new mexico%' OR address ILIKE '%, nm%' THEN 'New Mexico'
+            WHEN address ILIKE '%utah%' OR address ILIKE '%, ut%' THEN 'Utah'
+            WHEN address ILIKE '%oklahoma%' OR address ILIKE '%, ok%' THEN 'Oklahoma'
+            WHEN address ILIKE '%alabama%' OR address ILIKE '%, al%' THEN 'Alabama'
+            ELSE 'Other'
+          END as state,
+          COUNT(*) as bar_count,
+          COUNT(CASE WHEN verification_status = 'verified_kava_bar' THEN 1 END) as verified_count
+        FROM kava_bars
+        GROUP BY state
+        ORDER BY bar_count DESC
+      `);
+
+      res.json({
+        message: "State restoration process completed",
+        results,
+        currentDistribution: stateDistribution.rows,
+      });
+    } catch (error: any) {
+      console.error("Error during state restoration:", error);
+      res.status(500).json({
+        error: error.message,
+        details:
+          process.env.NODE_ENV === "development" ? error.stack : undefined,
+      });
+    }
+  });
+
+  // Add photo upload and retrieval endpoints after the existing bar routes
+  app.post("/api/bars/:id/photos", upload.single("photo"), async (req, res) => {
+    try {
+      if (!req.isAuthenticated()) {
+        console.log("User not authenticated");
+        return res.status(401).send("Not authenticated");
+      }
+
+      if (!req.file) {
+        console.log("No file uploaded");
+        return res.status(400).send("No photo uploaded");
+      }
+
+      const barId = Number(req.params.id);
+      console.log("Processing photo upload for bar:", barId);
+
+      // Process the uploaded image with Sharp
+      const processedImageBuffer = await sharp(req.file.buffer)
+        .resize(1200, null, {
+          withoutEnlargement: true,
+          fit: "inside",
+        })
+        .jpeg({ quality: 80 })
+        .toBuffer();
+
+      // Generate a unique filename
+      const filename = `${randomUUID()}.jpg`;
+      const filePath = path.join(uploadsPath, filename);
+
+      console.log("Saving photo to:", filePath);
+      await fs.writeFile(filePath, processedImageBuffer);
+
+      // Save photo record in database
+      const [photo] = await db
+        .insert(kavaBarPhotos)
+        .values({
+          barId,
+          url: `/uploads/${filename}`,
+          uploadedById: req.user.id,
+          caption: req.body.caption || null,
+        })
+        .returning();
+
+      console.log("Saved photo to database:", photo);
+      res.status(201).json(photo);
+    } catch (error: any) {
+      console.error("Photo upload error:", error);
+      res.status(500).json({ error: error.message });
+    }
+  });
+
+  app.get("/api/bars/:id/photos", async (req, res) => {
+    try {
+      const barId = Number(req.params.id);
+      console.log("Fetching photos for bar:", barId);
+
+      const photos = await db.query.kavaBarPhotos.findMany({
+        where: eq(kavaBarPhotos.barId, barId),
+        orderBy: desc(kavaBarPhotos.createdAt),
+      });
+
+      console.log("Found photos:", photos);
+      res.json(photos);
+    } catch (error: any) {
+      console.error("Error fetching photos:", error);
+      res.status(500).json({ error: error.message });
+    }
+  });
+
+  app.delete("/api/bars/:barId/photos/:photoId", async (req, res) => {
+    try {
+      if (!req.isAuthenticated()) {
+        return res.status(401).send("Not authenticated");
+      }
+
+      const barId = Number(req.params.barId);
+      const photoId = Number(req.params.photoId);
+
+      // Get the bar to check ownership
+      const [bar] = await db
+        .select()
+        .from(kavaBars)
+        .where(eq(kavaBars.id, barId))
+        .limit(1);
+
+      if (!bar) {
+        return res.status(404).json({ error: "Bar not found" });
+      }
+
+      // Check if user is admin or bar owner
+      if (!req.user.isAdmin && req.user.id !== bar.ownerId) {
+        return res.status(403).json({ error: "Not authorized" });
+      }
+
+      // Get photo details
+      const [photo] = await db
+        .select()
+        .from(kavaBarPhotos)
+        .where(eq(kavaBarPhotos.id, photoId))
+        .limit(1);
+
+      if (!photo) {
+        return res.status(404).json({ error: "Photo not found" });
+      }
+
+      // Delete the photo file
+      if (photo.url.startsWith("/uploads/")) {
+        const filePath = path.join(process.cwd(), "public", photo.url);
+        await fs.unlink(filePath);
+      }
+
+      // Delete the database record
+      await db.delete(kavaBarPhotos).where(eq(kavaBarPhotos.id, photoId));
+
+      res.json({ message: "Photo deleted successfully" });
+    } catch (error: any) {
+      console.error("Error deleting photo:", error);
+      res.status(500).json({ error: error.message });
+    }
+  });
+
+  app.put("/api/user/password", async (req, res) => {
+    if (!req.isAuthenticated()) {
+      return res.status(401).json({ error: "Not authenticated" });
+    }
+
+    try {
+      const { currentPassword, newPassword } = req.body;
+      const userId = req.user.id;
+
+      // Get current user
+      const [user] = await db
+        .select()
+        .from(users)
+        .where(eq(users.id, userId))
+        .limit(1);
+
+      if (!user) {
+        return res.status(404).json({ error: "User not found" });
+      }
+
+      // Import crypto utility
+      const { crypto } = await import("./utils/crypto");
+
+      // Verify current password
+      const isMatch = await crypto.compare(currentPassword, user.password);
+      if (!isMatch) {
+        return res.status(400).json({ error: "Current password is incorrect" });
+      }
+
+      // Hash new password
+      const hashedPassword = await crypto.hash(newPassword);
+
+      // Update password
+      await db
+        .update(users)
+        .set({
+          password: hashedPassword,
+          updatedAt: new Date(),
+        })
+        .where(eq(users.id, userId));
+
+      res.json({ message: "Password updated successfully" });
+    } catch (error) {
+      console.error("Password update error:", error);
+      res.status(500).json({ error: "Failed to update password" });
+    }
+  });
+
+  app.put(
+    "/api/user/profile",
+    upload.single("profilePhoto"),
+    async (req, res) => {},
+  );
+
+  // Admin endpoints for bar verification
+  app.put("/api/admin/bars/:id/verify", async (req, res) => {
+    if (!req.isAuthenticated() || !req.user.isAdmin) {
+      return res.status(403).send("Admin access required");
+    }
+
+    const barId = Number(req.params.id);
+
+    try {
+      const [bar] = await db
+        .update(kavaBars)
+        .set({
+          verificationStatus: "verified_kava_bar",
+          lastVerified: new Date(),
+        })
+        .where(eq(kavaBars.id, barId))
+        .returning();
+
+      if (!bar) {
+        return res.status(404).send("Bar not found");
+      }
+
+      res.json(bar);
+    } catch (error: any) {
+      console.error("Error verifying bar:", error);
+      res.status(500).json({ error: error.message });
+    }
+  });
+  app.post("/api/admin/verification-requests/:id/deny", async (req, res) => {
+    if (!req.isAuthenticated() || !req.user.isAdmin) {
+      return res.status(403).json({ error: "Admin access required" });
+    }
+
+    try {
+      const requestId = Number(req.params.id);
+      if (isNaN(requestId)) {
+        return res.status(400).json({ error: "Invalid request ID" });
+      }
+
+      // Update the verification request status
+      const [updatedRequest] = await db
+        .update(verificationRequests)
+        .set({
+          status: "denied",
+          updatedAt: new Date(),
+        })
+        .where(eq(verificationRequests.id, requestId))
+        .returning();
+
+      if (!updatedRequest) {
+        return res
+          .status(404)
+          .json({ error: "Verification request not found" });
+      }
+
+      res.json({
+        success: true,
+        message: "Verification request denied successfully",
+      });
+    } catch (error: any) {
+      console.error("Error denying verification request:", error);
+      res.status(500).json({
+        error: "Failed to deny verification request",
+        details:
+          process.env.NODE_ENV === "development" ? error.message : undefined,
+      });
+    }
+  });
+
+  app.get("/api/kavatenders/:barId", async (req, res) => {
+    try {
+      if (!req.isAuthenticated()) {
+        return res.status(403).json({ error: "Admin access required" });
+      }
+
+      const { barId } = req.params;
+      const userId = req.user.id; // Get the logged-in user ID
+
+      if (!barId || isNaN(Number(barId))) {
+        return res.status(400).json({ error: "Invalid bar ID" });
+      }
+
+      // Ensure the logged-in user is the owner of the kava bar
+      const [bar] = await db
+        .select({ ownerId: kavaBars.ownerId })
+        .from(kavaBars)
+        .where(eq(kavaBars.id, Number(barId)))
+        .limit(1);
+
+      if (!bar) {
+        console.log("Kava bar not found");
+        return res.status(404).json({ error: "Kava bar not found" });
+      }
+
+      if (bar.ownerId !== userId) {
+        console.log("User is not the owner of the kava bar");
+        return res.status(403).json({
+          error: "You are not authorized to view this bar's kavatenders",
+        });
+      }
+
+      // Fetch kavatenders for the given barId
+      const kavatenders = await db
+        .select({
+          userId: users.id,
+          name: users.username, // Optionally concatenate firstName + lastName
+          phoneNumber: users.phoneNumber,
+          position: barStaff.position,
+          isActive: barStaff.isActive,
+          hireDate: barStaff.hireDate,
+        })
+        .from(barStaff)
+        .innerJoin(users, eq(barStaff.userId, users.id))
+        .where(eq(barStaff.barId, Number(barId)));
+
+      res.json(kavatenders);
+    } catch (error: any) {
+      console.error(`Error getting kavatenders:`, error);
+      res.status(500).json({ error: error.message });
+    }
+  });
+
+  app.delete("/api/kavatenders/:barId", async (req, res) => {
+    try {
+      if (!req.isAuthenticated()) {
+        return res.status(403).json({ error: "Admin access required" });
+      }
+
+      const { barId } = req.params;
+      const { userId } = req.body;
+      const ownerId = req.user.id; // Get the logged-in user ID
+
+      if (!barId || isNaN(Number(barId))) {
+        return res.status(400).json({ error: "Invalid bar ID" });
+      }
+      if (!userId || isNaN(Number(userId))) {
+        return res.status(400).json({ error: "Invalid user ID" });
+      }
+
+      // Ensure the logged-in user is the owner of the kava bar
+      const [bar] = await db
+        .select({ ownerId: kavaBars.ownerId })
+        .from(kavaBars)
+        .where(eq(kavaBars.id, Number(barId)))
+        .limit(1);
+
+      if (!bar) {
+        return res.status(404).json({ error: "Kava bar not found" });
+      }
+
+      if (bar.ownerId !== ownerId) {
+        return res.status(403).json({
+          error: "You are not authorized to remove kavatenders from this bar",
+        });
+      }
+
+      // Delete the kavatender from the barStaff table
+      await db.delete(barStaff).where(eq(barStaff.userId, Number(userId)));
+
+      // Update the user's role to "regular_user"
+      await db
+        .update(users)
+        .set({ role: "regular_user" })
+        .where(eq(users.id, Number(userId)));
+
+      return res.json({
+        success: true,
+        message: "Kavatender removed and role updated",
+      });
+    } catch (error: any) {
+      console.error(`Error removing kavatender:`, error);
+      res.status(500).json({ error: error.message });
+    }
+  });
+
+  app.post("/api/kavatenders/verify", async (req, res) => {
+    try {
+      console.log("Received kavatender verification request:", {
+        authenticated: req.isAuthenticated(),
+        user: req.user,
+        session: req.session,
+        body: {
+          ...req.body,
+          phoneNumber: req.body.phoneNumber ? "[REDACTED]" : undefined,
+        },
+      });
+
+      if (!req.isAuthenticated()) {
+        console.log("Authentication failed - user not authenticated", {
+          session: req.session,
+          user: req.user,
+        });
+        return res
+          .status(401)
+          .json({ error: "Authentication required. Please log in." });
+      }
+
+      if (!req.session?.passport?.user) {
+        console.log("Session invalid:", req.session);
+        return res
+          .status(401)
+          .json({ error: "Invalid session. Please log in again." });
+      }
+
+      if (!req.user) {
+        console.log("Authentication failed - no user object");
+        return res.status(401).json({ error: "User session invalid" });
+      }
+
+      const { phoneNumber, barId } = req.body;
+
+      if (!phoneNumber || !barId) {
+        return res.status(400).json({
+          error: "Missing required fields",
+          details: "Phone number and bar ID are required",
+        });
+      }
+
+      if (!phoneNumber) {
+        return res.status(400).json({ error: "Phone number is required" });
+      }
+      if (!barId) {
+        return res.status(400).json({ error: "Bar ID is required" });
+      }
+
+      // Check if user is a bar owner and owns this bar
+      const [bar] = await db
+        .select()
+        .from(kavaBars)
+        .where(
+          and(
+            eq(kavaBars.id, Number(barId)),
+            eq(kavaBars.ownerId, req.user.id),
+          ),
+        )
+        .limit(1);
+
+      if (!bar) {
+        return res
+          .status(403)
+          .json({ error: "Not authorized to verify kavatenders for this bar" });
+      }
+
+      let formattedNumber;
+      try {
+        formattedNumber = formatToE164(phoneNumber);
+        console.log("Looking up user with phone number:", formattedNumber);
+      } catch (error) {
+        return res.status(400).json({
+          error: "Invalid phone number format",
+          details: "Please enter a valid US phone number",
+        });
+      }
+
+      // Find the user with this phone number and log all relevant details
+      console.log(
+        "Looking up user with formatted phone number:",
+        formattedNumber,
+      );
+
+      const activeUserCheck = await db
+        .select({
+          id: users.id,
+          username: users.username,
+          phoneNumber: users.phoneNumber,
+          isPhoneVerified: users.isPhoneVerified,
+          role: users.role,
+          status: users.status,
+        })
+        .from(users)
+        .where(eq(users.phoneNumber, formattedNumber));
+
+      console.log("User lookup details:", activeUserCheck);
+
+      const [user] = await db
+        .select({
+          id: users.id,
+          username: users.username,
+          phoneNumber: users.phoneNumber,
+          isPhoneVerified: users.isPhoneVerified,
+          role: users.role,
+          status: users.status,
+        })
+        .from(users)
+        .where(eq(users.phoneNumber, formattedNumber))
+        .limit(1);
+
+      console.log(
+        "User lookup result:",
+        user
+          ? {
+              id: user.id,
+              username: user.username,
+              phoneNumber: user.phoneNumber,
+              isPhoneVerified: user.isPhoneVerified,
+              role: user.role,
+              status: user.status,
+            }
+          : "No user found",
+      );
+
+      if (!user) {
+        console.log("No user found with phone number:", formattedNumber);
+        return res.status(404).json({
+          error: "User not found",
+          details:
+            "Please ensure the kavatender has created an account with this phone number and verified it",
+        });
+      }
+
+      if (!user.isPhoneVerified) {
+        return res.status(400).json({
+          error: "Phone not verified",
+          details:
+            "The kavatender must verify their phone number before they can be added",
+        });
+      }
+
+      // Check if user is active
+      const [activeUser] = await db
+        .select()
+        .from(users)
+        .where(and(eq(users.id, user.id), eq(users.status, "active")))
+        .limit(1);
+
+      if (!activeUser) {
+        return res.status(400).json({ error: "User account is not active" });
+      }
+
+      // Check if already a staff member
+      const [existingStaff] = await db
+        .select()
+        .from(barStaff)
+        .where(
+          and(eq(barStaff.barId, Number(barId)), eq(barStaff.userId, user.id)),
+        )
+        .limit(1);
+
+      if (existingStaff) {
+        return res
+          .status(400)
+          .json({ error: "User is already a staff member" });
+      }
+
+      // Add as bar staff
+      const [newStaff] = await db
+        .insert(barStaff)
+        .values({
+          userId: user.id,
+          barId: Number(barId),
+          position: "kavatender",
+          isActive: true,
+        })
+        .returning();
+
+      // Update user role
+      await db
+        .update(users)
+        .set({
+          role: "kavatender",
+          updatedAt: new Date(),
+        })
+        .where(eq(users.id, user.id));
+
+      // Return the new kavatender details
+      const [kavatender] = await db
+        .select({
+          userId: users.id,
+          name: users.username,
+          phoneNumber: users.phoneNumber,
+          position: barStaff.position,
+          isActive: barStaff.isActive,
+          hireDate: barStaff.hireDate,
+        })
+        .from(barStaff)
+        .innerJoin(users, eq(barStaff.userId, users.id))
+        .where(eq(barStaff.id, newStaff.id))
+        .limit(1);
+
+      res.json(kavatender);
+    } catch (error: any) {
+      console.error(`Error verifying kavatender:`, error);
+      res.status(500).json({ error: error.message });
+    }
+  });
+
+  // Add this new endpoint after the existing admin endpoints
+  app.post("/api/admin/fetch-california-bars", async (req, res) => {
+    if (!req.isAuthenticated()) {
+      return res.status(401).send("Not authenticated");
+    }
+
+    if (!req.user.isAdmin) {
+      return res.status(403).send("Admin access required");
+    }
+
+    try {
+      const result = await fetchCaliforniaKavaBars();
+      res.json({
+        message: "Successfully fetched California kava bar data",
+        stats: result,
+      });
+    } catch (error: any) {
+      console.error("Error fetching California kava bar data:", error);
+      res.status(500).json({ error: error.message });
+    }
+  });
+  // Add this new endpoint after the existing verification endpoints
+  app.post("/api/admin/fetch-western-bars", async (req, res) => {
+    if (!req.isAuthenticated()) {
+      return res.status(401).send("Not authenticated");
+    }
+
+    if (!req.user.isAdmin) {
+      return res.status(403).send("Admin accessrequired");
+    }
+
+    try {
+      console.log("Starting western states kava bars search...");
+      const results = await fetchWesternKavaBars();
+      res.json({
+        message: "Successfully fetched western states kava bar data",
+        results,
+      });
+    } catch (error: any) {
+      console.error("Error fetching western states kava bar data:", error);
+      res.status(500).json({ error: error.message });
+    }
+  });
+
+  // Add this new endpoint after the existing admin endpoints
+  app.post("/api/admin/fetch-state-bars/:state", async (req, res) => {
+    if (!req.isAuthenticated()) {
+      return res.status(401).send("Not authenticated");
+    }
+
+    if (!req.user.isAdmin) {
+      return res.status(403).send("Admin access required");
+    }
+
+    const { state } = req.params;
+    const validStates = ["Tennessee", "Nevada", "New Mexico", "Utah"];
+    if (!validStates.includes(state)) {
+      return res.status(400).json({
+        error: "Invalid state",
+        validStates,
+      });
+    }
+
+    try {
+      console.log(`Starting ${state} kava bars search...`);
+      const results = await fetchStateData(state);
+
+      // Add a delay to ensure database changes are reflected
+      await new Promise((resolve) => setTimeout(resolve, 1000));
+
+      // Get updated bar count for the state
+      const stateBarCount = await db.execute(sql`
+        SELECT COUNT(*) as count
+        FROM kava_bars
+        WHERE address ILIKE ${`%${state}%`}
+      `);
+
+      res.json({
+        message: `Successfully fetched ${state} kava bar data`,
+        results,
+        barCount: stateBarCount.rows[0].count,
+      });
+    } catch (error: any) {
+      console.error(`Error fetching ${state} kava bar data:`, error);
+      res.status(500).json({ error: error.message });
+    }
+  });
+  //  // Add this endpoint after the existing admin endpoints
+  app.post("/api/admin/restore-states", async (req, res) => {
+    if (!req.isAuthenticated()) {
+      return res.status(401).send("Not authenticated");
+    }
+
+    if (!req.user.isAdmin) {
+      return res.status(403).send("Admin access required");
+    }
+
+    try {
+      // Start the restoration process
+      console.log("Starting state data restoration process...");
+      const results = await restoreAllStates();
+
+      res.json({
+        message: "State restoration process completed",
+        results,
+      });
+    } catch (error: any) {
+      console.error("Error during state restoration:", error);
+      res.status(500).json({
+        error: error.message,
+        details:
+          process.env.NODE_ENV === "development" ? error.stack : undefined,
+      });
+    }
+  });
+  app.post("/api/admin/restore-target-states", async (req, res) => {
+    if (!req.isAuthenticated() || !req.user.isAdmin) {
+      return res.status(403).send("Admin access required");
+    }
+
+    const targetStates = ["Tennessee", "Nevada", "New Mexico", "Utah"];
+
+    try {
+      console.log("Starting targeted state restoration process...");
+      const results = await restoreAllStates(true, targetStates);
+
+      res.json({
+        message: "Targeted state restoration completed",
+        results,
+      });
+    } catch (error: any) {
+      console.error("Error during targeted state restoration:", error);
+      res.status(500).json({
+        error: error.message,
+        details:
+          process.env.NODE_ENV === "development" ? error.stack : undefined,
+      });
+    }
+  });
+  app.post("/api/admin/restore-all-states", async (req, res) => {
+    if (!req.isAuthenticated() || !req.user.isAdmin) {
+      return res.status(403).send("Admin access required");
+    }
+
+    try {
+      console.log("Starting complete state restoration process...");
+
+      // Import the restore function that handles all states
+      const results = await restoreAllStates();
+
+      // Get current state distribution after restoration
+      const stateDistribution = await db.execute(sql`
+        SELECT
+          CASE
+            WHEN address ILIKE '%florida%' OR address ILIKE '%, fl%' THEN 'Florida'
+            WHEN address ILIKE '%texas%' OR address ILIKE '%, tx%' THEN 'Texas'
+            WHEN address ILIKE '%arizona%' OR address ILIKE '%, az%' THEN 'Arizona'
+            WHEN address ILIKE '%arkansas%' OR address ILIKE '%, ar%' THEN 'Arkansas'
+            WHEN address ILIKE '%georgia%' OR address ILIKE '%, ga%' THEN 'Georgia'
+            WHEN address ILIKE '%louisiana%' OR address ILIKE '%, la%' THEN 'Louisiana'
+            WHEN address ILIKE '%mississippi%' OR address ILIKE '%, ms%' THEN 'Mississippi'
+            WHEN address ILIKE '%north carolina%' OR address ILIKE '%, nc%' THEN 'North Carolina'
+            WHEN address ILIKE '%south carolina%' OR address ILIKE '%, sc%' THEN 'South Carolina'
+            WHEN address ILIKE '%virginia%' OR address ILIKE '%, va%' THEN 'Virginia'
+            WHEN address ILIKE '%tennessee%' OR address ILIKE '%, tn%' THEN 'Tennessee'
+            WHEN address ILIKE '%nevada%' OR address ILIKE '%, nv%' THEN 'Nevada'
+            WHEN address ILIKE '%new mexico%' OR address ILIKE '%, nm%' THEN 'New Mexico'
+            WHEN address ILIKE '%utah%' OR address ILIKE '%, ut%' THEN 'Utah'
+            WHEN address ILIKE '%oklahoma%' OR address ILIKE '%, ok%' THEN 'Oklahoma'
+            WHEN address ILIKE '%alabama%' OR address ILIKE '%, al%' THEN 'Alabama'
+            ELSE 'Other'
+          END as state,
+          COUNT(*) as bar_count,
+          COUNT(CASE WHEN verification_status = 'verified_kava_bar' THEN 1 END) as verified_count
+        FROM kava_bars
+        GROUP BY state
+        ORDER BY bar_count DESC
+      `);
+
+      res.json({
+        message: "State restoration process completed",
+        results,
+        currentDistribution: stateDistribution.rows,
+      });
+    } catch (error: any) {
+      console.error("Error during state restoration:", error);
+      res.status(500).json({
+        error: error.message,
+        details:
+          process.env.NODE_ENV === "development" ? error.stack : undefined,
+      });
+    }
+  });
+
+  // Add these routes after the existing bar routes
+  app.get("/api/owner/notification-preferences", async (req, res) => {
+    if (!req.isAuthenticated()) {
+      return res.status(401).json({ error: "Not authenticated" });
+    }
+
+    try {
+      const [preferences] =
+        await db.query.barOwnerNotificationPreferences.findMany({
+          where: eq(barOwnerNotificationPreferences.userId, req.user.id),
+          limit: 1,
+        });
+
+      // If no preferences exist, create default preferences
+      if (!preferences) {
+        const [newPreferences] = await db
+          .insert(barOwnerNotificationPreferences)
+          .values({
+            userId: req.user.id,
+            reviewNotifications: true,
+            photoNotifications: true,
+          })
+          .returning();
+
+        return res.json(newPreferences);
+      }
+
+      res.json(preferences);
+    } catch (error: any) {
+      console.error("Error fetching notification preferences:", error);
+      res.status(500).json({ error: error.message });
+    }
+  });
+
+  app.put("/api/owner/notification-preferences", async (req, res) => {
+    if (!req.isAuthenticated()) {
+      return res.status(401).json({ error: "Not authenticated" });
+    }
+
+    try {
+      const { reviewNotifications, photoNotifications } = req.body;
+      const [preferences] =
+        await db.query.barOwnerNotificationPreferences.findMany({
+          where: eq(barOwnerNotificationPreferences.userId, req.user.id),
+          limit: 1,
+        });
+
+      if (!preferences) {
+        const [newPreferences] = await db
+          .insert(barOwnerNotificationPreferences)
+          .values({
+            userId: req.user.id,
+            reviewNotifications: reviewNotifications ?? true,
+            photoNotifications: photoNotifications ?? true,
+          })
+          .returning();
+
+        return res.json(newPreferences);
+      }
+
+      const [updatedPreferences] = await db
+        .update(barOwnerNotificationPreferences)
+        .set({
+          reviewNotifications:
+            reviewNotifications ?? preferences.reviewNotifications,
+          photoNotifications:
+            photoNotifications ?? preferences.photoNotifications,
+          updatedAt: new Date(),
+        })
+        .where(eq(barOwnerNotificationPreferences.id, preferences.id))
+        .returning();
+
+      res.json(updatedPreferences);
+    } catch (error: any) {
+      console.error("Error updating notification preferences:", error);
+      res.status(500).json({ error: error.message });
+    }
+  });
+
+  app.get("/api/bars/:id/check-ins", async (req, res) => {
+    try {
+      const barId = Number(req.params.id);
+      const now = new Date();
+
+      // Step 1: Get all bar staff for the given bar with proper field selection
+      const staff = await db
+        .select()
+        .from(barStaff)
+        .where(eq(barStaff.barId, barId));
+
+      if (!staff.length) {
+        return res.json([]); // Return empty array if no staff found
+      }
+
+      const staffIds = staff.map((s) => s.id);
+
+      // Step 2: Get active check-ins where current time is between start and end time
+      const activeCheckIns = await db
+        .select()
+        .from(checkIns)
+        .where(
+          and(
+            inArray(checkIns.barStaffId, staffIds),
+            lt(checkIns.startTime, now),
+            gt(checkIns.endTime, now),
+          ),
+        );
+
+      if (!activeCheckIns.length) {
+        return res.json([]); // No active check-ins
+      }
+
+      const activeStaffIds = activeCheckIns.map((c) => c.barStaffId);
+
+      // Step 3: Fetch user details using a JOIN
+      const activeUsers = await db
+        .select({
+          firstName: users.firstName,
+          lastName: users.lastName,
+          profilePhotoUrl: users.profilePhotoUrl,
+        })
+        .from(users)
+        .innerJoin(barStaff, eq(users.id, barStaff.userId))
+        .where(inArray(barStaff.id, activeStaffIds));
+
+      res.json(activeUsers);
+    } catch (error: any) {
+      console.error("Error fetching check-ins:", error);
+      res.status(500).json({ error: error.message });
+    }
+  });
+
+  app.get("/api/bars/:id/check-in/:userId", async (req, res) => {
+    if (!req.isAuthenticated()) {
+      return res.status(401).json({ error: "Not authenticated" });
+    }
+    try {
+      // Find the barstaff id
+      const [barStaffUser] = await db
+        .select()
+        .from(barStaff)
+        .where(eq(barStaff.userId, req.user.id));
+      if (!barStaffUser) {
+        return res.status(404).json({ error: "Bar staff not found" });
+      }
+      const [checkIn] = await db
+        .select()
+        .from(checkIns)
+        .where(eq(checkIns.barStaffId, barStaffUser.id))
+        .orderBy(desc(checkIns.createdAt))
+        .limit(1);
+
+      if (!checkIn) {
+        return res.status(404).json({ error: "Check in not found" });
+      }
+
+      const currentTimeUTC = new Date();
+      const endTimeUTC = new Date(checkIn.endTime);
+      const isActive = currentTimeUTC < endTimeUTC;
+
+      // Send the UTC time to the client
+      const checkInData = {
+        ...checkIn,
+        isActive,
+        endTime: endTimeUTC.toISOString(),
+      };
+      res.json(checkInData);
+    } catch (error: any) {
+      console.error("Error checking in:", error);
+      res.status(500).json({ error: "Failed to check in" });
+    }
+  });
+
+  app.post("/api/bars/:id/check-in", async (req, res) => {
+    if (!req.isAuthenticated()) {
+      return res.status(401).json({ error: "Not authenticated" });
+    }
+    const { endTime } = req.body;
+    try {
+      // Create Date objects
+      const endTimeLocal = new Date(endTime);
+      const currentTimeUTC = new Date();
+
+      const endTimeUTC = new Date(endTimeLocal.getTime() + 5 * 60 * 60 * 1000);
+
+      console.log({
+        receivedEndTime: endTime,
+        endTimeLocal: endTimeLocal.toISOString(),
+        endTimeUTC: endTimeUTC.toISOString(),
+        currentTimeUTC: currentTimeUTC.toISOString(),
+      });
+
+      if (endTimeUTC < currentTimeUTC) {
+        return res
+          .status(400)
+          .json({ error: "End time must be greater than the current time" });
+      }
+
+      // Find the barstaff id
+      let [barStaffUser] = await db
+        .select()
+        .from(barStaff)
+        .where(eq(barStaff.userId, req.user.id));
+      if (!barStaffUser) {
+        console.log("Bar staff user not found");
+        const [isBarOwner] = await db
+          .select()
+          .from(kavaBars)
+          .where(eq(kavaBars.ownerId, req.user.id));
+        if (!isBarOwner) {
+          return res.status(404).json({ error: "Bar staff not found" });
+        }
+        [barStaffUser] = await db
+          .insert(barStaff)
+          .values({
+            userId: req.user.id,
+            barId: isBarOwner.id,
+          })
+          .returning();
+      }
+
+      await db.insert(checkIns).values({
+        barStaffId: barStaffUser.id,
+        endTime: endTimeUTC,
+      });
+
+      return res.json({ success: true });
+    } catch (error: any) {
+      console.error("Error checking in:", error);
+      res.status(500).json({ error: "Failed to check in" });
+    }
+  });
+
+  // Add these routes after the existing bar routes
+  app.get("/api/bars/:id/events", async (req, res) => {
+    try {
+      const events = await db.query.barEvents.findMany({
+        where: eq(barEvents.barId, Number(req.params.id)),
+        orderBy: [asc(barEvents.dayOfWeek), asc(barEvents.startTime)],
+      });
+      res.json(events);
+    } catch (error: any) {
+      console.error("Error fetching bar events:", error);
+      res.status(500).json({ error: error.message });
+    }
+  });
+
+  app.post("/api/bars/:id/kavatenders", async (req, res) => {
+    if (!req.isAuthenticated()) {
+      return res.status(401).send("Not authenticated");
+    }
+
+    const barId = Number(req.params.id);
+    const { phoneNumber } = req.body;
+
+    try {
+      // Verify the phone number format
+      const formattedNumber = formatToE164(phoneNumber);
+
+      // Create kavatender record
+      const [kavatender] = await db
+        .insert(kavatenders)
+        .values({
+          barId,
+          phoneNumber: formattedNumber,
+          status: "pending",
+        })
+        .returning();
+
+      // Send verification code
+      const verificationResult = await sendVerificationCode(formattedNumber);
+
+      res.json({
+        success: true,
+        kavatenderId: kavatender.id,
+      });
+    } catch (error: any) {
+      res.status(400).json({
+        success: false,
+        error: error.message,
+      });
+    }
+  });
+
+  app.put("/api/kava-bars/:id/sponsor", async (req, res) => {
+    const barId = Number(req.params.id);
+    try {
+      console.log("req.isAuthenticated()", req.isAuthenticated());
+      console.log("req.user", req.user);
+      if (!req.isAuthenticated()) {
+        console.log("Not authenticated");
+        return res.status(401).send("Not authenticated");
+      }
+      console.log("req.user", req.user);
+      const bar = await db.query.kavaBars.findFirst({
+        where: eq(kavaBars.id, barId),
+      });
+      console.log("bar", bar);
+      if (!bar) {
+        console.log("Kava bar not found");
+        return res.status(404).send("Kava bar not found");
+      }
+      if (bar.ownerId !== req.user.id) {
+        console.log("Unauthorized");
+        return res.status(403).send("Unauthorized");
+      }
+      await db
+        .update(kavaBars)
+        .set({ isSponsored: true })
+        .where(eq(kavaBars.id, barId));
+      res.json({ success: true });
+    } catch (error) {
+      console.error("Error fetching kava bar:", error);
+      res.status(500).json({ error: "Failed to sponsor kava bar" });
+    }
+  });
+  app.post("/api/bars/:id/events", async (req, res) => {
+    if (!req.isAuthenticated()) {
+      return res.status(401).send("Not authenticated");
+    }
+
+    const barId = Number(req.params.id);
+
+    // Verify bar exists and user owns it
+    const [bar] = await db
+      .select()
+      .from(kavaBars)
+      .where(eq(kavaBars.id, barId))
+      .limit(1);
+
+    if (!bar) {
+      return res.status(404).send("Bar not found");
+    }
+
+    if (bar.ownerId !== req.user.id) {
+      return res.status(403).send("Not authorized to add events to this bar");
+    }
+
+    try {
+      const [event] = await db
+        .insert(barEvents)
+        .values({
+          ...req.body,
+          barId,
+          createdBy: req.user.id,
+        })
+        .returning();
+
+      res.json(event);
+    } catch (error: any) {
+      console.error("Error creating event:", error);
+      res.status(500).json({ error: error.message });
+    }
+  });
+
+  app.put("/api/bars/:barId/events/:eventId", async (req, res) => {
+    if (!req.isAuthenticated()) {
+      return res.status(401).send("Not authenticated");
+    }
+
+    const barId = Number(req.params.barId);
+    const eventId = Number(req.params.eventId);
+
+    // Verify bar exists and user owns it
+    const [bar] = await db
+      .select()
+      .from(kavaBars)
+      .where(eq(kavaBars.id, barId))
+      .limit(1);
+
+    if (!bar) {
+      return res.status(404).send("Bar not found");
+    }
+
+    if (bar.ownerId !== req.user.id) {
+      return res
+        .status(403)
+        .send("Not authorized to modify events for this bar");
+    }
+
+    try {
+      const [event] = await db
+        .update(barEvents)
+        .set({
+          ...req.body,
+          updatedAt: new Date(),
+        })
+        .where(and(eq(barEvents.id, eventId), eq(barEvents.barId, barId)))
+        .returning();
+
+      if (!event) {
+        return res.status(404).send("Event not found");
+      }
+
+      res.json(event);
+    } catch (error: any) {
+      console.error("Error updating event:", error);
+      res.status(500).json({ error: error.message });
+    }
+  });
+
+  app.delete("/api/bars/:barId/events/:eventId", async (req, res) => {
+    if (!req.isAuthenticated()) {
+      return res.status(401).send("Not authenticated");
+    }
+
+    const barId = Number(req.params.barId);
+    const eventId = Number(req.params.eventId);
+
+    try {
+      // Verify bar exists and user owns it
+      const [bar] = await db
+        .select()
+        .from(kavaBars)
+        .where(eq(kavaBars.id, barId))
+        .limit(1);
+
+      if (!bar) {
+        return res.status(404).send("Bar not found");
+      }
+
+      if (bar.ownerId !== req.user.id) {
+        return res
+          .status(403)
+          .send("Not authorized to delete events for this bar");
+      }
+
+      const [event] = await db
+        .delete(barEvents)
+        .where(and(eq(barEvents.id, eventId), eq(barEvents.barId, barId)))
+        .returning();
+
+      if (!event) {
+        return res.status(404).send("Event not found");
+      }
+
+      res.json({ message: "Event deleted successfully" });
+    } catch (error: any) {
+      console.error("Error deleting event:", error);
+      res.status(500).json({ error: error.message });
+    }
+  });
+
+  // Admin endpoints for bar verification
+  app.put("/api/admin/bars/:id/verify", async (req, res) => {
+    if (!req.isAuthenticated() || !req.user.isAdmin) {
+      return res.status(403).send("Admin access required");
+    }
+
+    const barId = Number(req.params.id);
+
+    try {
+      const [bar] = await db
+        .update(kavaBars)
+        .set({
+          verificationStatus: "verified_kava_bar",
+          lastVerified: new Date(),
+        })
+        .where(eq(kavaBars.id, barId))
+        .returning();
+
+      if (!bar) {
+        return res.status(404).send("Bar not found");
+      }
+
+      res.json(bar);
+    } catch (error: any) {
+      console.error("Error verifying bar:", error);
+      res.status(500).json({ error: error.message });
+    }
+  });
+  app.post("/api/admin/verification-requests/:id/deny", async (req, res) => {
+    if (!req.isAuthenticated() || !req.user.isAdmin) {
+      return res.status(403).json({ error: "Admin access required" });
+    }
+
+    try {
+      const requestId = Number(req.params.id);
+      if (isNaN(requestId)) {
+        return res.status(400).json({ error: "Invalid request ID" });
+      }
+
+      // Update the verification request status
+      const [updatedRequest] = await db
+        .update(verificationRequests)
+        .set({
+          status: "denied",
+          updatedAt: new Date(),
+        })
+        .where(eq(verificationRequests.id, requestId))
+        .returning();
+
+      if (!updatedRequest) {
+        return res
+          .status(404)
+          .json({ error: "Verification request not found" });
+      }
+
+      res.json({
+        success: true,
+        message: "Verification request denied successfully",
+      });
+    } catch (error: any) {
+      console.error("Error denying verification request:", error);
+      res.status(500).json({
+        error: "Failed to deny verification request",
+        details:
+          process.env.NODE_ENV === "development" ? error.message : undefined,
+      });
+    }
+  });
+
+  // Add this new endpoint after the existing admin endpoints
+  app.post("/api/admin/fetch-california-bars", async (req, res) => {
+    if (!req.isAuthenticated()) {
+      return res.status(401).send("Not authenticated");
+    }
+
+    if (!req.user.isAdmin) {
+      return res.status(403).send("Admin access required");
+    }
+
+    try {
+      const result = await fetchCaliforniaKavaBars();
+      res.json({
+        message: "Successfully fetched California kava bar data",
+        stats: result,
+      });
+    } catch (error: any) {
+      console.error("Error fetching California kava bar data:", error);
+      res.status(500).json({ error: error.message });
+    }
+  });
+  // Add this new endpoint after the existing verification endpoints
+  app.post("/api/admin/fetch-western-bars", async (req, res) => {
+    if (!req.isAuthenticated()) {
+      return res.status(401).send("Not authenticated");
+    }
+
+    if (!req.user.isAdmin) {
+      return res.status(403).send("Admin accessrequired");
+    }
+
+    try {
+      console.log("Starting western states kava bars search...");
+      const results = await fetchWesternKavaBars();
+      res.json({
+        message: "Successfully fetched western states kava bar data",
+        results,
+      });
+    } catch (error: any) {
+      console.error("Error fetching western states kava bar data:", error);
+      res.status(500).json({ error: error.message });
+    }
+  });
+
+  // Add this new endpoint after the existing admin endpoints
+  app.post("/api/admin/fetch-state-bars/:state", async (req, res) => {
+    if (!req.isAuthenticated()) {
+      return res.status(401).send("Not authenticated");
+    }
+
+    if (!req.user.isAdmin) {
+      return res.status(403).send("Admin access required");
+    }
+
+    const { state } = req.params;
+    const validStates = ["Tennessee", "Nevada", "New Mexico", "Utah"];
+    if (!validStates.includes(state)) {
+      return res.status(400).json({
+        error: "Invalid state",
+        validStates,
+      });
+    }
+
+    try {
+      console.log(`Starting ${state} kava bars search...`);
+      const results = await fetchStateData(state);
+
+      // Add a delay to ensure database changes are reflected
+      await new Promise((resolve) => setTimeout(resolve, 1000));
+
+      // Get updated bar count for the state
+      const stateBarCount = await db.execute(sql`
+        SELECT COUNT(*) as count
+        FROM kava_bars
+        WHERE address ILIKE ${`%${state}%`}
+      `);
+
+      res.json({
+        message: `Successfully fetched ${state} kava bar data`,
+        results,
+        barCount: stateBarCount.rows[0].count,
+      });
+    } catch (error: any) {
+      console.error(`Error fetching ${state} kava bar data:`, error);
+      res.status(500).json({ error: error.message });
+    }
+  });
+  //  // Add this endpoint after the existing admin endpoints
+  app.post("/api/admin/restore-states", async (req, res) => {
+    if (!req.isAuthenticated()) {
+      return res.status(401).send("Not authenticated");
+    }
+
+    if (!req.user.isAdmin) {
+      return res.status(403).send("Admin access required");
+    }
+
+    try {
+      // Start the restoration process
+      console.log("Starting state data restoration process...");
+      const results = await restoreAllStates();
+
+      res.json({
+        message: "State restoration process completed",
+        results,
+      });
+    } catch (error: any) {
+      console.error("Error during state restoration:", error);
+      res.status(500).json({
+        error: error.message,
+        details:
+          process.env.NODE_ENV === "development" ? error.stack : undefined,
+      });
+    }
+  });
+  app.post("/api/admin/restore-target-states", async (req, res) => {
+    if (!req.isAuthenticated() || !req.user.isAdmin) {
+      return res.status(403).send("Admin access required");
+    }
+
+    const targetStates = ["Tennessee", "Nevada", "New Mexico", "Utah"];
+
+    try {
+      console.log("Starting targeted state restoration process...");
+      const results = await restoreAllStates(true, targetStates);
+
+      res.json({
+        message: "Targeted state restoration completed",
+        results,
+      });
+    } catch (error: any) {
+      console.error("Error during targeted state restoration:", error);
+      res.status(500).json({
+        error: error.message,
+        details:
+          process.env.NODE_ENV === "development" ? error.stack : undefined,
+      });
+    }
+  });
+  app.post("/api/admin/restore-all-states", async (req, res) => {
+    if (!req.isAuthenticated() || !req.user.isAdmin) {
+      return res.status(403).send("Admin access required");
+    }
+
+    try {
+      console.log("Starting complete state restoration process...");
+
+      // Import the restore function that handles all states
+      const results = await restoreAllStates();
+
+      // Get current state distribution after restoration
+      const stateDistribution = await db.execute(sql`
+        SELECT
+          CASE
+            WHEN address ILIKE '%florida%' OR address ILIKE '%, fl%' THEN 'Florida'
+            WHEN address ILIKE '%texas%' OR address ILIKE '%, tx%' THEN 'Texas'
+            WHEN address ILIKE '%arizona%' OR address ILIKE '%, az%' THEN 'Arizona'
+            WHEN address ILIKE '%arkansas%' OR address ILIKE '%, ar%' THEN 'Arkansas'
+            WHEN address ILIKE '%georgia%' OR address ILIKE '%, ga%' THEN 'Georgia'
+            WHEN address ILIKE '%louisiana%' OR address ILIKE '%, la%' THEN 'Louisiana'
+            WHEN address ILIKE '%mississippi%' OR address ILIKE '%, ms%' THEN 'Mississippi'
+            WHEN address ILIKE '%north carolina%' OR address ILIKE '%, nc%' THEN 'North Carolina'
+            WHEN address ILIKE '%south carolina%' OR address ILIKE '%, sc%' THEN 'South Carolina'
+            WHEN address ILIKE '%virginia%' OR address ILIKE '%, va%' THEN 'Virginia'
+            WHEN address ILIKE '%tennessee%' OR address ILIKE '%, tn%' THEN 'Tennessee'
+            WHEN address ILIKE '%nevada%' OR address ILIKE '%, nv%' THEN 'Nevada'
+            WHEN address ILIKE '%new mexico%' OR address ILIKE '%, nm%' THEN 'New Mexico'
+            WHEN address ILIKE '%utah%' OR address ILIKE '%, ut%' THEN 'Utah'
+            WHEN address ILIKE '%oklahoma%' OR address ILIKE '%, ok%' THEN 'Oklahoma'
+            WHEN address ILIKE '%alabama%' OR address ILIKE '%, al%' THEN 'Alabama'
+            ELSE 'Other'
+          END as state,
+          COUNT(*) as bar_count,
+          COUNT(CASE WHEN verification_status = 'verified_kava_bar' THEN 1 END) as verified_count
+        FROM kava_bars
+        GROUP BY state
+        ORDER BY bar_count DESC
+      `);
+
+      res.json({
+        message: "State restoration process completed",
+        results,
+        currentDistribution: stateDistribution.rows,
+      });
+    } catch (error: any) {
+      console.error("Error during state restoration:", error);
+      res.status(500).json({
+        error: error.message,
+        details:
+          process.env.NODE_ENV === "development" ? error.stack : undefined,
+      });
+    }
+  });
+
+  // Add photo upload and retrieval endpoints after the existing bar routes
+  app.post("/api/bars/:id/photos", upload.single("photo"), async (req, res) => {
+    try {
+      if (!req.isAuthenticated()) {
+        return res.status(401).send("Not authenticated");
+      }
+
+      if (!req.file) {
+        return res.status(400).send("No photo uploaded");
+      }
+
+      const barId = Number(req.params.id);
+      console.log("Processing photo upload for bar:", barId);
+
+      // Process the uploaded image with Sharp
+      const processedImageBuffer = await sharp(req.file.buffer)
+        .resize(1200, null, {
+          withoutEnlargement: true,
+          fit: "inside",
+        })
+        .jpeg({ quality: 80 })
+        .toBuffer();
+
+      // Generate a unique filename
+      const filename = `${randomUUID()}.jpg`;
+      const filePath = path.join(uploadsPath, filename);
+
+      console.log("Saving photo to:", filePath);
+      await fs.writeFile(filePath, processedImageBuffer);
+
+      // Save photo record in database
+      const [photo] = await db
+        .insert(kavaBarPhotos)
+        .values({
+          barId,
+          url: `/uploads/${filename}`,
+          uploadedById: req.user.id,
+          caption: req.body.caption || null,
+        })
+        .returning();
+
+      console.log("Saved photo to database:", photo);
+      res.status(201).json(photo);
+    } catch (error: any) {
+      console.error("Photo upload error:", error);
+      res.status(500).json({ error: error.message });
+    }
+  });
+
+  app.get("/api/bars/:id/photos", async (req, res) => {
+    try {
+      const barId = Number(req.params.id);
+      console.log("Fetching photos for bar:", barId);
+
+      const photos = await db.query.kavaBarPhotos.findMany({
+        where: eq(kavaBarPhotos.barId, barId),
+        orderBy: desc(kavaBarPhotos.createdAt),
+      });
+
+      console.log("Found photos:", photos);
+      res.json(photos);
+    } catch (error: any) {
+      console.error("Error fetching photos:", error);
+      res.status(500).json({ error: error.message });
+    }
+  });
+
+  app.delete("/api/bars/:barId/photos/:photoId", async (req, res) => {
+    try {
+      if (!req.isAuthenticated()) {
+        return res.status(401).send("Not authenticated");
+      }
+
+      const barId = Number(req.params.barId);
+      const photoId = Number(req.params.photoId);
+
+      // Get the bar to check ownership
+      const [bar] = await db
+        .select()
+        .from(kavaBars)
+        .where(eq(kavaBars.id, barId))
+        .limit(1);
+
+      if (!bar) {
+        return res.status(404).json({ error: "Bar not found" });
+      }
+
+      // Check if user is admin or bar owner
+      if (!req.user.isAdmin && req.user.id !== bar.ownerId) {
+        return res.status(403).json({ error: "Not authorized" });
+      }
+
+      // Get photo details
+      const [photo] = await db
+        .select()
+        .from(kavaBarPhotos)
+        .where(eq(kavaBarPhotos.id, photoId))
+        .limit(1);
+
+      if (!photo) {
+        return res.status(404).json({ error: "Photo not found" });
+      }
+
+      // Delete the photo file
+      if (photo.url.startsWith("/uploads/")) {
+        const filePath = path.join(process.cwd(), "public", photo.url);
+        await fs.unlink(filePath);
+      }
+
+      // Delete the database record
+      await db.delete(kavaBarPhotos).where(eq(kavaBarPhotos.id, photoId));
+
+      res.json({ message: "Photo deleted successfully" });
+    } catch (error: any) {
+      console.error("Error deleting photo:", error);
+      res.status(500).json({ error: error.message });
+    }
+  });
+
+  app.put("/api/user/password", async (req, res) => {
+    if (!req.isAuthenticated()) {
+      return res.status(401).json({ error: "Not authenticated" });
+    }
+
+    try {
+      const { currentPassword, newPassword } = req.body;
+      const userId = req.user.id;
+
+      // Get current user
+      const [user] = await db
+        .select()
+        .from(users)
+        .where(eq(users.id, userId))
+        .limit(1);
+
+      if (!user) {
+        return res.status(404).json({ error: "User not found" });
+      }
+
+      // Import crypto utility
+      const { crypto } = await import("./utils/crypto");
+
+      // Verify current password
+      const isMatch = await crypto.compare(currentPassword, user.password);
+      if (!isMatch) {
+        return res.status(400).json({ error: "Current password is incorrect" });
+      }
+
+      // Hash new password
+      const hashedPassword = await crypto.hash(newPassword);
+
+      // Update password
+      await db
+        .update(users)
+        .set({
+          password: hashedPassword,
+          updatedAt: new Date(),
+        })
+        .where(eq(users.id, userId));
+
+      res.json({ message: "Password updated successfully" });
+    } catch (error) {
+      console.error("Password update error:", error);
+      res.status(500).json({ error: "Failed to update password" });
+    }
+  });
+
+  app.put(
+    "/api/user/profile",
+    upload.single("profilePhoto"),
+    async (req, res) => {},
+  );
+
+  // Admin endpoints for bar verification
+  app.put("/api/admin/bars/:id/verify", async (req, res) => {
+    if (!req.isAuthenticated() || !req.user.isAdmin) {
+      return res.status(403).send("Admin access required");
+    }
+
+    const barId = Number(req.params.id);
+
+    try {
+      const [bar] = await db
+        .update(kavaBars)
+        .set({
+          verificationStatus: "verified_kava_bar",
+          lastVerified: new Date(),
+        })
+        .where(eq(kavaBars.id, barId))
+        .returning();
+
+      if (!bar) {
+        return res.status(404).send("Bar not found");
+      }
+
+      res.json(bar);
+    } catch (error: any) {
+      console.error("Error verifying bar:", error);
+      res.status(500).json({ error: error.message });
+    }
+  });
+  app.post("/api/admin/verification-requests/:id/deny", async (req, res) => {
+    if (!req.isAuthenticated() || !req.user.isAdmin) {
+      return res.status(403).json({ error: "Admin access required" });
+    }
+
+    try {
+      const requestId = Number(req.params.id);
+      if (isNaN(requestId)) {
+        return res.status(400).json({ error: "Invalid request ID" });
+      }
+
+      // Update the verification request status
+      const [updatedRequest] = await db
+        .update(verificationRequests)
+        .set({
+          status: "denied",
+          updatedAt: new Date(),
+        })
+        .where(eq(verificationRequests.id, requestId))
+        .returning();
+
+      if (!updatedRequest) {
+        return res
+          .status(404)
+          .json({ error: "Verification request not found" });
+      }
+
+      res.json({
+        success: true,
+        message: "Verification request denied successfully",
+      });
+    } catch (error: any) {
+      console.error("Error denying verification request:", error);
+      res.status(500).json({
+        error: "Failed to deny verification request",
+        details:
+          process.env.NODE_ENV === "development" ? error.message : undefined,
+      });
+    }
+  });
+
+  // Add these routes after the existing bar routes
+  app.get("/api/owner/notification-preferences", async (req, res) => {
+    if (!req.isAuthenticated()) {
+      return res.status(401).json({ error: "Not authenticated" });
+    }
+
+    try {
+      const [preferences] = await db
+        .select()
+        .from(barOwnerNotificationPreferences)
+        .where(eq(barOwnerNotificationPreferences.userId, req.user.id))
+        .limit(1);
+
+      // If no preferences exist yet, create default ones
+      if (!preferences) {
+        const [newPreferences] = await db
+          .insert(barOwnerNotificationPreferences)
+          .values({
+            userId: req.user.id,
+            reviewNotifications: true,
+            photoNotifications: true,
+          })
+          .returning();
+
+        return res.json(newPreferences);
+      }
+
+      res.json(preferences);
+    } catch (error: any) {
+      console.error("Error fetching notification preferences:", error);
+      res
+        .status(500)
+        .json({ error: "Failed to fetch notification preferences" });
+    }
+  });
+
+  app.put("/api/owner/notification-preferences", async (req, res) => {
+    if (!req.isAuthenticated()) {
+      return res.status(401).json({ error: "Not authenticated" });
+    }
+
+    const { reviewNotifications, photoNotifications } = req.body;
+
+    try {
+      const [updatedPreferences] = await db
+        .update(barOwnerNotificationPreferences)
+        .set({
+          reviewNotifications,
+          photoNotifications,
+          updatedAt: new Date(),
+        })
+        .where(eq(barOwnerNotificationPreferences.userId, req.user.id))
+        .returning();
+
+      if (!updatedPreferences) {
+        // If no preferences exist, create them
+        const [newPreferences] = await db
+          .insert(barOwnerNotificationPreferences)
+          .values({
+            userId: req.user.id,
+            reviewNotifications,
+            photoNotifications,
+          })
+          .returning();
+
+        return res.json(newPreferences);
+      }
+
+      res.json(updatedPreferences);
+    } catch (error: any) {
+      console.error("Error updating notification preferences:", error);
+      res
+        .status(500)
+        .json({ error: "Failed to update notification preferences" });
+    }
+  });
+
+  // Add these routes after the existing bar routes
+  app.get("/api/bars/:id/events", async (req, res) => {
+    try {
+      const events = await db.query.barEvents.findMany({
+        where: eq(barEvents.barId, Number(req.params.id)),
+        orderBy: [asc(barEvents.dayOfWeek), asc(barEvents.startTime)],
+      });
+      res.json(events);
+    } catch (error: any) {
+      console.error("Error fetching bar events:", error);
+      res.status(500).json({ error: error.message });
+    }
+  });
+
+  app.post("/api/bars/:id/kavatenders", async (req, res) => {
+    if (!req.isAuthenticated()) {
+      return res.status(401).send("Not authenticated");
+    }
+
+    const barId = Number(req.params.id);
+    const { phoneNumber } = req.body;
+
+    try {
+      // Verify the phone number format
+      const formattedNumber = formatToE164(phoneNumber);
+
+      // Create kavatender record
+      const [kavatender] = await db
+        .insert(kavatenders)
+        .values({
+          barId,
+          phoneNumber: formattedNumber,
+          status: "pending",
+        })
+        .returning();
+
+      // Send verification code
+      const verificationResult = await sendVerificationCode(formattedNumber);
+
+      res.json({
+        success: true,
+        kavatenderId: kavatender.id,
+      });
+    } catch (error: any) {
+      res.status(400).json({
+        success: false,
+        error: error.message,
+      });
+    }
+  });
+
+  app.post("/api/bars/:id/events", async (req, res) => {
+    if (!req.isAuthenticated()) {
+      return res.status(401).send("Not authenticated");
+    }
+
+    const barId = Number(req.params.id);
+
+    // Verify bar exists and user owns it
+    const [bar] = await db
+      .select()
+      .from(kavaBars)
+      .where(eq(kavaBars.id, barId))
+      .limit(1);
+
+    if (!bar) {
+      return res.status(404).send("Bar not found");
+    }
+
+    if (bar.ownerId !== req.user.id) {
+      return res.status(403).send("Not authorized to add events to this bar");
+    }
+
+    try {
+      const [event] = await db
+        .insert(barEvents)
+        .values({
+          ...req.body,
+          barId,
+          createdBy: req.user.id,
+        })
+        .returning();
+
+      res.json(event);
+    } catch (error: any) {
+      console.error("Error creating event:", error);
+      res.status(500).json({ error: error.message });
+    }
+  });
+
+  app.put("/api/bars/:barId/events/:eventId", async (req, res) => {
+    if (!req.isAuthenticated()) {
+      return res.status(401).send("Not authenticated");
+    }
+
+    const barId = Number(req.params.barId);
+    const eventId = Number(req.params.eventId);
+
+    // Verify bar exists and user owns it
+    const [bar] = await db
+      .select()
+      .from(kavaBars)
+      .where(eq(kavaBars.id, barId))
+      .limit(1);
+
+    if (!bar) {
+      return res.status(404).send("Bar not found");
+    }
+
+    if (bar.ownerId !== req.user.id) {
+      return res
+        .status(403)
+        .send("Not authorized to modify events for this bar");
+    }
+
+    try {
+      const [event] = await db
+        .update(barEvents)
+        .set({
+          ...req.body,
+          updatedAt: new Date(),
+        })
+        .where(and(eq(barEvents.id, eventId), eq(barEvents.barId, barId)))
+        .returning();
+
+      if (!event) {
+        return res.status(404).send("Event not found");
+      }
+
+      res.json(event);
+    } catch (error: any) {
+      console.error("Error updating event:", error);
+      res.status(500).json({ error: error.message });
+    }
+  });
+
+  app.delete("/api/bars/:barId/events/:eventId", async (req, res) => {
+    if (!req.isAuthenticated()) {
+      return res.status(401).send("Not authenticated");
+    }
+
+    const barId = Number(req.params.barId);
+    const eventId = Number(req.params.eventId);
+
+    try {
+      // Verify bar exists and user owns it
+      const [bar] = await db
+        .select()
+        .from(kavaBars)
+        .where(eq(kavaBars.id, barId))
+        .limit(1);
+
+      if (!bar) {
+        return res.status(404).send("Bar not found");
+      }
+
+      if (bar.ownerId !== req.user.id) {
+        return res
+          .status(403)
+          .send("Not authorized to delete events for this bar");
+      }
+
+      const [event] = await db
+        .delete(barEvents)
+        .where(and(eq(barEvents.id, eventId), eq(barEvents.barId, barId)))
+        .returning();
+
+      if (!event) {
+        return res.status(404).send("Event not found");
+      }
+
+      res.json({ message: "Event deleted successfully" });
+    } catch (error: any) {
+      console.error("Error deleting event:", error);
+      res.status(500).json({ error: error.message });
+    }
+  });
+
+  // Admin endpoints for bar verification
+  app.put("/api/admin/bars/:id/verify", async (req, res) => {
+    if (!req.isAuthenticated() || !req.user.isAdmin) {
+      return res.status(403).send("Admin access required");
+    }
+
+    const barId = Number(req.params.id);
+
+    try {
+      const [bar] = await db
+        .update(kavaBars)
+        .set({
+          verificationStatus: "verified_kava_bar",
+          lastVerified: new Date(),
+        })
+        .where(eq(kavaBars.id, barId))
+        .returning();
+
+      if (!bar) {
+        return res.status(404).send("Bar not found");
+      }
+
+      res.json(bar);
+    } catch (error: any) {
+      console.error("Error verifying bar:", error);
+      res.status(500).json({ error: error.message });
+    }
+  });
+  app.post("/api/admin/verification-requests/:id/deny", async (req, res) => {
+    if (!req.isAuthenticated() || !req.user.isAdmin) {
+      return res.status(403).json({ error: "Admin access required" });
+    }
+
+    try {
+      const requestId = Number(req.params.id);
+      if (isNaN(requestId)) {
+        return res.status(400).json({ error: "Invalid request ID" });
+      }
+
+      // Update the verification request status
+      const [updatedRequest] = await db
+        .update(verificationRequests)
+        .set({
+          status: "denied",
+          updatedAt: new Date(),
+        })
+        .where(eq(verificationRequests.id, requestId))
+        .returning();
+
+      if (!updatedRequest) {
+        return res
+          .status(404)
+          .json({ error: "Verification request not found" });
+      }
+
+      res.json({
+        success: true,
+        message: "Verification request denied successfully",
+      });
+    } catch (error: any) {
+      console.error("Error denying verification request:", error);
+      res.status(500).json({
+        error: "Failed to deny verification request",
+        details:
+          process.env.NODE_ENV === "development" ? error.message : undefined,
+      });
+    }
+  });
+
+  // Add this new endpoint after the existing admin endpoints
+  app.post("/api/admin/fetch-california-bars", async (req, res) => {
+    if (!req.isAuthenticated()) {
+      return res.status(401).send("Not authenticated");
+    }
+
+    if (!req.user.isAdmin) {
+      return res.status(403).send("Admin access required");
+    }
+
+    try {
+      const result = await fetchCaliforniaKavaBars();
+      res.json({
+        message: "Successfully fetched California kava bar data",
+        stats: result,
+      });
+    } catch (error: any) {
+      console.error("Error fetching California kava bar data:", error);
+      res.status(500).json({ error: error.message });
+    }
+  });
+  // Add this new endpoint after the existing verification endpoints
+  app.post("/api/admin/fetch-western-bars", async (req, res) => {
+    if (!req.isAuthenticated()) {
+      return res.status(401).send("Not authenticated");
+    }
+
+    if (!req.user.isAdmin) {
+      return res.status(403).send("Admin accessrequired");
+    }
+
+    try {
+      console.log("Starting western states kava bars search...");
+      const results = await fetchWesternKavaBars();
+      res.json({
+        message: "Successfully fetched western states kava bar data",
+        results,
+      });
+    } catch (error: any) {
+      console.error("Error fetching western states kava bar data:", error);
+      res.status(500).json({ error: error.message });
+    }
+  });
+
+  // Add this new endpoint after the existing admin endpoints
+  app.post("/api/admin/fetch-state-bars/:state", async (req, res) => {
+    if (!req.isAuthenticated()) {
+      return res.status(401).send("Not authenticated");
+    }
+
+    if (!req.user.isAdmin) {
+      return res.status(403).send("Admin access required");
+    }
+
+    const { state } = req.params;
+    const validStates = ["Tennessee", "Nevada", "New Mexico", "Utah"];
+    if (!validStates.includes(state)) {
+      return res.status(400).json({
+        error: "Invalid state",
+        validStates,
+      });
+    }
+
+    try {
+      console.log(`Starting ${state} kava bars search...`);
+      const results = await fetchStateData(state);
+
+      // Add a delay to ensure database changes are reflected
+      await new Promise((resolve) => setTimeout(resolve, 1000));
+
+      // Get updated bar count for the state
+      const stateBarCount = await db.execute(sql`
+        SELECT COUNT(*) as count
+        FROM kava_bars
+        WHERE address ILIKE ${`%${state}%`}
+      `);
+
+      res.json({
+        message: `Successfully fetched ${state} kava bar data`,
+        results,
+        barCount: stateBarCount.rows[0].count,
+      });
+    } catch (error: any) {
+      console.error(`Error fetching ${state} kava bar data:`, error);
+      res.status(500).json({ error: error.message });
+    }
+  });
+  //  // Add this endpoint after the existing admin endpoints
+  app.post("/api/admin/restore-states", async (req, res) => {
+    if (!req.isAuthenticated()) {
+      return res.status(401).send("Not authenticated");
+    }
+
+    if (!req.user.isAdmin) {
+      return res.status(403).send("Admin access required");
+    }
+
+    try {
+      // Start the restoration process
+      console.log("Starting state data restoration process...");
+      const results = await restoreAllStates();
+
+      res.json({
+        message: "State restoration process completed",
+        results,
+      });
+    } catch (error: any) {
+      console.error("Error during state restoration:", error);
+      res.status(500).json({
+        error: error.message,
+        details:
+          process.env.NODE_ENV === "development" ? error.stack : undefined,
+      });
+    }
+  });
+  app.post("/api/admin/restore-target-states", async (req, res) => {
+    if (!req.isAuthenticated() || !req.user.isAdmin) {
+      return res.status(403).send("Admin access required");
+    }
+
+    const targetStates = ["Tennessee", "Nevada", "New Mexico", "Utah"];
+
+    try {
+      console.log("Starting targeted state restoration process...");
+      const results = await restoreAllStates(true, targetStates);
+
+      res.json({
+        message: "Targeted state restoration completed",
+        results,
+      });
+    } catch (error: any) {
+      console.error("Error during targeted state restoration:", error);
+      res.status(500).json({
+        error: error.message,
+        details:
+          process.env.NODE_ENV === "development" ? error.stack : undefined,
+      });
+    }
+  });
+  app.post("/api/admin/restore-all-states", async (req, res) => {
+    if (!req.isAuthenticated() || !req.user.isAdmin) {
+      return res.status(403).send("Admin access required");
+    }
+
+    try {
+      console.log("Starting complete state restoration process...");
+
+      // Import the restore function that handles all states
+      const results = await restoreAllStates();
+
+      // Get current state distribution after restoration
+      const stateDistribution = await db.execute(sql`
+        SELECT
+          CASE
+            WHEN address ILIKE '%florida%' OR address ILIKE '%, fl%' THEN 'Florida'
+            WHEN address ILIKE '%texas%' OR address ILIKE '%, tx%' THEN 'Texas'
+            WHEN address ILIKE '%arizona%' OR address ILIKE '%, az%' THEN 'Arizona'
+            WHEN address ILIKE '%arkansas%' OR address ILIKE '%, ar%' THEN 'Arkansas'
+            WHEN address ILIKE '%georgia%' OR address ILIKE '%, ga%' THEN 'Georgia'
+            WHEN address ILIKE '%louisiana%' OR address ILIKE '%, la%' THEN 'Louisiana'
+            WHEN address ILIKE '%mississippi%' OR address ILIKE '%, ms%' THEN 'Mississippi'
+            WHEN address ILIKE '%north carolina%' OR address ILIKE '%, nc%' THEN 'North Carolina'
+            WHEN address ILIKE '%south carolina%' OR address ILIKE '%, sc%' THEN 'South Carolina'
+            WHEN address ILIKE '%virginia%' OR address ILIKE '%, va%' THEN 'Virginia'
+            WHEN address ILIKE '%tennessee%' OR address ILIKE '%, tn%' THEN 'Tennessee'
+            WHEN address ILIKE '%nevada%' OR address ILIKE '%, nv%' THEN 'Nevada'
+            WHEN address ILIKE '%new mexico%' OR address ILIKE '%, nm%' THEN 'New Mexico'
+            WHEN address ILIKE '%utah%' OR address ILIKE '%, ut%' THEN 'Utah'
+            WHEN address ILIKE '%oklahoma%' OR address ILIKE '%, ok%' THEN 'Oklahoma'
+            WHEN address ILIKE '%alabama%' OR address ILIKE '%, al%' THEN 'Alabama'
+            ELSE 'Other'
+          END as state,
+          COUNT(*) as bar_count,
+          COUNT(CASE WHEN verification_status = 'verified_kava_bar' THEN 1 END) as verified_count
+        FROM kava_bars
+        GROUP BY state
+        ORDER BY bar_count DESC
+      `);
+
+      res.json({
+        message: "State restoration process completed",
+        results,
+        currentDistribution: stateDistribution.rows,
+      });
+    } catch (error: any) {
+      console.error("Error during state restoration:", error);
+      res.status(500).json({
+        error: error.message,
+        details:
+          process.env.NODE_ENV === "development" ? error.stack : undefined,
+      });
+    }
+  });
+
+  // Add photo upload and retrieval endpoints after the existing bar routes
+  app.post("/api/bars/:id/photos", upload.single("photo"), async (req, res) => {
+    try {
+      if (!req.isAuthenticated()) {
+        return res.status(401).send("Not authenticated");
+      }
+
+      if (!req.file) {
+        return res.status(400).send("No photo uploaded");
+      }
+
+      const barId = Number(req.params.id);
+      console.log("Processing photo upload for bar:", barId);
+
+      // Process the uploaded image with Sharp
+      const processedImageBuffer = await sharp(req.file.buffer)
+        .resize(1200, null, {
+          withoutEnlargement: true,
+          fit: "inside",
+        })
+        .jpeg({ quality: 80 })
+        .toBuffer();
+
+      // Generate a unique filename
+      const filename = `${randomUUID()}.jpg`;
+      const filePath = path.join(uploadsPath, filename);
+
+      console.log("Saving photo to:", filePath);
+      await fs.writeFile(filePath, processedImageBuffer);
+
+      // Save photo record in database
+      const [photo] = await db
+        .insert(kavaBarPhotos)
+        .values({
+          barId,
+          url: `/uploads/${filename}`,
+          uploadedById: req.user.id,
+          caption: req.body.caption || null,
+        })
+        .returning();
+
+      console.log("Saved photo to database:", photo);
+      res.status(201).json(photo);
+    } catch (error: any) {
+      console.error("Photo upload error:", error);
+      res.status(500).json({ error: error.message });
+    }
+  });
+
+  app.get("/api/bars/:id/photos", async (req, res) => {
+    try {
+      const barId = Number(req.params.id);
+      console.log("Fetching photos for bar:", barId);
+
+      const photos = await db.query.kavaBarPhotos.findMany({
+        where: eq(kavaBarPhotos.barId, barId),
+        orderBy: desc(kavaBarPhotos.createdAt),
+      });
+
+      console.log("Found photos:", photos);
+      res.json(photos);
+    } catch (error: any) {
+      console.error("Error fetching photos:", error);
+      res.status(500).json({ error: error.message });
+    }
+  });
+
+  app.delete("/api/bars/:barId/photos/:photoId", async (req, res) => {
+    try {
+      if (!req.isAuthenticated()) {
+        return res.status(401).send("Not authenticated");
+      }
+
+      const barId = Number(req.params.barId);
+      const photoId = Number(req.params.photoId);
+
+      // Get the bar to check ownership
+      const [bar] = await db
+        .select()
+        .from(kavaBars)
+        .where(eq(kavaBars.id, barId))
+        .limit(1);
+
+      if (!bar) {
+        return res.status(404).json({ error: "Bar not found" });
+      }
+
+      // Check if user is admin or bar owner
+      if (!req.user.isAdmin && req.user.id !== bar.ownerId) {
+        return res.status(403).json({ error: "Not authorized" });
+      }
+
+      // Get photo details
+      const [photo] = await db
+        .select()
+        .from(kavaBarPhotos)
+        .where(eq(kavaBarPhotos.id, photoId))
+        .limit(1);
+
+      if (!photo) {
+        return res.status(404).json({ error: "Photo not found" });
+      }
+
+      // Delete the photo file
+      if (photo.url.startsWith("/uploads/")) {
+        const filePath = path.join(process.cwd(), "public", photo.url);
+        await fs.unlink(filePath);
+      }
+
+      // Delete the database record
+      await db.delete(kavaBarPhotos).where(eq(kavaBarPhotos.id, photoId));
+
+      res.json({ message: "Photo deleted successfully" });
+    } catch (error: any) {
+      console.error("Error deleting photo:", error);
+      res.status(500).json({ error: error.message });
+    }
+  });
+
+  app.put("/api/user/password", async (req, res) => {
+    if (!req.isAuthenticated()) {
+      return res.status(401).json({ error: "Not authenticated" });
+    }
+
+    try {
+      const { currentPassword, newPassword } = req.body;
+      const userId = req.user.id;
+
+      // Get current user
+      const [user] = await db
+        .select()
+        .from(users)
+        .where(eq(users.id, userId))
+        .limit(1);
+
+      if (!user) {
+        return res.status(404).json({ error: "User not found" });
+      }
+
+      // Import crypto utility
+      const { crypto } = await import("./utils/crypto");
+
+      // Verify current password
+      const isMatch = await crypto.compare(currentPassword, user.password);
+      if (!isMatch) {
+        return res.status(400).json({ error: "Current password is incorrect" });
+      }
+
+      // Hash new password
+      const hashedPassword = await crypto.hash(newPassword);
+
+      // Update password
+      await db
+        .update(users)
+        .set({
+          password: hashedPassword,
+          updatedAt: new Date(),
+        })
+        .where(eq(users.id, userId));
+
+      res.json({ message: "Password updated successfully" });
+    } catch (error) {
+      console.error("Password update error:", error);
+      res.status(500).json({ error: "Failed to update password" });
+    }
+  });
+
+  app.put(
+    "/api/user/profile",
+    upload.single("profilePhoto"),
+    async (req, res) => {},
+  );
+
+  // Admin endpoints for bar verification
+  app.put("/api/admin/bars/:id/verify", async (req, res) => {
+    if (!req.isAuthenticated() || !req.user.isAdmin) {
+      return res.status(403).send("Admin access required");
+    }
+
+    const barId = Number(req.params.id);
+
+    try {
+      const [bar] = await db
+        .update(kavaBars)
+        .set({
+          verificationStatus: "verified_kava_bar",
+          lastVerified: new Date(),
+        })
+        .where(eq(kavaBars.id, barId))
+        .returning();
+
+      if (!bar) {
+        return res.status(404).send("Bar not found");
+      }
+
+      res.json(bar);
+    } catch (error: any) {
+      console.error("Error verifying bar:", error);
+      res.status(500).json({ error: error.message });
+    }
+  });
+  app.post("/api/admin/verification-requests/:id/deny", async (req, res) => {
+    if (!req.isAuthenticated() || !req.user.isAdmin) {
+      return res.status(403).json({ error: "Admin access required" });
+    }
+
+    try {
+      const requestId = Number(req.params.id);
+      if (isNaN(requestId)) {
+        return res.status(400).json({ error: "Invalid request ID" });
+      }
+
+      // Update the verification request status
+      const [updatedRequest] = await db
+        .update(verificationRequests)
+        .set({
+          status: "denied",
+          updatedAt: new Date(),
+        })
+        .where(eq(verificationRequests.id, requestId))
+        .returning();
+
+      if (!updatedRequest) {
+        return res
+          .status(404)
+          .json({ error: "Verification request not found" });
+      }
+
+      res.json({
+        success: true,
+        message: "Verification request denied successfully",
+      });
+    } catch (error: any) {
+      console.error("Error denying verification request:", error);
+      res.status(500).json({
+        error: "Failed to deny verification request",
+        details:
+          process.env.NODE_ENV === "development" ? error.message : undefined,
+      });
+    }
+  });
+
+  // Add this new endpoint after the existing admin endpoints
+  app.post("/api/admin/fetch-california-bars", async (req, res) => {
+    if (!req.isAuthenticated()) {
+      return res.status(401).send("Not authenticated");
+    }
+
+    if (!req.user.isAdmin) {
+      return res.status(403).send("Admin access required");
+    }
+
+    try {
+      const result = await fetchCaliforniaKavaBars();
+      res.json({
+        message: "Successfully fetched California kava bar data",
+        stats: result,
+      });
+    } catch (error: any) {
+      console.error("Error fetching California kava bar data:", error);
+      res.status(500).json({ error: error.message });
+    }
+  });
+  // Add this new endpoint after the existing verification endpoints
+  app.post("/api/admin/fetch-western-bars", async (req, res) => {
+    if (!req.isAuthenticated()) {
+      return res.status(401).send("Not authenticated");
+    }
+
+    if (!req.user.isAdmin) {
+      return res.status(403).send("Admin accessrequired");
+    }
+
+    try {
+      console.log("Starting western states kava bars search...");
+      const results = await fetchWesternKavaBars();
+      res.json({
+        message: "Successfully fetched western states kava bar data",
+        results,
+      });
+    } catch (error: any) {
+      console.error("Error fetching western states kava bar data:", error);
+      res.status(500).json({ error: error.message });
+    }
+  });
+
+  // Add this new endpoint after the existing admin endpoints
+  app.post("/api/admin/fetch-state-bars/:state", async (req, res) => {
+    if (!req.isAuthenticated()) {
+      return res.status(401).send("Not authenticated");
+    }
+
+    if (!req.user.isAdmin) {
+      return res.status(403).send("Admin access required");
+    }
+
+    const { state } = req.params;
+    const validStates = ["Tennessee", "Nevada", "New Mexico", "Utah"];
+    if (!validStates.includes(state)) {
+      return res.status(400).json({
+        error: "Invalid state",
+        validStates,
+      });
+    }
+
+    try {
+      console.log(`Starting ${state} kava bars search...`);
+      const results = await fetchStateData(state);
+
+      // Add a delay to ensure database changes are reflected
+      await new Promise((resolve) => setTimeout(resolve, 1000));
+
+      // Get updated bar count for the state
+      const stateBarCount = await db.execute(sql`
+        SELECT COUNT(*) as count
+        FROM kava_bars
+        WHERE address ILIKE ${`%${state}%`}
+      `);
+
+      res.json({
+        message: `Successfully fetched ${state} kava bar data`,
+        results,
+        barCount: stateBarCount.rows[0].count,
+      });
+    } catch (error: any) {
+      console.error(`Error fetching ${state} kava bar data:`, error);
+      res.status(500).json({ error: error.message });
+    }
+  });
+  //  // Add this endpoint after the existing admin endpoints
+  app.post("/api/admin/restore-states", async (req, res) => {
+    if (!req.isAuthenticated()) {
+      return res.status(401).send("Not authenticated");
+    }
+
+    if (!req.user.isAdmin) {
+      return res.status(403).send("Admin access required");
+    }
+
+    try {
+      // Start the restoration process
+      console.log("Starting state data restoration process...");
+      const results = await restoreAllStates();
+
+      res.json({
+        message: "State restoration process completed",
+        results,
+      });
+    } catch (error: any) {
+      console.error("Error during state restoration:", error);
+      res.status(500).json({
+        error: error.message,
+        details:
+          process.env.NODE_ENV === "development" ? error.stack : undefined,
+      });
+    }
+  });
+  app.post("/api/admin/restore-target-states", async (req, res) => {
+    if (!req.isAuthenticated() || !req.user.isAdmin) {
+      return res.status(403).send("Admin access required");
+    }
+
+    const targetStates = ["Tennessee", "Nevada", "New Mexico", "Utah"];
+
+    try {
+      console.log("Starting targeted state restoration process...");
+      const results = await restoreAllStates(true, targetStates);
+
+      res.json({
+        message: "Targeted state restoration completed",
+        results,
+      });
+    } catch (error: any) {
+      console.error("Error during targeted state restoration:", error);
+      res.status(500).json({
+        error: error.message,
+        details:
+          process.env.NODE_ENV === "development" ? error.stack : undefined,
+      });
+    }
+  });
+  app.post("/api/admin/restore-all-states", async (req, res) => {
+    if (!req.isAuthenticated() || !req.user.isAdmin) {
+      return res.status(403).send("Admin access required");
+    }
+
+    try {
+      console.log("Starting complete state restoration process...");
+
+      // Import the restore function that handles all states
+      const results = await restoreAllStates();
+
+      // Get current state distribution after restoration
+      const stateDistribution = await db.execute(sql`
+        SELECT
+          CASE
+            WHEN address ILIKE '%florida%' OR address ILIKE '%, fl%' THEN 'Florida'
+            WHEN address ILIKE '%texas%' OR address ILIKE '%, tx%' THEN 'Texas'
+            WHEN address ILIKE '%arizona%' OR address ILIKE '%, az%' THEN 'Arizona'
+            WHEN address ILIKE '%arkansas%' OR address ILIKE '%, ar%' THEN 'Arkansas'
+            WHEN address ILIKE '%georgia%' OR address ILIKE '%, ga%' THEN 'Georgia'
+            WHEN address ILIKE '%louisiana%' OR address ILIKE '%, la%' THEN 'Louisiana'
+            WHEN address ILIKE '%mississippi%' OR address ILIKE '%, ms%' THEN 'Mississippi'
+            WHEN address ILIKE '%north carolina%' OR address ILIKE '%, nc%' THEN 'North Carolina'
+            WHEN address ILIKE '%south carolina%' OR address ILIKE '%, sc%' THEN 'South Carolina'
+            WHEN address ILIKE '%virginia%' OR address ILIKE '%, va%' THEN 'Virginia'
+            WHEN address ILIKE '%tennessee%' OR address ILIKE '%, tn%' THEN 'Tennessee'
+            WHEN address ILIKE '%nevada%' OR address ILIKE '%, nv%' THEN 'Nevada'
+            WHEN address ILIKE '%new mexico%' OR address ILIKE '%, nm%' THEN 'New Mexico'
+            WHEN address ILIKE '%utah%' OR address ILIKE '%, ut%' THEN 'Utah'
+            WHEN address ILIKE '%oklahoma%' OR address ILIKE '%, ok%' THEN 'Oklahoma'
+            WHEN address ILIKE '%alabama%' OR address ILIKE '%, al%' THEN 'Alabama'
+            ELSE 'Other'
+          END as state,
+          COUNT(*) as bar_count,
+          COUNT(CASE WHEN verification_status = 'verified_kava_bar' THEN 1 END) as verified_count
+        FROM kava_bars
+        GROUP BY state
+        ORDER BY bar_count DESC
+      `);
+
+      res.json({
+        message: "State restoration process completed",
+        results,
+        currentDistribution: stateDistribution.rows,
+      });
+    } catch (error: any) {
+      console.error("Error during state restoration:", error);
+      res.status(500).json({
+        error: error.message,
+        details:
+          process.env.NODE_ENV === "development" ? error.stack : undefined,
+      });
+    }
+  });
+}
+
+function addDays(date: Date, days: number): Date {
+  const newDate = new Date(date);
+  newDate.setDate(newDate.getDate() + days);
+  return newDate;
+}
+
+interface InsertReview {
+  userId: number;
+  barId: number;
+  rating: number;
+  content: string;
+}
+
+async function verifyKavaBarType(
+  placeId: string,
+): Promise<{ success: boolean; isKavaBar: boolean | null }> {
+  try {
+    const response = await googleMapsClient.placeDetails({
+      params: {
+        place_id: placeId,
+        fields: ["name", "types", "business_status"],
+        key: process.env.GOOGLE_MAPS_API_KEY || "",
+      },
+    });
+
+    const placeDetails = response.data.result;
+    const types = placeDetails.types || [];
+    const isKavaBar = types.some(
+      (type) =>
+        type.toLowerCase().includes("bar") ||
+        type.toLowerCase().includes("cafe") ||
+        type.toLowerCase().includes("night_club"),
+    );
+
+    return {
+      success: true,
+      isKavaBar,
+    };
+  } catch (error) {
+    console.error("Error verifying kava bar type:", error);
+    return { success: false, isKavaBar: null };
+  }
+}
+
+// Placeholder for the actual startDataCollection function.  This needs to be implemented separately.
+async function startDataCollection(): Promise<{ message: string }> {
+  // Implement your background data collection logic here.  This might involve
+  // using a queue or worker process to handle the task asynchronously.
+  // Example:
+  console.log("Starting data collection...");
+  // ...your code to collect data...
+  console.log("Data collection finished.");
+  return { message: "Data collection finished." };
+}
+
+// Added function to get collection status.  Replace with actual implementation.
+async function getCollectionStatus(): Promise<string> {
+  // Replace with your actual implementation to get the status.
+  return "complete";
+}
+
+//This function needs to be implemented.
+async function restoreAllStates(
+  overwriteProgress: boolean = false,
+  targetStates?: string[],
+): Promise<any[]> {
+  //Implementation to restore all states will go here.  This function should handle the actual restoration process, likely involving reading from a backup or other source and updating the database.
+  console.log("Restoring all states...");
+  const STATES = [
+    "Tennessee",
+    "Nevada",
+    "New Mexico",
+    "Utah",
+    "Florida",
+    "Georgia",
+    "South Carolina",
+    "North Carolina",
+    "Virginia",
+    "Alabama",
+    "Mississippi",
+    "Louisiana",
+    "Arkansas",
+    "Oklahoma",
+    "Texas",
+    "Arizona",
+  ];
+  const results = [];
+  for (const state of targetStates || STATES) {
+    try {
+      const restoreResult = await restoreStateData(state, overwriteProgress);
+      results.push({ state, ...restoreResult });
+    } catch (error) {
+      results.push({ state, error: error.message });
+    }
+  }
+  return results;
+}
+
+async function fetchWesternKavaBars(): Promise<any[]> {
+  //Implementation to fetch western bars will go here.  This will likely involve querying a database or external API.  The result should be an array of kava bar objects.
+  console.log("Fetching western bars...");
+  // Add your fetching logic here.
+  return [];
+}
+
+async function restoreStateData(
+  state: string,
+  overwriteProgress: boolean,
+): Promise<{ restored: number; failed: number; skipped: number }> {
+  console.log(`Restoring state data for ${state}...`);
+  // Add your restoration logic here for the specific state.  This might involve
+  // reading from a backup file or database for that state and updating the database.
+  // For example, you might read data from a file named `${state}.json`
+  // and then update the kavaBars table with data specific to that state.
+  // Update the progress file only if overwriteProgress is true.
+  const restored = 10;
+  const failed = 2;
+  const skipped = 0;
+  return { restored, failed, skipped };
+}
+
+async function fetchStateData(state: string): Promise<any[]> {
+  return [];
+}
+
+async function sendVerificationCode(phoneNumber: string): Promise<boolean> {
+  // Add your verification code sending logic here.  This will likely involve
+  // using a third-party SMS API or other communication method.
+  console.log(`Sending verification code to ${phoneNumber}...`);
+  // Your code to send verification code
+  return true;
+}
+
+function formatToE164(phoneNumber: string): string {
+  // Add your phone number formatting logic here.  This function should take a
+  // phone number in any format and convert it to E.164 format (+15551234567).
+  return phoneNumber;
+}

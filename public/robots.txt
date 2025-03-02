@@ -1,0 +1,7 @@
+# Allow Termly scanner
+User-agent: TermlyBot
+Allow: /
+
+# Default rules
+User-agent: *
+Allow: /

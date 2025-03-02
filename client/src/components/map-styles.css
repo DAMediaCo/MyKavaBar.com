@@ -1,0 +1,48 @@
+/* Import Leaflet CSS first */
+@import 'leaflet/dist/leaflet.css';
+
+/* Basic map container */
+.leaflet-container {
+  width: 100%;
+  height: 100%;
+  background: #ffffff;
+}
+
+/* Controls */
+.leaflet-control-container {
+  position: absolute;
+  z-index: 1000;
+}
+
+.leaflet-top,
+.leaflet-bottom {
+  position: absolute;
+  z-index: 1000;
+  pointer-events: none;
+}
+
+.leaflet-control {
+  clear: both;
+  pointer-events: auto;
+}
+
+/* Popup styling */
+.leaflet-popup-content-wrapper {
+  background: #ffffff;
+  color: #333333;
+  border-radius: 4px;
+  padding: 1rem;
+}
+
+.leaflet-popup-tip {
+  background: #ffffff;
+}
+
+/* Essential panes */
+.leaflet-map-pane { z-index: 2; }
+.leaflet-tile-pane { z-index: 20; }
+.leaflet-overlay-pane { z-index: 40; }
+.leaflet-shadow-pane { z-index: 50; }
+.leaflet-marker-pane { z-index: 60; }
+.leaflet-tooltip-pane { z-index: 65; }
+.leaflet-popup-pane { z-index: 70; }
