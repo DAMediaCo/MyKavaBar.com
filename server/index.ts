@@ -9,12 +9,11 @@ import { Server, createServer } from "http";
 import { setupWebSocket } from "./websocket";
 import { randomInt } from "crypto";
 import { fileURLToPath } from "url";
-import path from "path";
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 const app = express();
-const PORT = 5002; // Use a specific port that's unlikely to be in use
+const PORT = parseInt(process.env.PORT || "5000", 10); // Use environment port or default to 5000
 const HOST = "0.0.0.0";
 
 // Enhanced logging middleware
