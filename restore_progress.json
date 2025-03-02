@@ -1,0 +1,41 @@
+{
+  "lastProcessedState": "florida",
+  "stateProgress": {
+    "alabama": {
+      "lastProcessedIndex": 142,
+      "restored": 0,
+      "failed": 0,
+      "skipped": 142,
+      "rateLimited": 0
+    },
+    "arizona": {
+      "lastProcessedIndex": 212,
+      "restored": 0,
+      "failed": 0,
+      "skipped": 212,
+      "rateLimited": 0
+    },
+    "arkansas": {
+      "lastProcessedIndex": 148,
+      "restored": 0,
+      "failed": 0,
+      "skipped": 148,
+      "rateLimited": 0
+    },
+    "district of columbia": {
+      "lastProcessedIndex": 284,
+      "restored": 0,
+      "failed": 0,
+      "skipped": 284,
+      "rateLimited": 0
+    },
+    "florida": {
+      "lastProcessedIndex": 42,
+      "restored": 0,
+      "failed": 0,
+      "skipped": 42,
+      "rateLimited": 0
+    }
+  },
+  "lastUpdated": "2025-01-26T21:21:27.827Z"
+}

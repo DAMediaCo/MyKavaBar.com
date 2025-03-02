@@ -1,0 +1,14 @@
+{
+  "workflows": [
+    {
+      "name": "Start Server",
+      "command": "npm run dev",
+      "restartOn": {
+        "files": [
+          "server/**/*.ts"
+        ],
+        "branch": false
+      }
+    }
+  ]
+}
