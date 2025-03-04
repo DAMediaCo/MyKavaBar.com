@@ -1,8 +1,22 @@
 import { useState, useEffect, useRef } from 'react';
 import { MapContainer, TileLayer, Marker, Popup, useMap } from 'react-leaflet';
-import type { KavaBar } from '@db/schema';
+import type { KavaBar } from '@/hooks/use-kava-bars';
 import { Loader2 } from 'lucide-react';
+import 'leaflet/dist/leaflet.css';
 import L from 'leaflet';
+
+// Fix Leaflet default icon issues
+import icon from 'leaflet/dist/images/marker-icon.png';
+import iconShadow from 'leaflet/dist/images/marker-shadow.png';
+
+let DefaultIcon = L.icon({
+  iconUrl: icon,
+  shadowUrl: iconShadow,
+  iconSize: [25, 41],
+  iconAnchor: [12, 41]
+});
+
+L.Marker.prototype.options.icon = DefaultIcon;
 
 // Use simple SVG-based icons
 const userIcon = new L.DivIcon({
