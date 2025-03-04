@@ -6,12 +6,12 @@ import 'leaflet/dist/leaflet.css';
 import './map-styles.css';
 import L from 'leaflet';
 
-// Fix for Leaflet default icon paths
-// Use CDN URLs directly to avoid build issues with image imports
+// Fix for Leaflet default icon paths by using static URLs
+// This ensures the images are available regardless of build configuration
 let DefaultIcon = L.icon({
-  iconUrl: 'https://unpkg.com/leaflet@1.7.1/dist/images/marker-icon.png',
-  iconRetinaUrl: 'https://unpkg.com/leaflet@1.7.1/dist/images/marker-icon-2x.png',
-  shadowUrl: 'https://unpkg.com/leaflet@1.7.1/dist/images/marker-shadow.png',
+  iconUrl: 'https://cdn.jsdelivr.net/npm/leaflet@1.7.1/dist/images/marker-icon.png',
+  iconRetinaUrl: 'https://cdn.jsdelivr.net/npm/leaflet@1.7.1/dist/images/marker-icon-2x.png',
+  shadowUrl: 'https://cdn.jsdelivr.net/npm/leaflet@1.7.1/dist/images/marker-shadow.png',
   iconSize: [25, 41],
   iconAnchor: [12, 41],
   popupAnchor: [1, -34],
@@ -21,26 +21,21 @@ let DefaultIcon = L.icon({
 // Set the default icon for all markers
 L.Marker.prototype.options.icon = DefaultIcon;
 
-// Use simple SVG-based icons
-const userIcon = new L.DivIcon({
-  html: `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" width="24" height="24" fill="none" stroke="#0066FF" stroke-width="2">
-    <circle cx="12" cy="12" r="10"/>
-    <circle cx="12" cy="12" r="3"/>
-  </svg>`,
-  className: '',
-  iconSize: [24, 24],
-  iconAnchor: [12, 12],
-  popupAnchor: [0, -12],
+// Create simple dot icons instead of SVG for better browser compatibility
+const userIcon = L.divIcon({
+  className: 'user-location-marker',
+  html: '<div style="background-color:#0066FF; width:14px; height:14px; border-radius:50%; border:2px solid white;"></div>',
+  iconSize: [18, 18],
+  iconAnchor: [9, 9],
+  popupAnchor: [0, -9]
 });
 
-const barIcon = new L.DivIcon({
-  html: `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" width="24" height="24" fill="#FF0000">
-    <path d="M12 2C8.13 2 5 5.13 5 9c0 5.25 7 13 7 13s7-7.75 7-13c0-3.87-3.13-7-7-7zm0 9.5c-1.38 0-2.5-1.12-2.5-2.5s1.12-2.5 2.5-2.5 2.5 1.12 2.5 2.5-1.12 2.5-2.5 2.5z"/>
-  </svg>`,
-  className: '',
-  iconSize: [24, 24],
-  iconAnchor: [12, 24],
-  popupAnchor: [0, -24],
+const barIcon = L.divIcon({
+  className: 'kava-bar-marker',
+  html: '<div style="background-color:#FF0000; width:14px; height:14px; border-radius:50%; border:2px solid white;"></div>',
+  iconSize: [18, 18],
+  iconAnchor: [9, 9],
+  popupAnchor: [0, -9]
 });
 
 interface MapViewProps {
@@ -97,18 +92,31 @@ function parseLocation(location: any): { lat: number, lng: number } | null {
 export default function MapView({ bars, center, zoom = 4, userLocation }: MapViewProps) {
   const [isLoading, setIsLoading] = useState(true);
   const [mapError, setMapError] = useState<string | null>(null);
-  const [isLeafletLoaded, setIsLeafletLoaded] = useState<boolean>(!!L && !!L.map);
+  const [isLeafletLoaded, setIsLeafletLoaded] = useState<boolean>(true); // Assume Leaflet is loaded
   const defaultCenter = center || { lat: 39.8283, lng: -98.5795 }; // Default to center of US
   
-  // Verify Leaflet is loaded
+  // Force reload the map tiles to ensure proper rendering
   useEffect(() => {
-    if (!isLeafletLoaded) {
-      console.error('Leaflet not properly loaded!');
-      setMapError('Map library failed to load properly. Please refresh the page.');
-    } else {
-      console.log('Leaflet loaded successfully!');
-    }
-  }, [isLeafletLoaded]);
+    // Set up a resize event listener to fix map rendering issues
+    const handleResize = () => {
+      console.log('Window resize detected, refreshing map');
+    };
+    
+    window.addEventListener('resize', handleResize);
+    
+    // Force reload the map tiles after a short delay
+    const reloadTimer = setTimeout(() => {
+      if (document.querySelector('.leaflet-container')) {
+        console.log('Map container found, forcing tile reload');
+        window.dispatchEvent(new Event('resize'));
+      }
+    }, 1000);
+    
+    return () => {
+      window.removeEventListener('resize', handleResize);
+      clearTimeout(reloadTimer);
+    };
+  }, []);
   
   // Debugging information
   useEffect(() => {
@@ -175,11 +183,38 @@ export default function MapView({ bars, center, zoom = 4, userLocation }: MapVie
               console.log('Tiles loaded successfully');
               setIsLoading(false);
               setMapError(null);
+              
+              // Double-check that the map rendered properly
+              setTimeout(() => {
+                const mapContainer = document.querySelector('.leaflet-container');
+                if (mapContainer) {
+                  const tilesLoaded = document.querySelectorAll('.leaflet-tile').length > 0;
+                  if (!tilesLoaded) {
+                    console.log('Tiles not visible, triggering resize');
+                    window.dispatchEvent(new Event('resize'));
+                  }
+                }
+              }, 500);
             },
             error: (e) => {
               console.error('Error loading tiles:', e);
-              setMapError('Failed to load map tiles. Please try again later.');
-              setIsLoading(false);
+              
+              // Try alternative tile source
+              console.log('Attempting to use fallback tile source');
+              try {
+                const tileLayer = e.target;
+                // Use fallback tile source
+                if (tileLayer && typeof tileLayer.setUrl === 'function') {
+                  tileLayer.setUrl("https://tile.openstreetmap.de/{z}/{x}/{y}.png");
+                  console.log('Switched to fallback tile source');
+                } else {
+                  throw new Error('Cannot switch tile source');
+                }
+              } catch (err) {
+                console.error('Failed to use fallback source:', err);
+                setMapError('Failed to load map tiles. Please try again later.');
+                setIsLoading(false);
+              }
             },
           }}
         />
