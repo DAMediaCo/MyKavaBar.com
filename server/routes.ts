@@ -2815,6 +2815,7 @@ export function registerRoutes(app: Express, server: Server): void {
         .where(eq(barStaff.barId, barId));
 
       if (!staff.length) {
+        console.log("No staff found");
         return res.json([]); // Return empty array if no staff found
       }
 
@@ -2848,7 +2849,7 @@ export function registerRoutes(app: Express, server: Server): void {
         .from(users)
         .innerJoin(barStaff, eq(users.id, barStaff.userId))
         .where(inArray(barStaff.id, activeStaffIds));
-
+      console.log("Active users:", activeUsers);
       res.json(activeUsers);
     } catch (error: any) {
       console.error("Error fetching check-ins:", error);

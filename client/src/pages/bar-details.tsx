@@ -104,7 +104,6 @@ export default function BarDetails() {
     queryFn: async () => {
       try {
         const response = await fetch(getApiUrl(`/api/bars/${id}/check-ins`), {
-          credentials: "include",
           headers: {
             Accept: "application/json",
           },
@@ -123,8 +122,9 @@ export default function BarDetails() {
         throw error;
       }
     },
-    enabled: !!id && !!user,
   });
+
+  console.log("Checkins : ", checkIns);
 
   // Add debug logging
   console.log("Bar details:", {
