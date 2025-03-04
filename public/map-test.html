@@ -1,0 +1,113 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Leaflet Map Test</title>
+  <link rel="stylesheet" href="https://unpkg.com/leaflet@1.7.1/dist/leaflet.css" />
+  <style>
+    body, html {
+      margin: 0;
+      padding: 0;
+      height: 100%;
+      width: 100%;
+    }
+    #map {
+      height: 100%;
+      width: 100%;
+    }
+    .marker-popup {
+      padding: 8px;
+    }
+    .marker-popup h3 {
+      margin-top: 0;
+      margin-bottom: 8px;
+      font-weight: 600;
+    }
+    .marker-popup p {
+      margin: 4px 0;
+      font-size: 14px;
+    }
+  </style>
+</head>
+<body>
+  <div id="map"></div>
+
+  <script src="https://unpkg.com/leaflet@1.7.1/dist/leaflet.js"></script>
+  <script>
+    // Initialize the map
+    const map = L.map('map').setView([28.0836, -80.6081], 10);
+    
+    // Add OpenStreetMap tile layer
+    L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+      attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors',
+      maxZoom: 19,
+      subdomains: ['a', 'b', 'c']
+    }).addTo(map);
+    
+    // Custom marker icon
+    const barIcon = L.divIcon({
+      html: `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" width="24" height="24" fill="#FF0000">
+        <path d="M12 2C8.13 2 5 5.13 5 9c0 5.25 7 13 7 13s7-7.75 7-13c0-3.87-3.13-7-7-7zm0 9.5c-1.38 0-2.5-1.12-2.5-2.5s1.12-2.5 2.5-2.5 2.5 1.12 2.5 2.5-1.12 2.5-2.5 2.5z"/>
+      </svg>`,
+      className: '',
+      iconSize: [24, 24],
+      iconAnchor: [12, 24],
+      popupAnchor: [0, -24],
+    });
+    
+    // Get current origin
+    const origin = window.location.origin;
+    
+    // Fetch kava bars from API with full URL
+    fetch(`${origin}/api/kava-bars`)
+      .then(response => response.json())
+      .then(data => {
+        console.log('Loaded bars:', data.length);
+        
+        // Add markers for each bar
+        data.forEach(bar => {
+          if (bar.location) {
+            const location = typeof bar.location === 'string' 
+              ? JSON.parse(bar.location) 
+              : bar.location;
+              
+            if (location && location.lat && location.lng) {
+              const marker = L.marker([location.lat, location.lng], { icon: barIcon }).addTo(map);
+              
+              // Create popup content
+              const popupContent = `
+                <div class="marker-popup">
+                  <h3>${bar.name}</h3>
+                  <p>${bar.address}</p>
+                  ${bar.phone ? `<p>${bar.phone}</p>` : ''}
+                </div>
+              `;
+              
+              marker.bindPopup(popupContent);
+            }
+          }
+        });
+        
+        // Center map on Melbourne, FL area if no initial view was set
+        if (!map.getZoom()) {
+          map.setView([28.0836, -80.6081], 10);
+        }
+      })
+      .catch(error => {
+        console.error('Error fetching kava bars:', error);
+        // Add an error message to the map
+        const errorDiv = document.createElement('div');
+        errorDiv.style.position = 'absolute';
+        errorDiv.style.top = '50%';
+        errorDiv.style.left = '50%';
+        errorDiv.style.transform = 'translate(-50%, -50%)';
+        errorDiv.style.backgroundColor = 'rgba(255, 255, 255, 0.8)';
+        errorDiv.style.padding = '10px';
+        errorDiv.style.borderRadius = '5px';
+        errorDiv.textContent = 'Error loading kava bars. Please try again later.';
+        document.body.appendChild(errorDiv);
+      });
+  </script>
+</body>
+</html>

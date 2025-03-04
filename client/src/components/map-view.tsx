@@ -3,19 +3,22 @@ import { MapContainer, TileLayer, Marker, Popup, useMap } from 'react-leaflet';
 import type { KavaBar } from '@/hooks/use-kava-bars';
 import { Loader2 } from 'lucide-react';
 import 'leaflet/dist/leaflet.css';
+import './map-styles.css';
 import L from 'leaflet';
 
-// Fix Leaflet default icon issues
-import icon from 'leaflet/dist/images/marker-icon.png';
-import iconShadow from 'leaflet/dist/images/marker-shadow.png';
-
+// Fix for Leaflet default icon paths
+// Use CDN URLs directly to avoid build issues with image imports
 let DefaultIcon = L.icon({
-  iconUrl: icon,
-  shadowUrl: iconShadow,
+  iconUrl: 'https://unpkg.com/leaflet@1.7.1/dist/images/marker-icon.png',
+  iconRetinaUrl: 'https://unpkg.com/leaflet@1.7.1/dist/images/marker-icon-2x.png',
+  shadowUrl: 'https://unpkg.com/leaflet@1.7.1/dist/images/marker-shadow.png',
   iconSize: [25, 41],
-  iconAnchor: [12, 41]
+  iconAnchor: [12, 41],
+  popupAnchor: [1, -34],
+  shadowSize: [41, 41]
 });
 
+// Set the default icon for all markers
 L.Marker.prototype.options.icon = DefaultIcon;
 
 // Use simple SVG-based icons
@@ -94,19 +97,52 @@ function parseLocation(location: any): { lat: number, lng: number } | null {
 export default function MapView({ bars, center, zoom = 4, userLocation }: MapViewProps) {
   const [isLoading, setIsLoading] = useState(true);
   const [mapError, setMapError] = useState<string | null>(null);
-  const defaultCenter = center || { lat: 39.8283, lng: -98.5795 };
+  const [isLeafletLoaded, setIsLeafletLoaded] = useState<boolean>(!!L && !!L.map);
+  const defaultCenter = center || { lat: 39.8283, lng: -98.5795 }; // Default to center of US
+  
+  // Verify Leaflet is loaded
+  useEffect(() => {
+    if (!isLeafletLoaded) {
+      console.error('Leaflet not properly loaded!');
+      setMapError('Map library failed to load properly. Please refresh the page.');
+    } else {
+      console.log('Leaflet loaded successfully!');
+    }
+  }, [isLeafletLoaded]);
+  
+  // Debugging information
+  useEffect(() => {
+    console.log('Map component rendering with:', {
+      barsCount: bars.length,
+      center: defaultCenter,
+      userLocation,
+      leafletLoaded: isLeafletLoaded
+    });
+  }, [bars, defaultCenter, userLocation, isLeafletLoaded]);
+
+  useEffect(() => {
+    // Set a timeout to ensure loading screen doesn't stay indefinitely
+    const timeout = setTimeout(() => {
+      if (isLoading) {
+        console.log('Map still loading after timeout, forcing ready state');
+        setIsLoading(false);
+      }
+    }, 5000); // 5 second timeout
+    
+    return () => clearTimeout(timeout);
+  }, [isLoading]);
 
   return (
-    <div className="relative w-full h-full bg-background rounded-lg overflow-hidden">
+    <div className="map-outer-container">
       {isLoading && (
-        <div className="absolute inset-0 flex flex-col items-center justify-center bg-background/80 backdrop-blur-sm z-[1000]">
+        <div className="map-loading">
           <Loader2 className="h-8 w-8 animate-spin" />
           <p className="text-sm text-muted-foreground mt-2">Loading map...</p>
         </div>
       )}
 
       {mapError && (
-        <div className="absolute inset-0 flex items-center justify-center bg-background/80 z-[1000]">
+        <div className="map-error">
           <p className="text-destructive">{mapError}</p>
         </div>
       )}
@@ -117,19 +153,19 @@ export default function MapView({ bars, center, zoom = 4, userLocation }: MapVie
         scrollWheelZoom={true}
         doubleClickZoom={true}
         dragging={true}
-        whenReady={() => setIsLoading(false)}
+        whenReady={() => {
+          console.log('Map is ready');
+          setIsLoading(false);
+        }}
         className="h-full w-full"
       >
         <MapUpdater center={center} zoom={zoom} />
 
         <TileLayer
-          url="https://tile.openstreetmap.org/{z}/{x}/{y}.png"
+          url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
           attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
           maxZoom={19}
-          crossOrigin=""
-          keepBuffer={8}
-          updateWhenZooming={false}
-          updateWhenIdle={true}
+          subdomains={['a', 'b', 'c']}
           eventHandlers={{
             loading: () => {
               console.log('Tiles loading...');
