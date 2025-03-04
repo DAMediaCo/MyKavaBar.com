@@ -40,9 +40,10 @@ async function fetchKavaBarsByCoordinates(lat: number, lng: number) {
             console.log(`Found ${places.length} results for "${keyword}"`);
 
             for (const place of places) {
-                // Check if place already exists
+                // Check if place already exists by place ID
+                const placeId = place.place_id;
                 const existing = await db.query.kavaBars.findFirst({
-                    where: eq(kavaBars.placeId, place.place_id),
+                    where: (bars) => eq(bars.placeId, placeId),
                 });
 
                 const now = new Date();
@@ -57,6 +58,8 @@ async function fetchKavaBarsByCoordinates(lat: number, lng: number) {
                     });
 
                     let details = details_request.data.result;
+                    const formatted_phone = details.formatted_phone_number || null;
+                    const opening_hours = details.opening_hours || null;
 
                     console.log("debug: place name: ", place.name);
                     console.log("debug: details: ", details);
@@ -72,19 +75,17 @@ async function fetchKavaBarsByCoordinates(lat: number, lng: number) {
                                     lat: place.geometry.location.lat,
                                     lng: place.geometry.location.lng,
                                 }),
-                                rating: (place.rating || 0).toString(),
-                                googleRating: (place.rating || 0).toString(),
+                                rating: place.rating || 0,
                                 businessStatus:
                                     place.business_status || "OPERATIONAL",
-                                googleTypes: place.types || [],
                                 verificationStatus: "pending",
-                                dataCompletenessScore: "0.5",
+                                dataCompletenessScore: 0.5,
                                 isVerifiedKavaBar: false,
                                 verificationNotes: `Found by coordinates: ${lat}, ${lng}`,
                                 createdAt: now,
                                 lastVerified: now,
-                                phone: details.formatted_phone_number || "",
-                                hours: details.opening_hours || {},
+                                phone: formatted_phone,
+                                hours: opening_hours,
                             });
 
                             totalAdded++;
@@ -98,7 +99,7 @@ async function fetchKavaBarsByCoordinates(lat: number, lng: number) {
                     } else {
                         console.log(`Updating existing bar: ${place.name}`);
 
-                        db.update(kavaBars)
+                        await db.update(kavaBars)
                             .set({
                                 name: place.name || "",
                                 address: place.vicinity || "",
@@ -106,27 +107,21 @@ async function fetchKavaBarsByCoordinates(lat: number, lng: number) {
                                     lat: place.geometry.location.lat,
                                     lng: place.geometry.location.lng,
                                 }),
-                                rating: (place.rating || 0).toString(),
-                                googleRating: (place.rating || 0).toString(),
+                                rating: place.rating || 0,
                                 businessStatus:
                                     place.business_status || "OPERATIONAL",
-                                googleTypes: place.types || [],
                                 verificationStatus: "pending",
-                                dataCompletenessScore: "0.5",
+                                dataCompletenessScore: 0.5,
                                 verificationNotes: `Found by coordinates: ${lat}, ${lng}`,
                                 lastVerified: now,
-                                phone: details.formatted_phone_number || "",
-                                hours: details.opening_hours || {},
+                                phone: formatted_phone,
+                                hours: opening_hours,
                             })
-                            .where(eq(kavaBars.placeId, place.place_id))
+                            .where((bars) => eq(bars.placeId, placeId))
                             .execute();
 
-                        console.log(
-                            "debug: phone: ",
-                            place.formatted_phone_number,
-                        );
-                        console.log("debug: hours: ", place.opening_hours);
-
+                        console.log("debug: phone: ", formatted_phone);
+                        console.log("debug: hours: ", opening_hours);
                         console.log("debug: place: ", place);
                     }
                 }

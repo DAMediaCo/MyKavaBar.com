@@ -1,7 +1,7 @@
 import { useState } from "react";
 import { useUser } from "@/hooks/use-user";
 import { useToast } from "@/hooks/use-toast";
-import { Card, CardContent } from "@/components/ui/card";
+import { Card, CardContent, CardHeader, CardTitle, CardDescription, CardFooter } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import {
@@ -18,8 +18,20 @@ import {
   DialogHeader,
   DialogTitle,
   DialogTrigger,
+  DialogFooter,
+  DialogDescription,
 } from "@/components/ui/dialog";
-import { Loader2, Pencil, Trash, Plus, RefreshCw, MapPin } from "lucide-react";
+import { 
+  Loader2, 
+  Pencil, 
+  Trash, 
+  Plus, 
+  RefreshCw, 
+  MapPin, 
+  DatabaseBackup, 
+  CheckCircle2, 
+  AlertCircle 
+} from "lucide-react";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { useForm } from "react-hook-form";
 import * as z from "zod";
@@ -428,6 +440,192 @@ export default function ManageBars() {
           </Form>
         </DialogContent>
       </Dialog>
+
+      {/* Data Management Section */}
+      <Card className="mb-6">
+        <CardHeader>
+          <CardTitle>Data Management</CardTitle>
+          <CardDescription>Restore missing data from backups or update information from external sources.</CardDescription>
+        </CardHeader>
+        <CardContent>
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <div className="space-y-4">
+              <h3 className="text-lg font-medium">Florida Kava Bars Restoration</h3>
+              <p className="text-sm text-muted-foreground">
+                Analyze and restore missing Florida kava bars from the backup created on January 27, 2025.
+              </p>
+              <div className="flex flex-col gap-2">
+                <Button
+                  variant="outline"
+                  className="gap-2 w-full"
+                  onClick={() => {
+                    // Implement the analysis function here
+                    toast({
+                      title: "Analysis Started",
+                      description: "Analyzing missing Florida bars from backup...",
+                    });
+                    
+                    fetch("/api/admin/restore-florida-bars", {
+                      method: "POST",
+                      credentials: "include",
+                      headers: { "Content-Type": "application/json" },
+                    })
+                    .then(response => {
+                      if (!response.ok) throw new Error("Failed to analyze Florida bars");
+                      return response.json();
+                    })
+                    .then(data => {
+                      if (data.success) {
+                        const analyzedCount = data.result?.analyzed || 0;
+                        toast({
+                          title: "Analysis Complete",
+                          description: `Found ${analyzedCount} missing Florida bars.`,
+                          variant: "default",
+                        });
+                        // Log to console for debugging
+                        console.log("Analysis complete:", data.result);
+                      } else {
+                        throw new Error(data.error || "Unknown error occurred");
+                      }
+                    })
+                    .catch(error => {
+                      toast({
+                        title: "Analysis Failed",
+                        description: error.message,
+                        variant: "destructive",
+                      });
+                    });
+                  }}
+                >
+                  <DatabaseBackup className="h-4 w-4" />
+                  Analyze Missing Bars
+                </Button>
+                
+                <Button
+                  variant="default"
+                  className="gap-2 w-full"
+                  onClick={() => {
+                    if (!window.confirm("Are you sure you want to restore missing Florida bars? This operation cannot be undone.")) {
+                      return;
+                    }
+                    
+                    toast({
+                      title: "Restoration Started",
+                      description: "Starting to restore missing Florida bars...",
+                    });
+                    
+                    // First analyze to get the list of missing bars
+                    fetch("/api/admin/restore-florida-bars", {
+                      method: "POST",
+                      credentials: "include",
+                      headers: { "Content-Type": "application/json" },
+                    })
+                    .then(response => {
+                      if (!response.ok) throw new Error("Failed to analyze Florida bars");
+                      return response.json();
+                    })
+                    .then(data => {
+                      if (!data.success || !data.result) {
+                        throw new Error("Analysis failed");
+                      }
+                      
+                      // If analysis found missing bars, send them for restoration
+                      const missingBars = data.result.missingBars;
+                      if (!missingBars || missingBars.length === 0) {
+                        toast({
+                          title: "No Action Needed",
+                          description: "No missing Florida bars found. Nothing to restore.",
+                          variant: "default",
+                        });
+                        return;
+                      }
+                      
+                      // Confirm restoration with the analyzed bars
+                      return fetch("/api/admin/confirm-restore-florida-bars", {
+                        method: "POST",
+                        credentials: "include",
+                        headers: { "Content-Type": "application/json" },
+                        body: JSON.stringify({ missingBars }),
+                      });
+                    })
+                    .then(response => {
+                      if (!response) return; // No restoration was needed
+                      if (!response.ok) throw new Error("Failed to restore Florida bars");
+                      return response.json();
+                    })
+                    .then(data => {
+                      if (!data) return; // No restoration was performed
+                      
+                      if (data.success) {
+                        toast({
+                          title: "Restoration Complete",
+                          description: data.message || `Restored ${data.result?.restored || 0} Florida bars.`,
+                          variant: "default",
+                        });
+                        
+                        // Refresh the bar list
+                        queryClient.invalidateQueries({ queryKey: ["admin-bars", sortBy] });
+                      } else {
+                        throw new Error(data.error || "Unknown error occurred during restoration");
+                      }
+                    })
+                    .catch(error => {
+                      toast({
+                        title: "Restoration Failed",
+                        description: error.message,
+                        variant: "destructive",
+                      });
+                    });
+                  }}
+                >
+                  <CheckCircle2 className="h-4 w-4" />
+                  Restore Missing Bars
+                </Button>
+              </div>
+            </div>
+            
+            <div className="space-y-4">
+              <h3 className="text-lg font-medium">Data Metrics</h3>
+              <p className="text-sm text-muted-foreground">
+                Current database statistics and data completeness.
+              </p>
+              
+              <div className="flex flex-col gap-2">
+                <div className="flex justify-between text-sm">
+                  <span>Total Kava Bars:</span>
+                  <span className="font-medium">{sortedBars.length}</span>
+                </div>
+                
+                <div className="flex justify-between text-sm">
+                  <span>Florida Bars:</span>
+                  <span className="font-medium">
+                    {sortedBars.filter(bar => 
+                      bar.address && 
+                      (bar.address.includes(", FL") || bar.address.includes(", Florida"))
+                    ).length}
+                  </span>
+                </div>
+                
+                <div className="flex justify-between text-sm">
+                  <span>Verified Bars:</span>
+                  <span className="font-medium">
+                    {sortedBars.filter(bar => 
+                      bar.verificationStatus === "verified"
+                    ).length}
+                  </span>
+                </div>
+                
+                <div className="flex justify-between text-sm">
+                  <span>Missing Location Data:</span>
+                  <span className="font-medium">
+                    {sortedBars.filter(bar => !bar.location).length}
+                  </span>
+                </div>
+              </div>
+            </div>
+          </div>
+        </CardContent>
+      </Card>
 
       {/* Bar List */}
       <div className="grid gap-4">
