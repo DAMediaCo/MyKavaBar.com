@@ -320,7 +320,7 @@ export function registerRoutes(app: Express, server: Server): void {
             WHERE k.verification_status != 'not_kava_bar'
             AND k.verification_status IS NOT NULL
             ORDER BY k.is_sponsored DESC, k.rating DESC
-            LIMIT 100
+            LIMIT 1000
           `);
           },
           {
