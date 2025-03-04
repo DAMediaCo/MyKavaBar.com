@@ -33,7 +33,7 @@ export default function KavatenderCheckin({ barId }: { barId: number }) {
         user?.role === "bar_owner"),
   });
 
-  consoole.log("Current checkins ", currentCheckIn);
+  console.log("Current checkins ", currentCheckIn);
 
   const checkInMutation = useMutation({
     mutationFn: async () => {
