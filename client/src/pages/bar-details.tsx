@@ -75,13 +75,33 @@ const HoursDisplay = ({
     );
   }
 
+  // Function to convert 24-hour format to 12-hour format
+  const convertTo12HourFormat = (timeText: string) => {
+    return timeText.replace(/(\d{1,2}):(\d{2}) ([AP]M) – (\d{1,2}):(\d{2}) ([AP]M)/g, (match) => {
+      // Time is already in 12-hour format
+      return match;
+    }).replace(/(\d{1,2}):(\d{2}) – (\d{1,2}):(\d{2})/g, (match, openHour, openMin, closeHour, closeMin) => {
+      // Convert from 24-hour format to 12-hour format
+      let openH = parseInt(openHour);
+      let closeH = parseInt(closeHour);
+      
+      const openAmPm = openH >= 12 ? 'PM' : 'AM';
+      const closeAmPm = closeH >= 12 ? 'PM' : 'AM';
+      
+      openH = openH % 12 || 12; // Convert 0 to 12
+      closeH = closeH % 12 || 12;
+      
+      return `${openH}:${openMin} ${openAmPm} – ${closeH}:${closeMin} ${closeAmPm}`;
+    });
+  };
+
   return (
     <div className="flex items-start gap-2">
       <Clock className="h-4 w-4 mt-1 shrink-0" />
       <div className="space-y-1">
         {hours.weekday_text.map((text, index) => (
           <div key={index} className="text-sm text-foreground">
-            {text}
+            {convertTo12HourFormat(text)}
           </div>
         ))}
       </div>
