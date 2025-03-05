@@ -45,6 +45,7 @@ import fs from "node:fs/promises";
 import phoneRoutes from "./routes/phone";
 import reviewRoutes from "./routes/reviews";
 import adminRoutes from "./routes/admin";
+import { registerEventRoutes } from "./routes/events";
 import multer from "multer";
 import sharp from "sharp";
 import { randomUUID } from "crypto";
@@ -152,6 +153,8 @@ export function registerRoutes(app: Express, server: Server): void {
   app.use(reviewRoutes);
   // Add admin routes
   app.use("/api/admin", adminRoutes);
+  // Register event routes
+  registerEventRoutes(app);
 
   // Set up WebSocket server with error handling
   try {
