@@ -160,6 +160,12 @@ export default function Home() {
         <div className="space-y-4">
           {/* SpinningWheel component temporarily removed */}
 
+          <div className="text-center my-3">
+            <a href="mailto:info@mykavabar.com" className="text-blue-500 hover:underline">
+              Is your Kava Bar missing? Contact at info@mykavabar.com
+            </a>
+          </div>
+
           <div className="flex flex-col sm:flex-row gap-4 items-center">
             <div className="relative flex-1">
               <Search className="absolute left-3 top-3 h-4 w-4 text-muted-foreground" />
