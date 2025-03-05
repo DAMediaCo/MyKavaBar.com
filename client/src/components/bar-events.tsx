@@ -262,7 +262,7 @@ export default function BarEvents({ barId, ownerId }: BarEventsProps) {
                     <div className="flex items-center justify-between">
                       <h4 className="font-medium">{event.title}</h4>
                       <Badge variant="secondary">
-                        {format(new Date(event.startDate!), 'EEEE, MMMM d, yyyy')}
+                        {format(new Date(event.startDate!), 'MMM d, yyyy')}
                       </Badge>
                     </div>
                     <div className="text-sm text-muted-foreground">
