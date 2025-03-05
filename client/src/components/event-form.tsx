@@ -118,6 +118,7 @@ export function EventForm({ onSubmit, isSubmitting, defaultValues }: EventFormPr
                 <FormControl>
                   <Input type="time" {...field} />
                 </FormControl>
+                <FormDescription className="text-xs">24-hour format will be displayed as AM/PM</FormDescription>
                 <FormMessage />
               </FormItem>
             )}
@@ -132,6 +133,7 @@ export function EventForm({ onSubmit, isSubmitting, defaultValues }: EventFormPr
                 <FormControl>
                   <Input type="time" {...field} />
                 </FormControl>
+                <FormDescription className="text-xs">24-hour format will be displayed as AM/PM</FormDescription>
                 <FormMessage />
               </FormItem>
             )}
