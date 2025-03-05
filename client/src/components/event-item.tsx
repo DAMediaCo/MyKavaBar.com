@@ -20,13 +20,23 @@ const formatDay = (day: number | null) => {
 
 export function EventItem({ event, showBarName = false, onDelete, isDeleting = false }: EventItemProps) {
   // Ensure correct date is displayed by using proper date parsing and handling potential timezone issues
-  const getFormattedDate = (dateString: string | null) => {
+  const getFormattedDate = (dateString: string | null | undefined) => {
     if (!dateString) return '';
 
     try {
-      const date = parseISO(dateString); // Parse ISO 8601 string
-      const formattedDate = format(date, 'MMM d, yyyy'); //removed timezone display for simplicity
-      return formattedDate;
+      // Parse the ISO date string and ensure we show the intended date
+      const date = parseISO(dateString);
+
+      // Ensure we display the date as stored in UTC without local timezone adjustment
+      const year = date.getUTCFullYear();
+      const month = date.getUTCMonth();
+      const day = date.getUTCDate();
+
+      // Create a date object with the UTC components
+      const displayDate = new Date(year, month, day);
+
+      // Format the date without timezone adjustments
+      return format(displayDate, 'MMM d, yyyy');
     } catch (error) {
       console.error('Error formatting date:', error);
       return 'Invalid date';

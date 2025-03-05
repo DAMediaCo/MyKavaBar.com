@@ -19,16 +19,23 @@ const daysOfWeek = [
 
 export function EventCard({ event, className = '' }: EventCardProps) {
   // Ensure correct date is displayed by using proper date parsing
-  const getFormattedDate = (dateString: string | null) => {
+  const formatDate = (dateString: string | null | undefined) => {
     if (!dateString) return '';
 
     try {
-      // Parse the ISO date string and handle timezone conversion properly
-      // Use the date parts to create a UTC date that will display the correct date
+      // Parse the ISO date string and ensure we show the intended date
       const date = parseISO(dateString);
 
-      // Format using the date with timezone offset consideration
-      return format(date, 'MMM d, yyyy');
+      // Ensure we display the date as stored in UTC without local timezone adjustment
+      const year = date.getUTCFullYear();
+      const month = date.getUTCMonth();
+      const day = date.getUTCDate();
+
+      // Create a date object with the UTC components
+      const displayDate = new Date(year, month, day);
+
+      // Format using the correct date
+      return format(displayDate, 'MMM d, yyyy');
     } catch (error) {
       console.error('Error formatting date:', error);
       return 'Invalid date';
@@ -49,7 +56,7 @@ export function EventCard({ event, className = '' }: EventCardProps) {
             {event.isRecurring 
               ? `${daysOfWeek[event.dayOfWeek!]}, `
               : event.startDate 
-                ? `${getFormattedDate(event.startDate)}, `
+                ? `${formatDate(event.startDate)}, `
                 : ''}
             {format(new Date(`1970-01-01T${event.startTime}`), 'h:mm a')} - {' '}
             {format(new Date(`1970-01-01T${event.endTime}`), 'h:mm a')}

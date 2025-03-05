@@ -54,10 +54,13 @@ export function EventForm({ onSubmit, isSubmitting, defaultValues }: EventFormPr
   });
 
   const handleSubmit = (data: EventFormValues) => {
-    // Convert dates to UTC before submission
-    const utcStartDate = data.startDate ? new Date(data.startDate).toISOString() : undefined;
-    const utcEndDate = data.endDate ? new Date(data.endDate).toISOString() : undefined;
-    onSubmit({ ...data, startDate: utcStartDate, endDate: utcEndDate });
+    // Preserve the exact date strings from the form without timezone conversion
+    // This ensures the dates remain as selected by the user
+    onSubmit({ 
+      ...data, 
+      startDate: data.startDate, // Just pass the YYYY-MM-DD string directly
+      endDate: data.endDate 
+    });
   };
 
 
