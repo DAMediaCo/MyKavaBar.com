@@ -267,7 +267,10 @@ export default function BarDetails() {
             </CardContent>
           </Card>
 
-          {/* Reviews section - visible to all users */}
+          {/* Events section - visible to all users */}
+          <BarEvents barId={bar.id} ownerId={bar.ownerId} />
+
+{/* Reviews section - visible to all users */}
           <Card>
             <CardHeader>
               <CardTitle>Reviews</CardTitle>
@@ -277,9 +280,6 @@ export default function BarDetails() {
               <ReviewList barId={bar.id} />
             </CardContent>
           </Card>
-
-          {/* Only show events if user is authenticated */}
-          {user && <BarEvents barId={bar.id} ownerId={bar.ownerId} />}
         </div>
 
         {/* Right column - Authenticated Content */}
