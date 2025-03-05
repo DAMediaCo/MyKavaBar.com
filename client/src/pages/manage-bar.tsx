@@ -577,8 +577,8 @@ export default function ManageBar() {
                             )}
                             <p className="text-sm mt-2">
                               {daysOfWeek[event.dayOfWeek]},{" "}
-                              {event.startTime.slice(0, 5)} -{" "}
-                              {event.endTime.slice(0, 5)}
+                              {format(new Date(`1970-01-01T${event.startTime}`), 'h:mm a')} -{" "}
+                              {format(new Date(`1970-01-01T${event.endTime}`), 'h:mm a')}
                             </p>
                           </div>
                           <Button
