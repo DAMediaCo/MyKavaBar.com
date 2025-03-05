@@ -20,28 +20,18 @@ export const uploadImageToStorage = async (
     fileName: string,
 ) => {
     try {
-        // Check if environment variables are properly set
-        if (!process.env.R2_BUCKET) {
-            console.error("R2_BUCKET environment variable is not set");
-            throw new Error("Storage configuration missing");
-        }
-        
-        console.log(`Uploading file: ${fileName} (${buffer.length} bytes) to bucket: ${process.env.R2_BUCKET}`);
-        
         const uploadCommand = new PutObjectCommand({
             Bucket: process.env.R2_BUCKET,
             Key: fileName,
             Body: buffer,
-            ContentType: "image/jpeg",
-            ACL: "public-read",
         });
 
         await s3Client.send(uploadCommand);
         const publicUrl = generatePublicUrl(fileName);
-        console.log("Successfully uploaded image to storage:", publicUrl);
+        console.log("Uploaded image to R2:", publicUrl);
         return { publicUrl };
     } catch (error: any) {
-        console.error("[UPLOAD TO STORAGE ERROR]", error.message, error.stack);
-        throw new Error(`Failed to upload file to storage: ${error.message}`);
+        console.error("[UPLOAD TO STORAGE ERROR]", error.message);
+        throw new Error(error || "Failed to upload file to storage");
     }
 };

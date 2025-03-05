@@ -43,22 +43,18 @@ export function PhotoUploader({ barId, onSuccess }: Props) {
     try {
       setIsUploading(true);
 
-      console.log("Starting upload to server...");
       const response = await fetch(`/api/bars/${barId}/photos`, {
         method: "POST",
         body: formData,
         credentials: "include",
       });
-      
-      console.log("Server response status:", response.status);
-      
+      console.log("Sending response to the api");
       if (!response.ok) {
-        const errorText = await response.text();
-        console.error("Upload failed:", errorText);
-        throw new Error(errorText || "Failed to upload photo");
+        console.log("Response doesn't seems to be okay");
+        throw new Error(await response.text());
       }
 
-      console.log("Photo upload successful");
+      console.log("Reponse was seems to be okay");
 
       // Notify the bar owner about the new photo
 
