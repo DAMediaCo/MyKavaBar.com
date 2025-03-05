@@ -1547,6 +1547,128 @@ export function registerRoutes(app: Express, server: Server): void {
       res.status(500).json({ error: error.message });
     }
   });
+  
+  // Admin CRUD endpoints for kava bars management
+  
+  // Create a new kava bar
+  app.post("/api/admin/bars", async (req, res) => {
+    if (!req.isAuthenticated()) {
+      return res.status(401).json({ error: "Not authenticated" });
+    }
+
+    if (!req.user.isAdmin) {
+      return res.status(403).json({ error: "Admin access required" });
+    }
+    
+    try {
+      const barData = req.body;
+      const locationValue = barData.location ? JSON.stringify(barData.location) : null;
+      const ratingValue = barData.rating ? parseFloat(barData.rating) : null;
+      
+      // Insert the new bar
+      const result = await db.insert(kavaBars).values({
+        name: barData.name,
+        address: barData.address,
+        phone: barData.phone || null,
+        placeId: barData.placeId || null,
+        rating: ratingValue,
+        location: locationValue,
+        verificationStatus: 'pending',
+        businessStatus: 'OPERATIONAL',
+        createdAt: new Date(),
+        updatedAt: new Date()
+      }).returning();
+      
+      res.status(201).json(result[0]);
+    } catch (error: any) {
+      console.error("Error adding bar:", error);
+      res.status(500).json({ error: error.message });
+    }
+  });
+  
+  // Update an existing kava bar
+  app.put("/api/admin/bars/:id", async (req, res) => {
+    if (!req.isAuthenticated()) {
+      return res.status(401).json({ error: "Not authenticated" });
+    }
+
+    if (!req.user.isAdmin) {
+      return res.status(403).json({ error: "Admin access required" });
+    }
+    
+    const { id } = req.params;
+    const barId = parseInt(id);
+    
+    if (isNaN(barId)) {
+      return res.status(400).json({ error: "Invalid bar ID" });
+    }
+    
+    try {
+      const barData = req.body;
+      const locationValue = barData.location ? JSON.stringify(barData.location) : null;
+      const ratingValue = barData.rating ? parseFloat(barData.rating) : null;
+      
+      // Update the bar
+      const result = await db.update(kavaBars)
+        .set({
+          name: barData.name,
+          address: barData.address,
+          phone: barData.phone || null,
+          placeId: barData.placeId || null,
+          rating: ratingValue,
+          location: locationValue,
+          updatedAt: new Date()
+        })
+        .where(eq(kavaBars.id, barId))
+        .returning();
+      
+      if (result.length === 0) {
+        return res.status(404).json({ error: "Bar not found" });
+      }
+      
+      res.json(result[0]);
+    } catch (error: any) {
+      console.error("Error updating bar:", error);
+      res.status(500).json({ error: error.message });
+    }
+  });
+  
+  // Delete a kava bar
+  app.delete("/api/admin/bars/:id", async (req, res) => {
+    if (!req.isAuthenticated()) {
+      return res.status(401).json({ error: "Not authenticated" });
+    }
+
+    if (!req.user.isAdmin) {
+      return res.status(403).json({ error: "Admin access required" });
+    }
+    
+    const { id } = req.params;
+    const barId = parseInt(id);
+    
+    if (isNaN(barId)) {
+      return res.status(400).json({ error: "Invalid bar ID" });
+    }
+    
+    try {
+      // First, check if the bar exists
+      const existingBar = await db.query.kavaBars.findFirst({
+        where: eq(kavaBars.id, barId)
+      });
+      
+      if (!existingBar) {
+        return res.status(404).json({ error: "Bar not found" });
+      }
+      
+      // Delete the bar
+      await db.delete(kavaBars).where(eq(kavaBars.id, barId));
+      
+      res.json({ success: true, message: "Bar deleted successfully" });
+    } catch (error: any) {
+      console.error("Error deleting bar:", error);
+      res.status(500).json({ error: error.message });
+    }
+  });
 
   app.post("/api/admin/verification-requests/:id/approve", async (req, res) => {
     if (!req.isAuthenticated() || !req.user.isAdmin) {
