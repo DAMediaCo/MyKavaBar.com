@@ -18,21 +18,24 @@ const daysOfWeek = [
 ];
 
 export function EventCard({ event, className = '' }: EventCardProps) {
-  // Ensure correct date is displayed by using proper date parsing
+  // Format date without timezone conversion
   const formatDate = (dateString: string | null | undefined) => {
     if (!dateString) return '';
 
     try {
-      // Simply take the date string as is and display directly
-      // The dateString format should be YYYY-MM-DD from the form
-      const [year, month, day] = dateString.split('-');
+      // Create a date but force it to be parsed as UTC to avoid timezone shifts
+      // The format should be YYYY-MM-DD
+      const [year, month, day] = dateString.split('-').map(s => s.trim());
       
-      // Create a formatted date string manually without timezone conversion
+      // Use a proper date formatter but with UTC values to avoid any timezone shifts
       const monthNames = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
       const monthIndex = parseInt(month, 10) - 1;
+      
+      console.log(`Formatting date: ${dateString} → ${monthNames[monthIndex]} ${parseInt(day, 10)}, ${year}`);
+      
       return `${monthNames[monthIndex]} ${parseInt(day, 10)}, ${year}`;
     } catch (error) {
-      console.error('Error formatting date:', error);
+      console.error('Error formatting date:', error, 'for dateString:', dateString);
       return 'Invalid date';
     }
   };

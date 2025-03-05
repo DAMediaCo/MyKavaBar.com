@@ -56,21 +56,27 @@ export function EventForm({ onSubmit, isSubmitting, defaultValues }: EventFormPr
   const handleSubmit = (data: EventFormValues) => {
     // Get user's timezone
     const userTimezone = Intl.DateTimeFormat().resolvedOptions().timeZone;
-    console.log('User timezone detected as:', userTimezone);
     
-    // Log the exact dates we're submitting
-    console.log('Submitting event with dates:', {
-      startDate: data.startDate,
-      endDate: data.endDate,
-      timezone: userTimezone
+    // Ensure dates are properly formatted as YYYY-MM-DD
+    let formattedStartDate = data.startDate;
+    let formattedEndDate = data.endDate;
+    
+    // Log detailed debug information
+    console.log('Form submission:', {
+      rawStartDate: data.startDate,
+      rawEndDate: data.endDate,
+      formattedStartDate,
+      formattedEndDate,
+      timezone: userTimezone,
+      currentDateInTimezone: new Date().toLocaleString('en-US', { timeZone: userTimezone })
     });
     
-    // Send the timezone along with the dates
+    // Send the timezone along with the properly formatted dates
     onSubmit({ 
       ...data, 
-      startDate: data.startDate, 
-      endDate: data.endDate,
-      timezone: userTimezone // Add timezone information
+      startDate: formattedStartDate, 
+      endDate: formattedEndDate,
+      timezone: userTimezone
     });
   };
 

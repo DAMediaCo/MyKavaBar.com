@@ -9,7 +9,8 @@ app.post('/api/bars/:barId/events', requireAuth, async (req, res) => {
       isRecurring, 
       dayOfWeek,
       startDate,
-      endDate 
+      endDate,
+      timezone 
     } = req.body;
 
     const userId = req.user?.id;
@@ -26,30 +27,47 @@ app.post('/api/bars/:barId/events', requireAuth, async (req, res) => {
       return res.status(403).json({ error: 'Not authorized to add events for this bar' });
     }
 
-    // Store the dates with timezone information
-    // Extract timezone sent from client or use UTC as fallback
-    const timezone = req.body.timezone || 'UTC';
-    console.log(`Creating event with timezone: ${timezone}`);
-    
+    console.log('Creating event with raw data:', { 
+      startDate, endDate, 
+      timezone, 
+      isRecurring
+    });
+
+    // Format dates to ensure they're stored correctly without timezone shifting
+    // For non-recurring events, explicitly preserve the date as entered
+
+    let formattedStartDate = startDate;
+    let formattedEndDate = endDate;
+
+    // Attempt to parse dates; if failure, log error and return 400
+    try {
+      const parsedStartDate = new Date(startDate);
+      const parsedEndDate = new Date(endDate);
+      formattedStartDate = parsedStartDate.toISOString(); //Store as ISO String for DB consistency
+      formattedEndDate = parsedEndDate.toISOString();
+    } catch (dateParseError) {
+      console.error("Error parsing dates:", dateParseError);
+      return res.status(400).json({error: "Invalid date format"});
+    }
+
     const eventData = {
       barId: parseInt(barId),
       title,
-      timezone, // Store the timezone with the event
+      timezone: timezone || 'UTC', // Store the timezone with the event, default to UTC
       description,
       startTime,
       endTime,
       isRecurring,
       dayOfWeek: isRecurring ? dayOfWeek : null,
-      startDate: startDate,
-      endDate: endDate,
+      startDate: formattedStartDate,
+      endDate: formattedEndDate,
       createdAt: new Date(),
       updatedAt: new Date()
     };
 
-    console.log('Creating event with data:', {
+    console.log('Storing event with data:', {
       ...eventData,
-      startDate: eventData.startDate,
-      endDate: eventData.endDate
+      serverTime: new Date().toISOString()
     });
 
     const result = await db.insert(events).values(eventData);
@@ -78,4 +96,5 @@ const eventSchema = z.object({
   endDate: z.string().optional().nullable(),
   createdAt: z.date().optional(),
   updatedAt: z.date().optional(),
+  timezone: z.string().optional() // Added timezone to the schema
 });

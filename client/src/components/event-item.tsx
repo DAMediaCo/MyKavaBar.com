@@ -19,21 +19,38 @@ const formatDay = (day: number | null) => {
 };
 
 export function EventItem({ event, showBarName = false, onDelete, isDeleting = false }: EventItemProps) {
-  // Ensure correct date is displayed by using proper date parsing and handling potential timezone issues
+  // Format date without timezone conversion
   const getFormattedDate = (dateString: string | null | undefined) => {
     if (!dateString) return '';
 
     try {
-      // Simply take the date string as is and display directly
-      // The dateString format should be YYYY-MM-DD from the form
-      const [year, month, day] = dateString.split('-');
+      // Handle the case where dateString might have extra whitespace or different formats
+      dateString = dateString.trim();
       
-      // Create a formatted date string manually without timezone conversion
+      let year, month, day;
+      
+      // Handle different possible date formats
+      if (dateString.includes('-')) {
+        [year, month, day] = dateString.split('-').map(s => s.trim());
+      } else if (dateString.includes('/')) {
+        // Handle MM/DD/YYYY format
+        const parts = dateString.split('/').map(s => s.trim());
+        month = parts[0];
+        day = parts[1];
+        year = parts[2];
+      } else {
+        throw new Error(`Unsupported date format: ${dateString}`);
+      }
+      
+      // Use a proper date formatter but avoid timezone conversion
       const monthNames = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
       const monthIndex = parseInt(month, 10) - 1;
+      
+      console.log(`Event item formatting date: ${dateString} → ${monthNames[monthIndex]} ${parseInt(day, 10)}, ${year}`);
+      
       return `${monthNames[monthIndex]} ${parseInt(day, 10)}, ${year}`;
     } catch (error) {
-      console.error('Error formatting date:', error);
+      console.error('Error formatting date:', error, 'for dateString:', dateString);
       return 'Invalid date';
     }
   };
