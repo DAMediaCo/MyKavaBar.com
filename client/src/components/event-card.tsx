@@ -23,14 +23,14 @@ export function EventCard({ event, className = '' }: EventCardProps) {
     if (!dateString) return '';
 
     try {
-      // Handle direct YYYY-MM-DD format strings without parsing to Date object
-      const [year, month, day] = dateString.split('-').map(Number);
+      // Simply take the date string as is and display directly
+      // The dateString format should be YYYY-MM-DD from the form
+      const [year, month, day] = dateString.split('-');
       
-      // Create a date to format correctly, using local timezone to avoid conversion
-      // Use noon time to avoid any date boundary issues
-      const displayDate = new Date(year, month - 1, day, 12, 0, 0);
-      
-      return format(displayDate, 'MMM d, yyyy');
+      // Create a formatted date string manually without timezone conversion
+      const monthNames = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+      const monthIndex = parseInt(month, 10) - 1;
+      return `${monthNames[monthIndex]} ${parseInt(day, 10)}, ${year}`;
     } catch (error) {
       console.error('Error formatting date:', error);
       return 'Invalid date';

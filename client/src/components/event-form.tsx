@@ -54,11 +54,16 @@ export function EventForm({ onSubmit, isSubmitting, defaultValues }: EventFormPr
   });
 
   const handleSubmit = (data: EventFormValues) => {
-    // Preserve the exact date strings from the form without timezone conversion
-    // This ensures the dates remain as selected by the user
+    // Add logging to see exactly what dates we're submitting
+    console.log('Submitting event with dates:', {
+      startDate: data.startDate,
+      endDate: data.endDate
+    });
+    
+    // Preserve the exact date strings from the form without any manipulation
     onSubmit({ 
       ...data, 
-      startDate: data.startDate, // Just pass the YYYY-MM-DD string directly
+      startDate: data.startDate, 
       endDate: data.endDate 
     });
   };

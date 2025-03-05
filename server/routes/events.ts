@@ -26,11 +26,8 @@ app.post('/api/bars/:barId/events', requireAuth, async (req, res) => {
       return res.status(403).json({ error: 'Not authorized to add events for this bar' });
     }
 
-    // Parse dates properly preserving the date as specified by the user without timezone adjustments
-    let parsedStartDate = startDate;
-    let parsedEndDate = endDate;
-
-
+    // Store dates exactly as they come from the form
+    // No parsing needed since we're using the date strings directly
     const eventData = {
       barId: parseInt(barId),
       title,
@@ -39,8 +36,8 @@ app.post('/api/bars/:barId/events', requireAuth, async (req, res) => {
       endTime,
       isRecurring,
       dayOfWeek: isRecurring ? dayOfWeek : null,
-      startDate: parsedStartDate,
-      endDate: parsedEndDate,
+      startDate: startDate,
+      endDate: endDate,
       createdAt: new Date(),
       updatedAt: new Date()
     };
