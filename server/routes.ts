@@ -2132,7 +2132,7 @@ export function registerRoutes(app: Express, server: Server): void {
         // Use the uploadImageToStorage function from your utility
         const { publicUrl } = await uploadImageToStorage(processedImageBuffer, filename);
         
-        console.log("Image uploaded to storage:", publicUrl);dsPath, filename);
+        console.log("Image uploaded to storage:", publicUrl);
 
       console.log("Saving photo to:", filePath);
       await fs.writeFile(filePath, processedImageBuffer);
