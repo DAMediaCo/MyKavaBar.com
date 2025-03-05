@@ -158,7 +158,7 @@ export default function Home() {
     <div className="container mx-auto px-4 py-8" id="home-content">
       <div className="space-y-8">
         <div className="space-y-4">
-          <SpinningWheel bars={kavaBars || []} />
+          {/* SpinningWheel component temporarily removed */}
 
           <div className="flex flex-col sm:flex-row gap-4 items-center">
             <div className="relative flex-1">
