@@ -23,18 +23,13 @@ export function EventCard({ event, className = '' }: EventCardProps) {
     if (!dateString) return '';
 
     try {
-      // Parse the ISO date string and ensure we show the intended date
-      const date = parseISO(dateString);
-
-      // Ensure we display the date as stored in UTC without local timezone adjustment
-      const year = date.getUTCFullYear();
-      const month = date.getUTCMonth();
-      const day = date.getUTCDate();
-
-      // Create a date object with the UTC components
-      const displayDate = new Date(year, month, day);
-
-      // Format using the correct date
+      // Handle direct YYYY-MM-DD format strings without parsing to Date object
+      const [year, month, day] = dateString.split('-').map(Number);
+      
+      // Create a date to format correctly, using local timezone to avoid conversion
+      // Use noon time to avoid any date boundary issues
+      const displayDate = new Date(year, month - 1, day, 12, 0, 0);
+      
       return format(displayDate, 'MMM d, yyyy');
     } catch (error) {
       console.error('Error formatting date:', error);

@@ -27,20 +27,9 @@ app.post('/api/bars/:barId/events', requireAuth, async (req, res) => {
     }
 
     // Parse dates properly preserving the date as specified by the user without timezone adjustments
-    let parsedStartDate = null;
-    let parsedEndDate = null;
+    let parsedStartDate = startDate;
+    let parsedEndDate = endDate;
 
-    if (!isRecurring && startDate) {
-      // Preserve the user-selected date by creating a date in UTC
-      const [year, month, day] = startDate.split('-').map(Number);
-      parsedStartDate = new Date(Date.UTC(year, month - 1, day));
-    }
-
-    if (!isRecurring && endDate) {
-      // Preserve the user-selected date by creating a date in UTC
-      const [year, month, day] = endDate.split('-').map(Number);
-      parsedEndDate = new Date(Date.UTC(year, month - 1, day));
-    }
 
     const eventData = {
       barId: parseInt(barId),
@@ -58,8 +47,8 @@ app.post('/api/bars/:barId/events', requireAuth, async (req, res) => {
 
     console.log('Creating event with data:', {
       ...eventData,
-      startDate: eventData.startDate?.toISOString(),
-      endDate: eventData.endDate?.toISOString()
+      startDate: eventData.startDate,
+      endDate: eventData.endDate
     });
 
     const result = await db.insert(events).values(eventData);
@@ -72,4 +61,20 @@ app.post('/api/bars/:barId/events', requireAuth, async (req, res) => {
     console.error('Error adding event:', error);
     res.status(500).json({ error: 'Failed to add event' });
   }
+});
+
+// Define event schema and shape of data
+const eventSchema = z.object({
+  id: z.number().optional(),
+  barId: z.number(),
+  title: z.string().min(1, "Title is required"),
+  description: z.string().optional().nullable(),
+  isRecurring: z.boolean().default(true),
+  dayOfWeek: z.number().min(0).max(6).optional().nullable(),
+  startTime: z.string(),
+  endTime: z.string(),
+  startDate: z.string().optional().nullable(),
+  endDate: z.string().optional().nullable(),
+  createdAt: z.date().optional(),
+  updatedAt: z.date().optional(),
 });
