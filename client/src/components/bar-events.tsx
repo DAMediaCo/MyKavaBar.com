@@ -174,6 +174,19 @@ export default function BarEvents({ barId, ownerId }: BarEventsProps) {
     const days = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
     return days[dayOfWeek] || '';
   };
+  
+  // Function to format date strings without timezone issues
+  const formatDateString = (dateStr: string) => {
+    try {
+      // Parse the date string parts directly to avoid timezone shifts
+      const [year, month, day] = dateStr.split('-').map(num => parseInt(num));
+      const date = new Date(year, month - 1, day);
+      return format(date, 'MMM d, yyyy');
+    } catch (error) {
+      console.error('Error formatting date:', error, dateStr);
+      return dateStr || 'Invalid date';
+    }
+  };
 
   if (isLoading) {
     return (
@@ -264,7 +277,7 @@ export default function BarEvents({ barId, ownerId }: BarEventsProps) {
                       <div className="flex items-center justify-between">
                         <h4 className="font-medium">{event.title}</h4>
                         <Badge variant="secondary">
-                          {event.startDate ? format(new Date(event.startDate), 'MMM d, yyyy') : 'No date'}
+                          {event.startDate ? formatDateString(event.startDate) : 'No date'}
                         </Badge>
                       </div>
                       <div className="text-sm text-muted-foreground">

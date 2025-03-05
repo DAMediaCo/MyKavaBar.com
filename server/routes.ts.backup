@@ -3172,6 +3172,82 @@ export function registerRoutes(app: Express, server: Server): void {
       res.status(500).json({ error: "Failed to sponsor kava bar" });
     }
   });
+      .from(kavaBars)
+      .where(eq(kavaBars.id, barId))
+      .limit(1);
+
+    if (!bar) {
+      return res.status(404).send("Bar not found");
+    }
+
+    if (bar.ownerId !== req.user.id) {
+      return res
+        .status(403)
+        .send("Not authorized to modify events for this bar");
+    }
+
+    try {
+      const [event] = await db
+        .update(barEvents)
+        .set({
+          ...req.body,
+          updatedAt: new Date(),
+        })
+        .where(and(eq(barEvents.id, eventId), eq(barEvents.barId, barId)))
+        .returning();
+
+      if (!event) {
+        return res.status(404).send("Event not found");
+      }
+
+      res.json(event);
+    } catch (error: any) {
+      console.error("Error updating event:", error);
+      res.status(500).json({ error: error.message });
+    }
+  });
+
+  app.delete("/api/bars/:barId/events/:eventId", async (req, res) => {
+    if (!req.isAuthenticated()) {
+      return res.status(401).send("Not authenticated");
+    }
+
+    const barId = Number(req.params.barId);
+    const eventId = Number(req.params.eventId);
+
+    try {
+      // Verify bar exists and user owns it
+      const [bar] = await db
+        .select()
+        .from(kavaBars)
+        .where(eq(kavaBars.id, barId))
+        .limit(1);
+
+      if (!bar) {
+        return res.status(404).send("Bar not found");
+      }
+
+      if (bar.ownerId !== req.user.id) {
+        return res
+          .status(403)
+          .send("Not authorized to delete events for this bar");
+      }
+
+      const [event] = await db
+        .delete(barEvents)
+        .where(and(eq(barEvents.id, eventId), eq(barEvents.barId, barId)))
+        .returning();
+
+      if (!event) {
+        return res.status(404).send("Event not found");
+      }
+
+      res.json({ message: "Event deleted successfully" });
+    } catch (error: any) {
+      console.error("Error deleting event:", error);
+      res.status(500).json({ error: error.message });
+    }
+  });
 
   // Admin endpoints for bar verification
   app.put("/api/admin/bars/:id/verify", async (req, res) => {
@@ -3791,6 +3867,83 @@ export function registerRoutes(app: Express, server: Server): void {
         success: false,
         error: error.message,
       });
+    }
+  });
+
+      .from(kavaBars)
+      .where(eq(kavaBars.id, barId))
+      .limit(1);
+
+    if (!bar) {
+      return res.status(404).send("Bar not found");
+    }
+
+    if (bar.ownerId !== req.user.id) {
+      return res
+        .status(403)
+        .send("Not authorized to modify events for this bar");
+    }
+
+    try {
+      const [event] = await db
+        .update(barEvents)
+        .set({
+          ...req.body,
+          updatedAt: new Date(),
+        })
+        .where(and(eq(barEvents.id, eventId), eq(barEvents.barId, barId)))
+        .returning();
+
+      if (!event) {
+        return res.status(404).send("Event not found");
+      }
+
+      res.json(event);
+    } catch (error: any) {
+      console.error("Error updating event:", error);
+      res.status(500).json({ error: error.message });
+    }
+  });
+
+  app.delete("/api/bars/:barId/events/:eventId", async (req, res) => {
+    if (!req.isAuthenticated()) {
+      return res.status(401).send("Not authenticated");
+    }
+
+    const barId = Number(req.params.barId);
+    const eventId = Number(req.params.eventId);
+
+    try {
+      // Verify bar exists and user owns it
+      const [bar] = await db
+        .select()
+        .from(kavaBars)
+        .where(eq(kavaBars.id, barId))
+        .limit(1);
+
+      if (!bar) {
+        return res.status(404).send("Bar not found");
+      }
+
+      if (bar.ownerId !== req.user.id) {
+        return res
+          .status(403)
+          .send("Not authorized to delete events for this bar");
+      }
+
+      const [event] = await db
+        .delete(barEvents)
+        .where(and(eq(barEvents.id, eventId), eq(barEvents.barId, barId)))
+        .returning();
+
+      if (!event) {
+        return res.status(404).send("Event not found");
+      }
+
+      res.json({ message: "Event deleted successfully" });
+    } catch (error: any) {
+      console.error("Error deleting event:", error);
+      res.status(500).json({ error: error.message });
     }
   });
 

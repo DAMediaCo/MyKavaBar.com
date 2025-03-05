@@ -97,28 +97,24 @@ export function registerEventRoutes(app: Express) {
       return res.status(400).json({error: "Invalid date format"});
     }
 
-    // Format the dates for storage
-    const formattedStartDate = parsedStartDate ? parsedStartDate.toISOString() : null;
-    const formattedEndDate = parsedEndDate ? parsedEndDate.toISOString() : null;
-
-    const eventData = {
-      barId: parseInt(barId),
-      title,
-      timezone: clientTimezone, // Store the timezone with the event
-      description,
-      startTime,
-      endTime,
-      isRecurring,
-      dayOfWeek: isRecurring ? dayOfWeek : null,
-      startDate: formattedStartDate,
-      endDate: formattedEndDate,
-      createdAt: new Date(),
-      updatedAt: new Date()
+    // For PostgreSQL, we need to format as YYYY-MM-DD strings
+    // Since PostgreSQL date type doesn't store timezone information
+    const formatDateForPostgres = (date: Date | null): string | null => {
+      if (!date) return null;
+      // Format as YYYY-MM-DD
+      return date.toISOString().split('T')[0];
     };
+    
+    const formattedStartDate = formatDateForPostgres(parsedStartDate);
+    const formattedEndDate = formatDateForPostgres(parsedEndDate);
 
-    console.log('Storing event with data:', {
-      ...eventData,
-      serverTime: new Date().toISOString()
+    console.log('Formatted dates for storage:', {
+      originalStartDate: startDate,
+      originalEndDate: endDate,
+      parsedStartDate: parsedStartDate?.toISOString(),
+      parsedEndDate: parsedEndDate?.toISOString(),
+      formattedStartDate,
+      formattedEndDate,
     });
 
     // Insert event using table field names
@@ -203,9 +199,24 @@ export function registerEventRoutes(app: Express) {
         }
       }
 
-      // Format dates for storage
-      const formattedStartDate = processedStartDate ? processedStartDate.toISOString() : null;
-      const formattedEndDate = processedEndDate ? processedEndDate.toISOString() : null;
+      // For PostgreSQL, we need to format as YYYY-MM-DD strings for date type columns
+      const formatDateForPostgres = (date: Date | null): string | null => {
+        if (!date) return null;
+        // Format as YYYY-MM-DD
+        return date.toISOString().split('T')[0];
+      };
+      
+      const formattedStartDate = formatDateForPostgres(processedStartDate);
+      const formattedEndDate = formatDateForPostgres(processedEndDate);
+
+      console.log('Updating event with formatted dates:', {
+        originalStartDate: startDate,
+        originalEndDate: endDate,
+        processedStartDate: processedStartDate?.toISOString(),
+        processedEndDate: processedEndDate?.toISOString(),
+        formattedStartDate,
+        formattedEndDate,
+      });
 
       // Update the event
       const [updatedEvent] = await db
