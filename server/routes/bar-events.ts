@@ -16,12 +16,12 @@
   // Store dates as they are received without timezone conversion
   let processedStartDate = null;
   let processedEndDate = null;
-  
+
   if (!isRecurring) {
     // Keep the dates exactly as submitted without manipulation
     processedStartDate = startDate;
     processedEndDate = endDate;
-    
+
     console.log('Processing non-recurring event with dates:', {
       originalStartDate: startDate,
       originalEndDate: endDate,
@@ -45,7 +45,7 @@
     createdAt: new Date(),
     updatedAt: new Date(),
   }).returning();
-  
+
   console.log('Created event with dates:', {
     id: event[0].id,
     isRecurring: event[0].isRecurring,
@@ -55,3 +55,20 @@
 
   // Log the created event for verification
   console.log('Created event:', event);
+
+app.post("/api/bars/:id/events", async (req, res) => {
+    console.log("Event creation request. Auth status:", req.isAuthenticated() ? "Authenticated" : "Not authenticated");
+    console.log("User session:", req.user ? `User ID: ${req.user.id}` : "No user in session");
+
+    if (!req.isAuthenticated()) {
+      return res.status(401).json({ 
+        error: "Authentication required", 
+        message: "You must be logged in to create events" 
+      });
+    }
+
+    const barId = parseInt(req.params.id);
+
+    // ...rest of the original event creation logic...
+
+  });
