@@ -27,6 +27,7 @@ import KavatenderCheckin from "@/components/kavatender-checkin";
 import BarOwnershipControls from "@/components/admin/bar-ownership-controls";
 import { useQuery } from "@tanstack/react-query";
 import CheckInCarousel from "@/components/check-in-carousal";
+import { format, parseISO } from "date-fns"; // Updated import
 
 interface Hours {
   weekday_text: string[];
@@ -270,7 +271,7 @@ export default function BarDetails() {
           {/* Events section - visible to all users */}
           <BarEvents barId={bar.id} ownerId={bar.ownerId} />
 
-{/* Reviews section - visible to all users */}
+          {/* Reviews section - visible to all users */}
           <Card>
             <CardHeader>
               <CardTitle>Reviews</CardTitle>

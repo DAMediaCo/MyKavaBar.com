@@ -3,6 +3,7 @@ import { Badge } from '@/components/ui/badge';
 import { Trash2 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { EventWithBar } from '@/types/events';
+import { parseISO } from 'date-fns'; // Added to parse ISO 8601 strings
 
 interface EventItemProps {
   event: EventWithBar;
@@ -18,12 +19,12 @@ const formatDay = (day: number | null) => {
 };
 
 export function EventItem({ event, showBarName = false, onDelete, isDeleting = false }: EventItemProps) {
-  // Ensure correct date is displayed by using proper date parsing
+  // Ensure correct date is displayed by using proper date parsing and handling potential timezone issues
   const getFormattedDate = (dateString: string | null) => {
     if (!dateString) return '';
 
     try {
-      const date = new Date(dateString);
+      const date = parseISO(dateString); // Parse ISO 8601 string
       return format(date, 'MMM d, yyyy');
     } catch (error) {
       console.error('Error formatting date:', error);
@@ -47,8 +48,8 @@ export function EventItem({ event, showBarName = false, onDelete, isDeleting = f
           )}
         </div>
         <div className="text-sm text-muted-foreground">
-          {format(new Date(`1970-01-01T${event.startTime}`), 'h:mm a')} - 
-          {format(new Date(`1970-01-01T${event.endTime}`), 'h:mm a')}
+          {format(parseISO(`1970-01-01T${event.startTime}`), 'h:mm a')} -
+          {format(parseISO(`1970-01-01T${event.endTime}`), 'h:mm a')}
         </div>
         {event.description && <p className="text-sm mt-1">{event.description}</p>}
         {showBarName && event.bar && (

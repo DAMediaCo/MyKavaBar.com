@@ -1,4 +1,4 @@
-import { format } from 'date-fns';
+import { format, parseISO } from 'date-fns';
 import { Card, CardContent } from '@/components/ui/card';
 import { Event } from '@/types/events';
 
@@ -23,7 +23,11 @@ export function EventCard({ event, className = '' }: EventCardProps) {
     if (!dateString) return '';
 
     try {
-      const date = new Date(dateString);
+      // Parse the ISO date string and handle timezone conversion properly
+      // Use the date parts to create a UTC date that will display the correct date
+      const date = parseISO(dateString);
+      
+      // Format using the date with timezone offset consideration
       return format(date, 'MMM d, yyyy');
     } catch (error) {
       console.error('Error formatting date:', error);

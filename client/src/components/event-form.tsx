@@ -170,6 +170,7 @@ export function EventForm({ onSubmit, isSubmitting, defaultValues }: EventFormPr
                       onChange={(e) => {
                         // Ensure we're getting the date value in the correct format
                         console.log("Selected start date:", e.target.value);
+                        console.log("Current timezone offset:", new Date().getTimezoneOffset());
                         field.onChange(e.target.value);
                       }} 
                     />
