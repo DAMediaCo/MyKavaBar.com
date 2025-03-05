@@ -53,9 +53,17 @@ export function EventForm({ onSubmit, isSubmitting, defaultValues }: EventFormPr
     },
   });
 
+  const handleSubmit = (data: EventFormValues) => {
+    // Convert dates to UTC before submission
+    const utcStartDate = data.startDate ? new Date(data.startDate).toISOString() : undefined;
+    const utcEndDate = data.endDate ? new Date(data.endDate).toISOString() : undefined;
+    onSubmit({ ...data, startDate: utcStartDate, endDate: utcEndDate });
+  };
+
+
   return (
     <Form {...form}>
-      <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
+      <form onSubmit={form.handleSubmit(handleSubmit)} className="space-y-4">
         <FormField
           control={form.control}
           name="title"
@@ -168,9 +176,6 @@ export function EventForm({ onSubmit, isSubmitting, defaultValues }: EventFormPr
                       type="date" 
                       {...field} 
                       onChange={(e) => {
-                        // Ensure we're getting the date value in the correct format
-                        console.log("Selected start date:", e.target.value);
-                        console.log("Current timezone offset:", new Date().getTimezoneOffset());
                         field.onChange(e.target.value);
                       }} 
                     />
@@ -196,7 +201,7 @@ export function EventForm({ onSubmit, isSubmitting, defaultValues }: EventFormPr
           </div>
         )}
 
-        <Button type="submit" disabled={isSubmitting} className="w-full">
+        <Button type="submit" disabled={isSubmitting} className="w-full" onClick={form.handleSubmit(handleSubmit)}>
           {isSubmitting ? (
             <>
               <Loader2 className="mr-2 h-4 w-4 animate-spin" />

@@ -25,7 +25,8 @@ export function EventItem({ event, showBarName = false, onDelete, isDeleting = f
 
     try {
       const date = parseISO(dateString); // Parse ISO 8601 string
-      return format(date, 'MMM d, yyyy');
+      const formattedDate = format(date, 'MMM d, yyyy'); //removed timezone display for simplicity
+      return formattedDate;
     } catch (error) {
       console.error('Error formatting date:', error);
       return 'Invalid date';

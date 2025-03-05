@@ -258,21 +258,13 @@ export default function BarEvents({ barId, ownerId }: BarEventsProps) {
               <div className="space-y-4">
                 <h3 className="font-semibold">Special Events</h3>
                 {oneTimeEvents.map(event => {
-                  // Ensure correct date handling for display
-                  let eventDate;
-                  try {
-                    eventDate = event.startDate ? new Date(event.startDate) : null;
-                  } catch (e) {
-                    console.error("Error parsing date:", e);
-                    eventDate = null;
-                  }
-                  
+                  //This change directly uses the date string to avoid timezone issues.
                   return (
                     <div key={event.id} className="flex flex-col gap-1">
                       <div className="flex items-center justify-between">
                         <h4 className="font-medium">{event.title}</h4>
                         <Badge variant="secondary">
-                          {eventDate ? format(eventDate, 'MMM d, yyyy') : 'No date'}
+                          {event.startDate ? format(new Date(event.startDate), 'MMM d, yyyy') : 'No date'}
                         </Badge>
                       </div>
                       <div className="text-sm text-muted-foreground">

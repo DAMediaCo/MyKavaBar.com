@@ -26,18 +26,17 @@ app.post('/api/bars/:barId/events', requireAuth, async (req, res) => {
       return res.status(403).json({ error: 'Not authorized to add events for this bar' });
     }
 
-    // Parse dates properly ensuring they're in the correct timezone using UTC
+    // Parse dates properly ensuring they're in the correct timezone using UTC.  Avoid implicit timezone conversion.
     let parsedStartDate = null;
     let parsedEndDate = null;
 
     if (!isRecurring && startDate) {
-      const dateParts = startDate.split('-').map(Number);
-      parsedStartDate = new Date(Date.UTC(dateParts[0], dateParts[1] - 1, dateParts[2]));
+      parsedStartDate = new Date(startDate); //Assume date string is already in UTC format from client
     }
 
     if (!isRecurring && endDate) {
-      const dateParts = endDate.split('-').map(Number);
-      parsedEndDate = new Date(Date.UTC(dateParts[0], dateParts[1] - 1, dateParts[2]));
+      parsedEndDate = new Date(endDate); //Assume date string is already in UTC format from client
+
     }
 
     const eventData = {
