@@ -57,7 +57,7 @@ export function EventForm({ onSubmit, isSubmitting, defaultValues }: EventFormPr
   const handleSubmit = (data: EventFormValues) => {
     // Create a fixed copy of the data to prevent unexpected mutations
     const formData = { ...data };
-    
+
     // Log the exact dates as they are in the form
     console.log('Form date values before submission:', {
       startDate: formData.startDate,
@@ -66,14 +66,14 @@ export function EventForm({ onSubmit, isSubmitting, defaultValues }: EventFormPr
       endTime: formData.endTime,
       isRecurring: formData.isRecurring
     });
-    
+
     // For non-recurring events, ensure dates are preserved exactly as entered
     if (!formData.isRecurring) {
       // Make sure we're working with the raw string values from the date inputs
       // to avoid any automatic timezone conversions
       console.log('Non-recurring event - preserving exact date strings');
     }
-    
+
     // Submit the data without any date manipulation
     onSubmit(formData);
   };

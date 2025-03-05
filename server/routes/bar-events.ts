@@ -12,22 +12,26 @@
     endTime
   });
 
-  // For non-recurring events, ensure dates are properly formatted
   // Store dates as they are received without timezone conversion
   let processedStartDate = null;
   let processedEndDate = null;
 
   if (!isRecurring) {
-    // Keep the dates exactly as submitted without manipulation
-    processedStartDate = startDate;
-    processedEndDate = endDate;
+    try {
+      // Create proper Date objects from the ISO strings
+      processedStartDate = startDate ? new Date(startDate) : null;
+      processedEndDate = endDate ? new Date(endDate) : null;
 
-    console.log('Processing non-recurring event with dates:', {
-      originalStartDate: startDate,
-      originalEndDate: endDate,
-      processedStartDate,
-      processedEndDate
-    });
+      console.log('Processing non-recurring event with dates:', {
+        originalStartDate: startDate,
+        originalEndDate: endDate,
+        processedStartDate: processedStartDate?.toISOString(),
+        processedEndDate: processedEndDate?.toISOString(),
+      });
+    } catch (error) {
+      console.error('Error processing dates:', error);
+      return res.status(400).json({ error: 'Invalid date format provided' });
+    }
   }
 
   // Create a new event in the database
@@ -49,8 +53,8 @@
   console.log('Created event with dates:', {
     id: event[0].id,
     isRecurring: event[0].isRecurring,
-    startDate: event[0].startDate,
-    endDate: event[0].endDate
+    startDate: event[0].startDate instanceof Date ? event[0].startDate.toISOString() : event[0].startDate,
+    endDate: event[0].endDate instanceof Date ? event[0].endDate.toISOString() : event[0].endDate,
   });
 
   // Log the created event for verification
