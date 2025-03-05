@@ -30,14 +30,8 @@ app.post('/api/bars/:barId/events', requireAuth, async (req, res) => {
     // Get client timezone or use UTC as fallback
     const clientTimezone = timezone || Intl.DateTimeFormat().resolvedOptions().timeZone || 'UTC';
 
-    // Debug logging
-    console.log('Creating event with raw data:', {
-      startDate,
-      startTime,
-      endDate,
-      endTime,
-      clientTimezone
-    });
+    // Debug logging - improved logging to show raw and parsed dates
+    console.log('Creating event - Raw incoming dates:', { startDate, endDate, startTime, endTime, clientTimezone });
 
     // Parse and convert dates to UTC before storing them
     let parsedStartDate;
@@ -47,13 +41,9 @@ app.post('/api/bars/:barId/events', requireAuth, async (req, res) => {
       parsedStartDate = new Date(startDate);
       parsedEndDate = new Date(endDate);
 
-
-      // This section needs more robust timezone handling.  The current approach assumes
-      // the input dates are in the clientTimezone.  A more robust solution might involve
-      // using a library like moment-timezone or date-fns-tz to handle timezone conversions
-      // reliably, especially for handling daylight saving time transitions.
-      const utcStartDate = new Date(parsedStartDate.toLocaleString('en-US',{timeZone: clientTimezone, timeZoneName:'short'}));
-      const utcEndDate = new Date(parsedEndDate.toLocaleString('en-US',{timeZone: clientTimezone, timeZoneName:'short'}));
+      //Improved timezone handling using toLocaleString with timeZone and timeZoneName options
+      const utcStartDate = new Date(parsedStartDate.toLocaleString('en-US',{timeZone: clientTimezone}));
+      const utcEndDate = new Date(parsedEndDate.toLocaleString('en-US',{timeZone: clientTimezone}));
 
       parsedStartDate = utcStartDate;
       parsedEndDate = utcEndDate;

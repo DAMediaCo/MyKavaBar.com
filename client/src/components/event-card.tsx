@@ -20,20 +20,21 @@ interface EventCardProps {
 
 export function EventCard({ event, onEdit, onDelete, isOwner = false }: EventCardProps) {
   // Format dates for display
-  const formatDate = (dateStr: string) => {
-    try {
-      // Log the date being formatted
-      console.log(`Formatting date: ${dateStr}`);
+  const formatDate = (dateString: string) => {
+    // Parse the date exactly as stored without timezone adjustments
+    if (!dateString) return '';
 
-      // Parse the date without any time components to avoid timezone shifts
-      const [year, month, day] = dateStr.split('-').map(num => parseInt(num, 10));
-      // Month is 0-indexed in JavaScript Date
-      const date = new Date(year, month - 1, day);
-      return format(date, 'MMM d, yyyy');
-    } catch (error) {
-      console.error('Error formatting date:', error);
-      return dateStr;
-    }
+    // Split the date string to get year, month, day
+    const [year, month, day] = dateString.split('-').map(num => parseInt(num));
+
+    // Create a date object with these values
+    const date = new Date(year, month - 1, day);
+
+    return date.toLocaleDateString('en-US', {
+      month: 'short',
+      day: 'numeric',
+      year: 'numeric'
+    });
   };
 
   const formatTime = (timeStr: string) => {
