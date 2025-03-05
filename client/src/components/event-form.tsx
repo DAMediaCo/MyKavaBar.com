@@ -164,7 +164,15 @@ export function EventForm({ onSubmit, isSubmitting, defaultValues }: EventFormPr
                 <FormItem>
                   <FormLabel>Start Date</FormLabel>
                   <FormControl>
-                    <Input type="date" {...field} />
+                    <Input 
+                      type="date" 
+                      {...field} 
+                      onChange={(e) => {
+                        // Ensure we're getting the date value in the correct format
+                        console.log("Selected start date:", e.target.value);
+                        field.onChange(e.target.value);
+                      }} 
+                    />
                   </FormControl>
                   <FormMessage />
                 </FormItem>

@@ -257,23 +257,34 @@ export default function BarEvents({ barId, ownerId }: BarEventsProps) {
             {oneTimeEvents.length > 0 && (
               <div className="space-y-4">
                 <h3 className="font-semibold">Special Events</h3>
-                {oneTimeEvents.map(event => (
-                  <div key={event.id} className="flex flex-col gap-1">
-                    <div className="flex items-center justify-between">
-                      <h4 className="font-medium">{event.title}</h4>
-                      <Badge variant="secondary">
-                        {format(new Date(event.startDate!), 'MMM d, yyyy')}
-                      </Badge>
+                {oneTimeEvents.map(event => {
+                  // Ensure correct date handling for display
+                  let eventDate;
+                  try {
+                    eventDate = event.startDate ? new Date(event.startDate) : null;
+                  } catch (e) {
+                    console.error("Error parsing date:", e);
+                    eventDate = null;
+                  }
+                  
+                  return (
+                    <div key={event.id} className="flex flex-col gap-1">
+                      <div className="flex items-center justify-between">
+                        <h4 className="font-medium">{event.title}</h4>
+                        <Badge variant="secondary">
+                          {eventDate ? format(eventDate, 'MMM d, yyyy') : 'No date'}
+                        </Badge>
+                      </div>
+                      <div className="text-sm text-muted-foreground">
+                        {format(new Date(`1970-01-01T${event.startTime}`), 'h:mm a')} - 
+                        {format(new Date(`1970-01-01T${event.endTime}`), 'h:mm a')}
+                      </div>
+                      {event.description && (
+                        <p className="text-sm">{event.description}</p>
+                      )}
                     </div>
-                    <div className="text-sm text-muted-foreground">
-                      {format(new Date(`1970-01-01T${event.startTime}`), 'h:mm a')} - 
-                      {format(new Date(`1970-01-01T${event.endTime}`), 'h:mm a')}
-                    </div>
-                    {event.description && (
-                      <p className="text-sm">{event.description}</p>
-                    )}
-                  </div>
-                ))}
+                  );
+                })}
               </div>
             )}
           </div>
