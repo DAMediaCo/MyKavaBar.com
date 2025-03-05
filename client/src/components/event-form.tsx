@@ -62,14 +62,20 @@ export function EventForm({ onSubmit, isSubmitting, defaultValues }: EventFormPr
       endTime: data.endTime
     });
 
-    // Ensure dates are properly formatted as ISO strings without timezone adjustment
-    // This prevents date shifts due to timezone conversions
+    // Create a new object with the form data
+    // For non-recurring events, ensure the dates are preserved exactly as entered
+    // without any timezone adjustments
     const formattedData = {
       ...data,
-      // Ensure dates are properly formatted strings
-      startDate: data.startDate ? data.startDate : undefined,
-      endDate: data.endDate ? data.endDate : undefined
     };
+    
+    // For debugging
+    if (data.startDate) {
+      console.log('Original startDate from form:', data.startDate);
+    }
+    if (data.endDate) {
+      console.log('Original endDate from form:', data.endDate);
+    }
     
     onSubmit(formattedData);
   };
