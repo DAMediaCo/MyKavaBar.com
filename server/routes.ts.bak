@@ -2132,7 +2132,7 @@ export function registerRoutes(app: Express, server: Server): void {
         .insert(kavaBarPhotos)
         .values({
           barId,
-          url: `/uploads/bar-photos/${filename}`,
+          url: `/uploads/${filename}`,
           uploadedById: req.user.id,
           caption: req.body.caption || null,
         })
@@ -3580,13 +3580,9 @@ export function registerRoutes(app: Express, server: Server): void {
         .jpeg({ quality: 80 })
         .toBuffer();
 
-      // Ensure the bar photos directory exists
-      const barPhotosDir = path.join(process.cwd(), "public", "uploads", "bar-photos");
-      await mkdir(barPhotosDir, { recursive: true });
-
       // Generate a unique filename
       const filename = `${randomUUID()}.jpg`;
-      const filePath = path.join(barPhotosDir, filename);
+      const filePath = path.join(uploadsPath, filename);
 
       console.log("Saving photo to:", filePath);
       await fs.writeFile(filePath, processedImageBuffer);
@@ -3596,7 +3592,7 @@ export function registerRoutes(app: Express, server: Server): void {
         .insert(kavaBarPhotos)
         .values({
           barId,
-          url: `/uploads/bar-photos/${filename}`,
+          url: `/uploads/${filename}`,
           uploadedById: req.user.id,
           caption: req.body.caption || null,
         })
@@ -4343,14 +4339,10 @@ export function registerRoutes(app: Express, server: Server): void {
         })
         .jpeg({ quality: 80 })
         .toBuffer();
-        
-      // Ensure the bar photos directory exists
-      const barPhotosDir = path.join(process.cwd(), "public", "uploads", "bar-photos");
-      await mkdir(barPhotosDir, { recursive: true });
 
       // Generate a unique filename
       const filename = `${randomUUID()}.jpg`;
-      const filePath = path.join(barPhotosDir, filename);
+      const filePath = path.join(uploadsPath, filename);
 
       console.log("Saving photo to:", filePath);
       await fs.writeFile(filePath, processedImageBuffer);
@@ -4360,7 +4352,7 @@ export function registerRoutes(app: Express, server: Server): void {
         .insert(kavaBarPhotos)
         .values({
           barId,
-          url: `/uploads/bar-photos/${filename}`,
+          url: `/uploads/${filename}`,
           uploadedById: req.user.id,
           caption: req.body.caption || null,
         })
