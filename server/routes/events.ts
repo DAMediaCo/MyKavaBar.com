@@ -27,33 +27,50 @@ app.post('/api/bars/:barId/events', requireAuth, async (req, res) => {
       return res.status(403).json({ error: 'Not authorized to add events for this bar' });
     }
 
-    console.log('Creating event with raw data:', { 
-      startDate, endDate, 
-      timezone, 
-      isRecurring
+    // Get client timezone or use UTC as fallback
+    const clientTimezone = timezone || Intl.DateTimeFormat().resolvedOptions().timeZone || 'UTC';
+
+    // Debug logging
+    console.log('Creating event with raw data:', {
+      startDate,
+      startTime,
+      endDate,
+      endTime,
+      clientTimezone
     });
 
-    // Format dates to ensure they're stored correctly without timezone shifting
-    // For non-recurring events, explicitly preserve the date as entered
+    // Parse and convert dates to UTC before storing them
+    let parsedStartDate;
+    let parsedEndDate;
 
-    let formattedStartDate = startDate;
-    let formattedEndDate = endDate;
-
-    // Attempt to parse dates; if failure, log error and return 400
     try {
-      const parsedStartDate = new Date(startDate);
-      const parsedEndDate = new Date(endDate);
-      formattedStartDate = parsedStartDate.toISOString(); //Store as ISO String for DB consistency
-      formattedEndDate = parsedEndDate.toISOString();
+      parsedStartDate = new Date(startDate);
+      parsedEndDate = new Date(endDate);
+
+
+      // This section needs more robust timezone handling.  The current approach assumes
+      // the input dates are in the clientTimezone.  A more robust solution might involve
+      // using a library like moment-timezone or date-fns-tz to handle timezone conversions
+      // reliably, especially for handling daylight saving time transitions.
+      const utcStartDate = new Date(parsedStartDate.toLocaleString('en-US',{timeZone: clientTimezone, timeZoneName:'short'}));
+      const utcEndDate = new Date(parsedEndDate.toLocaleString('en-US',{timeZone: clientTimezone, timeZoneName:'short'}));
+
+      parsedStartDate = utcStartDate;
+      parsedEndDate = utcEndDate;
+
     } catch (dateParseError) {
       console.error("Error parsing dates:", dateParseError);
       return res.status(400).json({error: "Invalid date format"});
     }
 
+
+    const formattedStartDate = parsedStartDate.toISOString();
+    const formattedEndDate = parsedEndDate.toISOString();
+
     const eventData = {
       barId: parseInt(barId),
       title,
-      timezone: timezone || 'UTC', // Store the timezone with the event, default to UTC
+      timezone: clientTimezone, // Store the timezone with the event
       description,
       startTime,
       endTime,

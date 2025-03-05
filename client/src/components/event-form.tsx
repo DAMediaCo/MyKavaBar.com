@@ -56,26 +56,31 @@ export function EventForm({ onSubmit, isSubmitting, defaultValues }: EventFormPr
   const handleSubmit = (data: EventFormValues) => {
     // Get user's timezone
     const userTimezone = Intl.DateTimeFormat().resolvedOptions().timeZone;
-    
-    // Ensure dates are properly formatted as YYYY-MM-DD
-    let formattedStartDate = data.startDate;
-    let formattedEndDate = data.endDate;
-    
-    // Log detailed debug information
-    console.log('Form submission:', {
-      rawStartDate: data.startDate,
-      rawEndDate: data.endDate,
-      formattedStartDate,
-      formattedEndDate,
-      timezone: userTimezone,
-      currentDateInTimezone: new Date().toLocaleString('en-US', { timeZone: userTimezone })
+
+    // Log the raw form data
+    console.log('Form data raw dates:', {
+      startDate: data.startDate,
+      endDate: data.endDate,
+      startTime: data.startTime,
+      endTime: data.endTime,
+      timezone: userTimezone
     });
-    
-    // Send the timezone along with the properly formatted dates
+
+    // Format dates to ensure they are properly formatted YYYY-MM-DD
+    // This prevents any browser or locale-specific formatting issues
+    const formatDateStr = (dateStr: string) => {
+      const date = new Date(dateStr);
+      const year = date.getFullYear();
+      const month = String(date.getMonth() + 1).padStart(2, '0'); // Months are 0-indexed
+      const day = String(date.getDate()).padStart(2, '0');
+      return `${year}-${month}-${day}`;
+    };
+
+    // Submit with standardized date format
     onSubmit({ 
       ...data, 
-      startDate: formattedStartDate, 
-      endDate: formattedEndDate,
+      startDate: formatDateStr(data.startDate), 
+      endDate: formatDateStr(data.endDate),
       timezone: userTimezone
     });
   };
