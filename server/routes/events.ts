@@ -26,11 +26,15 @@ app.post('/api/bars/:barId/events', requireAuth, async (req, res) => {
       return res.status(403).json({ error: 'Not authorized to add events for this bar' });
     }
 
-    // Store dates exactly as they come from the form
-    // No parsing needed since we're using the date strings directly
+    // Store the dates with timezone information
+    // Extract timezone sent from client or use UTC as fallback
+    const timezone = req.body.timezone || 'UTC';
+    console.log(`Creating event with timezone: ${timezone}`);
+    
     const eventData = {
       barId: parseInt(barId),
       title,
+      timezone, // Store the timezone with the event
       description,
       startTime,
       endTime,
