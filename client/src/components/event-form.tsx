@@ -22,6 +22,7 @@ const eventFormSchema = z.object({
   startTime: z.string(),
   endTime: z.string(),
   isRecurring: z.boolean().default(true),
+  // For non-recurring events, we need the exact date strings
   startDate: z.string().optional(),
   endDate: z.string().optional(),
 });
@@ -54,30 +55,27 @@ export function EventForm({ onSubmit, isSubmitting, defaultValues }: EventFormPr
   });
 
   const handleSubmit = (data: EventFormValues) => {
-    // Log the exact dates we're submitting without any manipulation
-    console.log('Submitting event with exact dates:', {
-      startDate: data.startDate,
-      endDate: data.endDate,
-      startTime: data.startTime,
-      endTime: data.endTime
+    // Create a fixed copy of the data to prevent unexpected mutations
+    const formData = { ...data };
+    
+    // Log the exact dates as they are in the form
+    console.log('Form date values before submission:', {
+      startDate: formData.startDate,
+      endDate: formData.endDate,
+      startTime: formData.startTime,
+      endTime: formData.endTime,
+      isRecurring: formData.isRecurring
     });
-
-    // Create a new object with the form data
-    // For non-recurring events, ensure the dates are preserved exactly as entered
-    // without any timezone adjustments
-    const formattedData = {
-      ...data,
-    };
     
-    // For debugging
-    if (data.startDate) {
-      console.log('Original startDate from form:', data.startDate);
-    }
-    if (data.endDate) {
-      console.log('Original endDate from form:', data.endDate);
+    // For non-recurring events, ensure dates are preserved exactly as entered
+    if (!formData.isRecurring) {
+      // Make sure we're working with the raw string values from the date inputs
+      // to avoid any automatic timezone conversions
+      console.log('Non-recurring event - preserving exact date strings');
     }
     
-    onSubmit(formattedData);
+    // Submit the data without any date manipulation
+    onSubmit(formData);
   };
 
 
@@ -197,9 +195,10 @@ export function EventForm({ onSubmit, isSubmitting, defaultValues }: EventFormPr
                       {...field} 
                       value={field.value || ''}
                       onChange={(e) => {
-                        // Store the raw date string from the input
-                        field.onChange(e.target.value);
-                        console.log('Start date selected:', e.target.value);
+                        // Store the raw date string from the input without any manipulation
+                        const rawDateString = e.target.value;
+                        field.onChange(rawDateString);
+                        console.log('Start date selected (raw value):', rawDateString);
                       }} 
                     />
                   </FormControl>
@@ -220,9 +219,10 @@ export function EventForm({ onSubmit, isSubmitting, defaultValues }: EventFormPr
                       {...field} 
                       value={field.value || ''}
                       onChange={(e) => {
-                        // Store the raw date string from the input
-                        field.onChange(e.target.value);
-                        console.log('End date selected:', e.target.value);
+                        // Store the raw date string from the input without any manipulation
+                        const rawDateString = e.target.value;
+                        field.onChange(rawDateString);
+                        console.log('End date selected (raw value):', rawDateString);
                       }} 
                     />
                   </FormControl>

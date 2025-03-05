@@ -12,12 +12,21 @@
     endTime
   });
 
-  // For non-recurring events, ensure we properly handle the dates
-  // For debugging
+  // For non-recurring events, ensure dates are properly formatted
+  // Store dates as they are received without timezone conversion
+  let processedStartDate = null;
+  let processedEndDate = null;
+  
   if (!isRecurring) {
+    // Keep the dates exactly as submitted without manipulation
+    processedStartDate = startDate;
+    processedEndDate = endDate;
+    
     console.log('Processing non-recurring event with dates:', {
-      startDate,
-      endDate
+      originalStartDate: startDate,
+      originalEndDate: endDate,
+      processedStartDate,
+      processedEndDate
     });
   }
 
@@ -30,12 +39,19 @@
     startTime: startTime,
     endTime: endTime,
     isRecurring: isRecurring,
-    // For non-recurring events, store the date exactly as received
-    startDate: isRecurring ? null : startDate,
-    endDate: isRecurring ? null : endDate,
+    // For non-recurring events, store dates exactly as processed
+    startDate: processedStartDate,
+    endDate: processedEndDate,
     createdAt: new Date(),
     updatedAt: new Date(),
   }).returning();
+  
+  console.log('Created event with dates:', {
+    id: event[0].id,
+    isRecurring: event[0].isRecurring,
+    startDate: event[0].startDate,
+    endDate: event[0].endDate
+  });
 
   // Log the created event for verification
   console.log('Created event:', event);
