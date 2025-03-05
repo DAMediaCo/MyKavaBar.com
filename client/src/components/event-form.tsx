@@ -62,14 +62,16 @@ export function EventForm({ onSubmit, isSubmitting, defaultValues }: EventFormPr
       endTime: data.endTime
     });
 
-    // Send the dates exactly as they are in the form
-    // No timezone conversion or manipulation
-    onSubmit({ 
-      ...data, 
-      // Pass the dates exactly as entered in the form
-      startDate: data.startDate, 
-      endDate: data.endDate
-    });
+    // Ensure dates are properly formatted as ISO strings without timezone adjustment
+    // This prevents date shifts due to timezone conversions
+    const formattedData = {
+      ...data,
+      // Ensure dates are properly formatted strings
+      startDate: data.startDate ? data.startDate : undefined,
+      endDate: data.endDate ? data.endDate : undefined
+    };
+    
+    onSubmit(formattedData);
   };
 
 
@@ -187,8 +189,11 @@ export function EventForm({ onSubmit, isSubmitting, defaultValues }: EventFormPr
                     <Input 
                       type="date" 
                       {...field} 
+                      value={field.value || ''}
                       onChange={(e) => {
+                        // Store the raw date string from the input
                         field.onChange(e.target.value);
+                        console.log('Start date selected:', e.target.value);
                       }} 
                     />
                   </FormControl>
@@ -204,7 +209,16 @@ export function EventForm({ onSubmit, isSubmitting, defaultValues }: EventFormPr
                 <FormItem>
                   <FormLabel>End Date</FormLabel>
                   <FormControl>
-                    <Input type="date" {...field} />
+                    <Input 
+                      type="date" 
+                      {...field} 
+                      value={field.value || ''}
+                      onChange={(e) => {
+                        // Store the raw date string from the input
+                        field.onChange(e.target.value);
+                        console.log('End date selected:', e.target.value);
+                      }} 
+                    />
                   </FormControl>
                   <FormMessage />
                 </FormItem>
