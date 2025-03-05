@@ -2094,6 +2094,13 @@ export function registerRoutes(app: Express, server: Server): void {
   // Add photo upload and retrieval endpoints after the existing bar routes
   app.post("/api/bars/:id/photos", upload.single("photo"), async (req, res) => {
     try {
+      console.log("Photo upload request received", {
+        authenticated: req.isAuthenticated(),
+        hasFile: !!req.file,
+        fileSize: req.file ? req.file.size : 0,
+        barId: req.params.id
+      });
+      
       if (!req.isAuthenticated()) {
         console.log("User not authenticated");
         return res.status(401).send("Not authenticated");
@@ -2115,11 +2122,22 @@ export function registerRoutes(app: Express, server: Server): void {
         })
         .jpeg({ quality: 80 })
         .toBuffer();
-
+      
+      console.log("Image processed successfully");
+      
       // Generate a unique filename
-      const filename = `${randomUUID()}.jpg`;
-      const filePath = path.join(uploadsPath, filename);
+      const filename = `${barId}-${randomUUID()}.jpg`;
+      
+      // Use the uploadImageToStorage function from your utility
+      const { publicUrl } = await uploadImageToStorage(processedImageBuffer, filename);
+      
+      console.log("Image uploaded to storage:", publicUrl);
 
+      // Create uploads directory if it doesn't exist
+      const uploadsDir = path.join(process.cwd(), 'public', 'uploads');
+      await fs.mkdir(uploadsDir, { recursive: true });
+      
+      const filePath = path.join(uploadsDir, filename);
       console.log("Saving photo to:", filePath);
       await fs.writeFile(filePath, processedImageBuffer);
 
