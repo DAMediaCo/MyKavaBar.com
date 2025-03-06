@@ -5,6 +5,17 @@ import { barEvents, kavaBars } from "@db/schema";
 import { z } from "zod";
 import { isAuthenticated } from "../middleware/auth";
 
+// Array of day of week names for logging
+const daysOfWeek = [
+  "Sunday",
+  "Monday",
+  "Tuesday",
+  "Wednesday",
+  "Thursday",
+  "Friday",
+  "Saturday",
+];
+
 export function registerEventRoutes(app: Express) {
   // Route for fetching bar events
   app.get("/api/bars/:id/events", async (req: Request, res: Response) => {
@@ -117,6 +128,23 @@ export function registerEventRoutes(app: Express) {
       formattedEndDate,
     });
 
+    // For non-recurring events we still need a valid dayOfWeek value
+    // If a specific date is provided, calculate the day of week from it
+    let effectiveDayOfWeek = dayOfWeek;
+    
+    // For non-recurring events, try to calculate the day of week from the start date
+    if (!isRecurring && startDate) {
+      try {
+        const [year, month, day] = startDate.split('-').map((num: string) => parseInt(num));
+        // Create a date and get its day of week (0-6, where 0 is Sunday)
+        const dateObj = new Date(Date.UTC(year, month - 1, day));
+        effectiveDayOfWeek = dateObj.getDay();
+        console.log(`Calculated day of week from start date: ${effectiveDayOfWeek} (${daysOfWeek[effectiveDayOfWeek]})`);
+      } catch (error) {
+        console.warn('Failed to calculate day of week from start date, using provided value:', error);
+      }
+    }
+    
     // Insert event using table field names
     const [event] = await db
       .insert(barEvents)
@@ -124,7 +152,7 @@ export function registerEventRoutes(app: Express) {
         barId: parseInt(barId),
         title,
         description: description || null,
-        dayOfWeek: isRecurring ? dayOfWeek : null,
+        dayOfWeek: effectiveDayOfWeek, // Always use a valid day of week
         startTime,
         endTime,
         isRecurring,
@@ -218,6 +246,21 @@ export function registerEventRoutes(app: Express) {
         formattedEndDate,
       });
 
+      // Calculate effective day of week for non-recurring events
+      let effectiveDayOfWeek = dayOfWeek;
+      
+      // For non-recurring events, try to calculate the day of week from the start date
+      if (!isRecurring && startDate) {
+        try {
+          const [year, month, day] = startDate.split('-').map((num: string) => parseInt(num));
+          const dateObj = new Date(Date.UTC(year, month - 1, day));
+          effectiveDayOfWeek = dateObj.getDay();
+          console.log(`Calculated day of week for update from start date: ${effectiveDayOfWeek}`);
+        } catch (error) {
+          console.warn('Failed to calculate day of week for update, using provided value:', error);
+        }
+      }
+      
       // Update the event
       const [updatedEvent] = await db
         .update(barEvents)
@@ -227,7 +270,7 @@ export function registerEventRoutes(app: Express) {
           startTime,
           endTime,
           isRecurring,
-          dayOfWeek: isRecurring ? dayOfWeek : null,
+          dayOfWeek: effectiveDayOfWeek, // Always use a valid day of week
           startDate: formattedStartDate,
           endDate: formattedEndDate,
           updatedAt: new Date(),
