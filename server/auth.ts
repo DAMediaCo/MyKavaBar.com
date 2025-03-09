@@ -211,9 +211,17 @@ export function setupAuth(app: Express) {
       });
 
       // Get the profile photo URL if uploaded
-      const profilePhotoUrl = req.file
-        ? `/uploads/profiles/${req.file.filename}`
-        : null;
+      let profilePhotoUrl = null;
+      if (req.file) {
+        const fileExtension = req.file.mimetype.split("/")[1];
+        const fileName = `profiles/${uuidv4()}.${fileExtension}`;
+
+        const { publicUrl } = await uploadImageToStorage(
+          req.file.buffer,
+          fileName,
+        );
+        profilePhotoUrl = publicUrl;
+      }
 
       // Parse isPhoneVerified as boolean - use '1' as true value
       const isPhoneVerified = req.body.isPhoneVerified === "1";
@@ -226,11 +234,6 @@ export function setupAuth(app: Express) {
 
       if (!result.success) {
         // Clean up uploaded file if validation fails
-        if (req.file) {
-          fs.unlink(req.file.path, (err) => {
-            if (err) console.error("Error deleting file:", err);
-          });
-        }
         return res.status(400).json({
           error: result.error.issues.map((i) => i.message).join(", "),
         });
@@ -247,11 +250,6 @@ export function setupAuth(app: Express) {
         .limit(1);
 
       if (existingUser) {
-        if (req.file) {
-          fs.unlink(req.file.path, (err) => {
-            if (err) console.error("Error deleting file:", err);
-          });
-        }
         return res.status(400).json({ error: "Username already exists" });
       }
 
