@@ -46,132 +46,122 @@ export function useLocation() {
     };
   }, []); // Empty dependency array means this runs once on mount
 
+  // Function to manually check permissions
   const checkPermissions = async () => {
+    console.log("Checking location permissions...");
+    try {
+      if (!navigator.geolocation) {
+        console.error("Geolocation is not supported by this browser");
+        setError("Geolocation is not supported by this browser");
+        return false;
+      }
+
+      // Check permissions API if available
+      if (navigator.permissions && navigator.permissions.query) {
+        const result = await navigator.permissions.query({ name: 'geolocation' });
+        console.log("Permission status:", result.state);
+        setPermissionStatus(result.state);
+
+        // Listen for permission changes
+        result.addEventListener('change', () => {
+          console.log("Permission changed to:", result.state);
+          setPermissionStatus(result.state);
+        });
+
+        return result.state === 'granted';
+      }
+
+      return true; // No permissions API, assume we can try
+    } catch (err) {
+      console.error("Error checking permissions:", err);
+      return false;
+    }
+  };
+
+  // Function to request location with improved error handling
+  const requestLocation = () => {
+    if (isRequesting.current) {
+      console.log("Location request already in progress");
+      return;
+    }
+
+    console.log("Requesting location...");
+    setIsLoading(true);
+    isRequesting.current = true;
+
     if (!navigator.geolocation) {
-      const msg = "Geolocation is not supported by your browser";
-      setError(msg);
+      setError("Geolocation is not supported by this browser");
+      setIsLoading(false);
+      isRequesting.current = false;
       toast({
-        variant: "destructive",
-        title: "Location Not Supported",
-        description: msg,
+        title: "Location Error",
+        description: "Geolocation is not supported by this browser",
+        variant: "destructive"
       });
       return;
     }
 
-    try {
-      if (navigator.permissions && navigator.permissions.query) {
-        const permission = await navigator.permissions.query({
-          name: "geolocation",
-        });
-        setPermissionStatus(permission.state);
+    navigator.geolocation.getCurrentPosition(
+      (position) => {
+        console.log("Location acquired:", position.coords);
+        const newCoordinates = {
+          latitude: position.coords.latitude,
+          longitude: position.coords.longitude,
+          accuracy: position.coords.accuracy
+        };
 
-        // Listen for permission changes
-        permission.addEventListener("change", () => {
-          setPermissionStatus(permission.state);
-          // Request location if permission becomes granted
-          if (permission.state === "granted") {
-            retryCount.current = 0;
-            requestLocation();
-          }
-        });
-
-        // Request location immediately if permission is granted
-        if (permission.state === "granted") {
-          requestLocation();
-        } else if (permission.state === "prompt") {
-          // For prompt state, let's try to request location which will trigger browser permission UI
-          console.log("Attempting to request location to trigger permission dialog");
-          setTimeout(() => {
-            navigator.geolocation.getCurrentPosition(
-              () => console.log("Initial location request succeeded"),
-              (err) => console.log("Initial location request failed:", err.code),
-              { timeout: 5000 }
-            );
-          }, 1500);
-        }
-      }
-    } catch (error) {
-      console.error('Error checking permissions:', error);
-    }
-  };
-
-  const requestLocation = async () => {
-    // Prevent multiple simultaneous requests
-    if (isRequesting.current) {
-      return;
-    }
-
-    isRequesting.current = true;
-    setIsLoading(true);
-
-    try {
-      const position = await new Promise<GeolocationPosition>(
-        (resolve, reject) => {
-          navigator.geolocation.getCurrentPosition(resolve, reject, {
-            enableHighAccuracy: true,
-            timeout: 5000,
-            maximumAge: 300000, // Cache for 5 minutes
-          });
-        }
-      );
-
-      const newCoordinates = {
-        latitude: position.coords.latitude,
-        longitude: position.coords.longitude,
-        accuracy: position.coords.accuracy,
-      };
-
-      // Only update if coordinates have changed significantly or are not set
-      const hasSignificantChange = !coordinates || 
-        Math.abs(coordinates.latitude - newCoordinates.latitude) > 0.0001 ||
-        Math.abs(coordinates.longitude - newCoordinates.longitude) > 0.0001;
-
-      if (hasSignificantChange) {
+        // Save to state and localStorage
         setCoordinates(newCoordinates);
         localStorage.setItem('lastKnownLocation', JSON.stringify(newCoordinates));
 
-        // Show success toast only on first successful location fetch
-        if (!hasShownInitialToast.current) {
-          toast({
-            title: "Location Found",
-            description: "Showing kava bars near you.",
-          });
-          hasShownInitialToast.current = true;
+        setIsLoading(false);
+        isRequesting.current = false;
+        setError(null);
+        retryCount.current = 0;
+
+        toast({
+          title: "Location updated",
+          description: "Your location has been successfully updated",
+        });
+      },
+      (err) => {
+        console.error("Geolocation error:", err.code, err.message);
+
+        let errorMessage = "Unknown error acquiring location";
+        if (err.code === 1) {
+          errorMessage = "Location permission denied";
+        } else if (err.code === 2) {
+          errorMessage = "Location unavailable";
+        } else if (err.code === 3) {
+          errorMessage = "Location request timed out";
         }
+
+        setError(errorMessage);
+        setIsLoading(false);
+        isRequesting.current = false;
+
+        toast({
+          title: "Location Error",
+          description: errorMessage,
+          variant: "destructive"
+        });
+      },
+      {
+        enableHighAccuracy: true,
+        timeout: 10000,
+        maximumAge: 60000 // Accept positions up to 1 minute old
       }
-
-      setError(null);
-      retryCount.current = 0;
-
-    } catch (error) {
-      handleLocationError(error);
-    } finally {
-      setIsLoading(false);
-      isRequesting.current = false;
-    }
+    );
   };
 
-  const handleLocationError = (error: any) => {
-    console.error("Location error:", error);
-    let message = "Unable to retrieve your location. Distance-based features will be limited.";
-
-    if (error.code === 1) {
-      message = "Location access was denied. Please enable it in your browser settings.";
-    } else if (error.code === 2) {
-      message = "Location unavailable. Please try again.";
-    } else if (error.code === 3) {
-      message = "Location request timed out. Please try again.";
-    }
-
-    setError(message);
-    toast({
-      variant: "destructive",
-      title: "Location Error",
-      description: message,
-    });
+  return {
+    coordinates,
+    isLoading,
+    error,
+    permissionStatus,
+    requestLocation,
+    checkPermissions
   };
-
-  return { coordinates, isLoading, error, permissionStatus, requestLocation };
 }
 
 export function calculateDistance(

@@ -19,7 +19,7 @@ export default function Home() {
   const [view, setView] = useState<"list" | "map">("list");
   const [sortBy, setSortBy] = useState<SortOption>("distance");
   const [radius, setRadius] = useState<number>(500);
-  const { coordinates, isLoading: isLoadingLocation, requestLocation } = useLocation();
+  const { coordinates, isLoading: isLoadingLocation, requestLocation, locationError } = useLocation();
   const { toast } = useToast();
 
   // Auto-request location when component mounts
@@ -64,7 +64,7 @@ export default function Home() {
   console.log('Total kava bars received:', kavaBars?.length);
 
   // Log Melbourne area bars for debugging
-  const melbourneBars = kavaBars?.filter(bar => 
+  const melbourneBars = kavaBars?.filter(bar =>
     bar.address.toLowerCase().includes('melbourne') ||
     bar.address.toLowerCase().includes('palm bay') ||
     bar.address.toLowerCase().includes('satellite beach') ||
@@ -256,6 +256,11 @@ export default function Home() {
               </div>
             )}
           </div>
+          {locationError && (
+            <div className="bg-yellow-50 text-yellow-800 p-2 rounded-md text-sm mb-4">
+              Location error: {locationError}. <Button variant="link" onClick={requestLocation} className="p-0 h-auto">Try again</Button>
+            </div>
+          )}
         </div>
 
         {view === "list" ? (
