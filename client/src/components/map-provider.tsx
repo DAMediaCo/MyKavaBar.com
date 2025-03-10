@@ -146,7 +146,7 @@ export default function MapProvider({
       {shouldShowMap ? (
         <MapView
           bars={visibleBars}
-          center={mapCenter}
+          center={mapCenter ? [mapCenter.lat, mapCenter.lng] : [0, 0]}
           zoom={zoom}
           userLocation={coordinates ? { lat: coordinates.latitude, lng: coordinates.longitude } : undefined}
         />

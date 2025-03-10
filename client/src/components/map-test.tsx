@@ -22,7 +22,13 @@ export default function MapTest() {
       console.log("Initializing test map");
 
       // Fix Leaflet icon issue
-      delete L.Icon.Default.prototype._getIconUrl;
+      // Using a safer type-aware approach
+      const DefaultIcon = L.Icon.Default;
+      const proto = DefaultIcon.prototype as any;
+      if (proto._getIconUrl) {
+        delete proto._getIconUrl;
+      }
+      
       L.Icon.Default.mergeOptions({
         iconRetinaUrl: 'https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/images/marker-icon-2x.png',
         iconUrl: 'https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/images/marker-icon.png',
@@ -56,7 +62,7 @@ export default function MapTest() {
         console.log("Map loaded event fired");
       });
 
-      map.on('error', (e) => {
+      map.on('error', (e: any) => {
         console.error("Map error:", e);
         setStatus('error');
         setErrorMessage(e.error?.message || 'Unknown map error');
@@ -72,7 +78,7 @@ export default function MapTest() {
         setStatus('success');
       });
 
-      tileLayer.on('error', (e) => {
+      tileLayer.on('error', (e: any) => {
         console.error("Tile layer error:", e);
         setStatus('error');
         setErrorMessage('Failed to load map tiles. Please check your network connection.');

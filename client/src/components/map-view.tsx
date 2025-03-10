@@ -9,7 +9,13 @@ import { Loader2, AlertTriangle } from "lucide-react";
 
 // Fix Leaflet icon issue
 // This is important because Leaflet's default icon paths get broken in bundled environments
-delete L.Icon.Default.prototype._getIconUrl;
+// Using a safer type-aware approach
+const DefaultIcon = L.Icon.Default;
+const proto = DefaultIcon.prototype as any;
+if (proto._getIconUrl) {
+  delete proto._getIconUrl;
+}
+
 L.Icon.Default.mergeOptions({
   iconRetinaUrl: 'https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/images/marker-icon-2x.png',
   iconUrl: 'https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/images/marker-icon.png',
@@ -65,7 +71,7 @@ export default function MapView({ bars, center, zoom, userLocation }: MapViewPro
   };
 
   useEffect(() => {
-    if (mapRef.current && ref.current) {
+    if (mapRef.current) {
       // Add OpenStreetMap tile layer with explicit z-index
       L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
         attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors',
@@ -80,7 +86,7 @@ export default function MapView({ bars, center, zoom, userLocation }: MapViewPro
         }
       }, 100);
     }
-  }, [mapRef.current]);
+  }, []);
 
 // Fallback if map fails to load
   if (error) {
@@ -121,7 +127,11 @@ export default function MapView({ bars, center, zoom, userLocation }: MapViewPro
         center={center}
         zoom={zoom}
         style={{ height: "100%", width: "100%" }}
-        whenReady={handleMapReady}
+        ref={(map) => {
+          if (map) {
+            handleMapReady(map);
+          }
+        }}
         attributionControl={true}
       >
         <TileLayer

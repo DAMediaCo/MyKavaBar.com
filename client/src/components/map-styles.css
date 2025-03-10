@@ -1,3 +1,6 @@
+/* Import Leaflet CSS */
+@import 'leaflet/dist/leaflet.css';
+
 /* Basic map container */
 .leaflet-container {
   width: 100%;
@@ -179,8 +182,6 @@
 }
 
 /* Edited styles for map popups */
-/* Import Leaflet CSS */
-@import 'leaflet/dist/leaflet.css';
 
 .map-container {
   width: 100%;
@@ -413,9 +414,6 @@
   padding: 0.25rem;
   min-width: 150px;
 }
-
-/* Import Leaflet CSS */
-@import 'leaflet/dist/leaflet.css';
 
 /* Map container */
 .map-container {
