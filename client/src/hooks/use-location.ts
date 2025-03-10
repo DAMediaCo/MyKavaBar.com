@@ -29,10 +29,12 @@ export function useLocation() {
   const timeoutRef = useRef<NodeJS.Timeout | null>(null);
   const hasShownInitialToast = useRef(false);
   const hasCheckedPermissions = useRef(false);
+  const hasAutoRequested = useRef(false);
 
   // Check permissions on mount
   useEffect(() => {
     if (!hasCheckedPermissions.current) {
+      console.log("Initializing location services...");
       checkPermissions();
       hasCheckedPermissions.current = true;
     }
@@ -66,16 +68,26 @@ export function useLocation() {
         // Listen for permission changes
         permission.addEventListener("change", () => {
           setPermissionStatus(permission.state);
-          // Only request location if permission becomes granted and we don't have coordinates
-          if (permission.state === "granted" && !coordinates) {
+          // Request location if permission becomes granted
+          if (permission.state === "granted") {
             retryCount.current = 0;
             requestLocation();
           }
         });
 
-        // Request location immediately if permission is granted and we don't have coordinates
-        if (permission.state === "granted" && !coordinates) {
+        // Request location immediately if permission is granted
+        if (permission.state === "granted") {
           requestLocation();
+        } else if (permission.state === "prompt") {
+          // For prompt state, let's try to request location which will trigger browser permission UI
+          console.log("Attempting to request location to trigger permission dialog");
+          setTimeout(() => {
+            navigator.geolocation.getCurrentPosition(
+              () => console.log("Initial location request succeeded"),
+              (err) => console.log("Initial location request failed:", err.code),
+              { timeout: 5000 }
+            );
+          }, 1500);
         }
       }
     } catch (error) {

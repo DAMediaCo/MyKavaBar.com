@@ -22,11 +22,33 @@ export default function Home() {
   const { coordinates, isLoading: isLoadingLocation, requestLocation } = useLocation();
   const { toast } = useToast();
 
+  // Auto-request location when component mounts
   useEffect(() => {
     const handleLocationRequest = async () => {
       try {
-        await requestLocation();
+        console.log("Home page: Auto-requesting location on page load");
+        // Use a small delay to ensure UI is ready
+        setTimeout(() => {
+          navigator.geolocation.getCurrentPosition(
+            (position) => {
+              console.log("Location request succeeded");
+              requestLocation(); // Use our hook's implementation after success
+            },
+            (error) => {
+              console.log("Location request error:", error.code);
+              if (error.code === 1) {
+                toast({
+                  title: "Location Access Denied",
+                  description: "Enable location in your browser settings to see nearby kava bars.",
+                  variant: "destructive",
+                });
+              }
+            },
+            { timeout: 10000 }
+          );
+        }, 1000);
       } catch (error: any) {
+        console.error("Error requesting location:", error);
         toast({
           title: "Location Error",
           description: "Unable to get your location. Some features may be limited.",
