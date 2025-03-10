@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Calendar } from "lucide-react";
@@ -21,28 +21,50 @@ import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import * as z from "zod";
 import type { BarEvent } from "@db/schema";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { Switch } from "@/components/ui/switch";
+import { Label } from "@/components/ui/label";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 
 interface BarEventsProps {
   barId: number;
   ownerId: number | null;
 }
 
-const eventSchema = z.object({
-  title: z.string().min(1, "Title is required"),
-  description: z.string().optional(),
-  dayOfWeek: z.number().min(0).max(6),
-  startTime: z.string().regex(/^([0-1]?[0-9]|2[0-3]):[0-5][0-9]$/, "Invalid time format"),
-  endTime: z.string().regex(/^([0-1]?[0-9]|2[0-3]):[0-5][0-9]$/, "Invalid time format"),
-  isRecurring: z.boolean().default(true),
-  startDate: z.string().optional(),
-  endDate: z.string().optional(),
-});
+const eventSchema = z.discriminatedUnion('isRecurring', [
+  // Schema for recurring events
+  z.object({
+    title: z.string().min(1, "Title is required"),
+    description: z.string().optional(),
+    dayOfWeek: z.number().min(0).max(6),
+    startTime: z.string().regex(/^([0-1]?[0-9]|2[0-3]):[0-5][0-9]$/, "Invalid time format"),
+    endTime: z.string().regex(/^([0-1]?[0-9]|2[0-3]):[0-5][0-9]$/, "Invalid time format"),
+    isRecurring: z.literal(true),
+    startDate: z.string().optional(),
+    endDate: z.string().optional(),
+    timezone: z.string().optional(),
+  }),
+  // Schema for one-time events
+  z.object({
+    title: z.string().min(1, "Title is required"),
+    description: z.string().optional(),
+    dayOfWeek: z.number().min(0).max(6),
+    startTime: z.string().regex(/^([0-1]?[0-9]|2[0-3]):[0-5][0-9]$/, "Invalid time format"),
+    endTime: z.string().regex(/^([0-1]?[0-9]|2[0-3]):[0-5][0-9]$/, "Invalid time format"),
+    isRecurring: z.literal(false),
+    startDate: z.string().min(1, "Date is required for one-time events"),
+    endDate: z.string().optional(),
+    timezone: z.string().optional(),
+  })
+]);
 
 type EventFormData = z.infer<typeof eventSchema>;
 
 function QuickEventForm({ barId, onSuccess }: { barId: number; onSuccess: () => void }) {
   const { toast } = useToast();
   const queryClient = useQueryClient();
+  const [eventType, setEventType] = useState<'recurring' | 'oneTime'>('recurring');
+  
   const form = useForm<EventFormData>({
     resolver: zodResolver(eventSchema),
     defaultValues: {
@@ -52,19 +74,40 @@ function QuickEventForm({ barId, onSuccess }: { barId: number; onSuccess: () => 
       startTime: "18:00",
       endTime: "22:00",
       isRecurring: true,
+      startDate: "",
+      endDate: "",
+      timezone: Intl.DateTimeFormat().resolvedOptions().timeZone,
     },
   });
 
+  // Update form values when event type changes
+  useEffect(() => {
+    form.setValue('isRecurring', eventType === 'recurring');
+    
+    // If switching to one-time event, set today's date as default
+    if (eventType === 'oneTime') {
+      const today = new Date();
+      const formattedDate = today.toISOString().split('T')[0]; // YYYY-MM-DD format
+      form.setValue('startDate', formattedDate);
+    }
+  }, [eventType, form]);
+
   const createEvent = useMutation({
     mutationFn: async (data: EventFormData) => {
+      console.log('Submitting event data:', data);
+      
       const res = await fetch(`/api/bars/${barId}/events`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(data),
+        body: JSON.stringify({
+          ...data,
+          timezone: Intl.DateTimeFormat().resolvedOptions().timeZone
+        }),
       });
 
       if (!res.ok) {
-        throw new Error(await res.text());
+        const errorText = await res.text();
+        throw new Error(errorText);
       }
 
       return res.json();
@@ -78,6 +121,7 @@ function QuickEventForm({ barId, onSuccess }: { barId: number; onSuccess: () => 
       onSuccess();
     },
     onError: (error: Error) => {
+      console.error('Event creation error:', error);
       toast({
         variant: "destructive",
         title: "Error",
@@ -89,6 +133,8 @@ function QuickEventForm({ barId, onSuccess }: { barId: number; onSuccess: () => 
   const onSubmit = (data: EventFormData) => {
     createEvent.mutate(data);
   };
+
+  const days = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
 
   return (
     <Form {...form}>
@@ -120,6 +166,60 @@ function QuickEventForm({ barId, onSuccess }: { barId: number; onSuccess: () => 
             </FormItem>
           )}
         />
+        
+        <div className="flex items-center space-x-2 py-2">
+          <Label>Event Type:</Label>
+          <Tabs value={eventType} onValueChange={(value) => setEventType(value as 'recurring' | 'oneTime')} className="w-full">
+            <TabsList className="grid w-full grid-cols-2">
+              <TabsTrigger value="recurring">Weekly Recurring</TabsTrigger>
+              <TabsTrigger value="oneTime">One-Time Event</TabsTrigger>
+            </TabsList>
+          </Tabs>
+        </div>
+        
+        {eventType === 'recurring' ? (
+          <FormField
+            control={form.control}
+            name="dayOfWeek"
+            render={({ field }) => (
+              <FormItem>
+                <FormLabel>Day of Week</FormLabel>
+                <Select 
+                  onValueChange={(value) => field.onChange(parseInt(value))}
+                  value={String(field.value)}
+                >
+                  <FormControl>
+                    <SelectTrigger>
+                      <SelectValue placeholder="Select day" />
+                    </SelectTrigger>
+                  </FormControl>
+                  <SelectContent>
+                    {days.map((day, index) => (
+                      <SelectItem key={index} value={String(index)}>
+                        {day}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+                <FormMessage />
+              </FormItem>
+            )}
+          />
+        ) : (
+          <FormField
+            control={form.control}
+            name="startDate"
+            render={({ field }) => (
+              <FormItem>
+                <FormLabel>Event Date</FormLabel>
+                <FormControl>
+                  <Input type="date" {...field} />
+                </FormControl>
+                <FormMessage />
+              </FormItem>
+            )}
+          />
+        )}
 
         <div className="grid grid-cols-2 gap-4">
           <FormField

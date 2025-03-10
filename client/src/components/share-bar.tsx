@@ -6,7 +6,7 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
-import type { KavaBar } from "@db/schema";
+import type { KavaBar } from "@/hooks/use-kava-bars";
 import { useToast } from "@/hooks/use-toast";
 
 interface Props {

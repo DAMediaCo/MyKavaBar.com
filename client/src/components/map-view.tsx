@@ -6,15 +6,16 @@ import "leaflet/dist/leaflet.css";
 import "./map-styles.css";
 import L from "leaflet";
 
-// Fix for Leaflet default icon paths by using static URLs
+// Fix for Leaflet default icon paths by using explicit static URLs
 // This ensures the images are available regardless of build configuration
-let DefaultIcon = L.icon({
+// Using updated CDN URLs from unpkg which is more reliable
+const DefaultIcon = L.icon({
   iconUrl:
-    "https://cdn.jsdelivr.net/npm/leaflet@1.7.1/dist/images/marker-icon.png",
+    "https://unpkg.com/leaflet@1.9.4/dist/images/marker-icon.png",
   iconRetinaUrl:
-    "https://cdn.jsdelivr.net/npm/leaflet@1.7.1/dist/images/marker-icon-2x.png",
+    "https://unpkg.com/leaflet@1.9.4/dist/images/marker-icon-2x.png",
   shadowUrl:
-    "https://cdn.jsdelivr.net/npm/leaflet@1.7.1/dist/images/marker-shadow.png",
+    "https://unpkg.com/leaflet@1.9.4/dist/images/marker-shadow.png",
   iconSize: [25, 41],
   iconAnchor: [12, 41],
   popupAnchor: [1, -34],
@@ -187,7 +188,7 @@ export default function MapView({
         <MapUpdater center={center} zoom={zoom} />
 
         <TileLayer
-          url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
+          url="https://tile-{s}.openstreetmap.fr/hot/{z}/{x}/{y}.png"
           attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
           maxZoom={19}
           subdomains={["a", "b", "c"]}
@@ -218,23 +219,42 @@ export default function MapView({
             error: (e) => {
               console.error("Error loading tiles:", e);
 
-              // Try alternative tile source
-              console.log("Attempting to use fallback tile source");
+              // Try first fallback tile source
+              console.log("Attempting to use fallback tile source 1");
               try {
                 const tileLayer = e.target;
-                // Use fallback tile source
                 if (tileLayer && typeof tileLayer.setUrl === "function") {
+                  // First fallback: Standard OSM tiles
                   tileLayer.setUrl(
-                    "https://tile.openstreetmap.de/{z}/{x}/{y}.png",
+                    "https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
                   );
-                  console.log("Switched to fallback tile source");
+                  console.log("Switched to first fallback tile source");
+                  
+                  // Set error handler for the first fallback
+                  tileLayer.on('tileerror', () => {
+                    console.log("First fallback failed, trying fallback tile source 2");
+                    // Second fallback: OSM.de tiles
+                    tileLayer.setUrl(
+                      "https://tile.openstreetmap.de/{z}/{x}/{y}.png"
+                    );
+                    console.log("Switched to second fallback tile source");
+                    
+                    // Set error handler for the second fallback
+                    tileLayer.on('tileerror', () => {
+                      console.error("All fallback sources failed");
+                      setMapError(
+                        "Failed to load map tiles. Please try again later."
+                      );
+                      setIsLoading(false);
+                    });
+                  });
                 } else {
                   throw new Error("Cannot switch tile source");
                 }
               } catch (err) {
-                console.error("Failed to use fallback source:", err);
+                console.error("Failed to use any fallback source:", err);
                 setMapError(
-                  "Failed to load map tiles. Please try again later.",
+                  "Failed to load map tiles. Please try again later."
                 );
                 setIsLoading(false);
               }

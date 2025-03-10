@@ -1,6 +1,3 @@
-/* Import Leaflet CSS first */
-@import 'leaflet/dist/leaflet.css';
-
 /* Basic map container */
 .leaflet-container {
   width: 100%;

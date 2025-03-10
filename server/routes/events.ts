@@ -17,6 +17,139 @@ const daysOfWeek = [
 ];
 
 export function registerEventRoutes(app: Express) {
+  // Test endpoint for event creation with timezone handling
+  app.post("/api/test/event-creation", async (req: Request, res: Response) => {
+    try {
+      const { 
+        title, 
+        description, 
+        startTime, 
+        endTime, 
+        isRecurring, 
+        dayOfWeek,
+        startDate,
+        endDate,
+        timezone 
+      } = req.body;
+      
+      console.log("Test event creation with data:", req.body);
+      
+      // Mock barId and userId for testing
+      const barId = 1;
+      const userId = 1;
+      
+      // Validate that non-recurring events have a startDate
+      if (!isRecurring && !startDate) {
+        return res.status(400).json({ 
+          error: 'One-time events must have a date',
+          details: 'Please provide a startDate for non-recurring events'
+        });
+      }
+      
+      // Get client timezone or use UTC as fallback
+      const clientTimezone = timezone || Intl.DateTimeFormat().resolvedOptions().timeZone || 'UTC';
+
+      // Debug logging - improved logging to show raw and parsed dates
+      console.log('Test creating event - Raw incoming dates:', { startDate, endDate, startTime, endTime, clientTimezone });
+
+      // Properly handle dates to avoid timezone issues
+      let parsedStartDate = null;
+      let parsedEndDate = null;
+
+      try {
+        if (startDate) {
+          // For non-recurring events with date strings like "2025-03-08", 
+          // we need to parse without timezone shifts
+          if (!isRecurring) {
+            // Parse the date string parts directly
+            const [year, month, day] = startDate.split('-').map((num: string) => parseInt(num));
+            
+            // Create a date using UTC to avoid timezone shifts
+            parsedStartDate = new Date(Date.UTC(year, month - 1, day, 12, 0, 0));
+            
+            console.log(`Parsed start date "${startDate}" to UTC noon:`, parsedStartDate.toISOString());
+          } else {
+            // For recurring events, parse normally
+            parsedStartDate = new Date(startDate);
+          }
+        }
+        
+        if (endDate) {
+          if (!isRecurring) {
+            // Same approach for end date
+            const [year, month, day] = endDate.split('-').map((num: string) => parseInt(num));
+            parsedEndDate = new Date(Date.UTC(year, month - 1, day, 12, 0, 0));
+            
+            console.log(`Parsed end date "${endDate}" to UTC noon:`, parsedEndDate.toISOString());
+          } else {
+            parsedEndDate = new Date(endDate);
+          }
+        }
+      } catch (dateParseError) {
+        console.error("Error parsing dates:", dateParseError);
+        return res.status(400).json({error: "Invalid date format"});
+      }
+
+      // For PostgreSQL, we need to format as YYYY-MM-DD strings
+      // Since PostgreSQL date type doesn't store timezone information
+      const formatDateForPostgres = (date: Date | null): string | null => {
+        if (!date) return null;
+        // Format as YYYY-MM-DD
+        return date.toISOString().split('T')[0];
+      };
+      
+      const formattedStartDate = formatDateForPostgres(parsedStartDate);
+      const formattedEndDate = formatDateForPostgres(parsedEndDate);
+
+      console.log('Formatted dates for storage:', {
+        originalStartDate: startDate,
+        originalEndDate: endDate,
+        parsedStartDate: parsedStartDate?.toISOString(),
+        parsedEndDate: parsedEndDate?.toISOString(),
+        formattedStartDate,
+        formattedEndDate,
+      });
+
+      // For non-recurring events we still need a valid dayOfWeek value
+      // If a specific date is provided, calculate the day of week from it
+      let effectiveDayOfWeek = dayOfWeek;
+      
+      // For non-recurring events, try to calculate the day of week from the start date
+      if (!isRecurring && startDate) {
+        try {
+          const [year, month, day] = startDate.split('-').map((num: string) => parseInt(num));
+          // Create a date and get its day of week (0-6, where 0 is Sunday)
+          const dateObj = new Date(Date.UTC(year, month - 1, day));
+          effectiveDayOfWeek = dateObj.getDay();
+          console.log(`Calculated day of week from start date: ${effectiveDayOfWeek} (${daysOfWeek[effectiveDayOfWeek]})`);
+        } catch (error) {
+          console.warn('Failed to calculate day of week from start date, using provided value:', error);
+        }
+      }
+      
+      // Return successful response without actually creating the event
+      res.status(200).json({
+        message: 'Test successful - event would be created with these values:',
+        processed: {
+          barId,
+          title,
+          description: description || null,
+          dayOfWeek: effectiveDayOfWeek,
+          startTime,
+          endTime,
+          isRecurring,
+          startDate: formattedStartDate,
+          endDate: formattedEndDate,
+          userId,
+          timezone: clientTimezone
+        }
+      });
+    } catch (error: any) {
+      console.error('Error in test event creation:', error);
+      res.status(500).json({ error: 'Test failed' });
+    }
+  });
+  
   // Route for fetching bar events
   app.get("/api/bars/:id/events", async (req: Request, res: Response) => {
     try {
@@ -62,6 +195,14 @@ export function registerEventRoutes(app: Express) {
 
     if (bar.ownerId !== userId && !req.user?.isAdmin) {
       return res.status(403).json({ error: 'Not authorized to add events to this bar' });
+    }
+    
+    // Validate that non-recurring events have a startDate
+    if (!isRecurring && !startDate) {
+      return res.status(400).json({ 
+        error: 'One-time events must have a date',
+        details: 'Please provide a startDate for non-recurring events'
+      });
     }
 
     // Get client timezone or use UTC as fallback

@@ -1,8 +1,8 @@
 import { ReactNode, useState, useEffect, useRef } from "react";
 import { useLocation } from "@/hooks/use-location";
 import { useKavaBars } from "@/hooks/use-kava-bars";
-import GoogleMapView from "./google-map-view";
-import "./google-map-styles.css";
+import MapView from "./map-view";
+import "./map-styles.css";
 import type { KavaBar } from "@/hooks/use-kava-bars";
 import { AlertTriangle } from "lucide-react";
 
@@ -136,13 +136,15 @@ export default function MapProvider({
     }
   }, [barId, showAllBars, kavaBars, coordinates]);
 
-  // Only show map when we have centers and bars to display and no errors
-  const shouldShowMap = !error && (mapCenter || coordinates) && visibleBars.length > 0;
+  // Force the map to show even if we don't have a lot of data yet
+  // For best user experience, show the map with a fallback center and let it load further data as needed
+  // Only don't show it if there's an explicit error
+  const shouldShowMap = !error;
 
   return (
     <div style={{ height: height, width: "100%", position: "relative" }}>
       {shouldShowMap ? (
-        <GoogleMapView
+        <MapView
           bars={visibleBars}
           center={mapCenter}
           zoom={zoom}
