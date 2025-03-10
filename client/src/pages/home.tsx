@@ -19,7 +19,7 @@ export default function Home() {
   const [view, setView] = useState<"list" | "map">("list");
   const [sortBy, setSortBy] = useState<SortOption>("distance");
   const [radius, setRadius] = useState<number>(500);
-  const { coordinates, isLoading: isLoadingLocation, requestLocation, error: locationError } = useLocation();
+  const { coordinates, isLoading: isLoadingLocation, requestLocation, locationError } = useLocation();
   const { toast } = useToast();
 
   // Auto-request location when component mounts (single time only)
