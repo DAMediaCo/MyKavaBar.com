@@ -1,7 +1,5 @@
-import React, { useEffect, useRef, useState } from 'react';
+import { useRef, useEffect, useState } from 'react';
 
-// This is an extremely simplified map test that uses direct DOM manipulation
-// to create a map without any dependencies on external libraries
 function BasicMapTest() {
   const mapRef = useRef<HTMLDivElement>(null);
   const [status, setStatus] = useState<'loading' | 'success' | 'error'>('loading');
@@ -12,123 +10,81 @@ function BasicMapTest() {
     if (!mapRef.current) return;
 
     try {
-      // Create a simple static map image
       const container = mapRef.current;
-      const width = container.clientWidth;
-      const height = container.clientHeight;
-      
-      // Check if we can create and manipulate DOM elements
+
+      // Create a basic map with DOM elements
+      const createMarker = (lat: number, lng: number, label: string) => {
+        const marker = document.createElement('div');
+        marker.style.position = 'absolute';
+        marker.style.backgroundColor = '#3B82F6';
+        marker.style.border = '2px solid white';
+        marker.style.borderRadius = '50%';
+        marker.style.width = '20px';
+        marker.style.height = '20px';
+        marker.style.transform = 'translate(-50%, -50%)';
+        marker.style.cursor = 'pointer';
+
+        // Convert lat/lng to pixel position (simple approximation)
+        // This is a very simplified formula and not geographically accurate
+        const mapWidth = container.clientWidth;
+        const mapHeight = container.clientHeight;
+        const x = (lng + 180) * (mapWidth / 360);
+        const y = (90 - lat) * (mapHeight / 180);
+
+        marker.style.left = `${x}px`;
+        marker.style.top = `${y}px`;
+
+        // Add tooltip
+        marker.title = label;
+
+        // Add label below marker
+        const labelElement = document.createElement('div');
+        labelElement.textContent = label;
+        labelElement.style.position = 'absolute';
+        labelElement.style.left = `${x}px`;
+        labelElement.style.top = `${y + 10}px`;
+        labelElement.style.transform = 'translateX(-50%)';
+        labelElement.style.fontSize = '12px';
+        labelElement.style.fontWeight = 'bold';
+        labelElement.style.backgroundColor = 'rgba(255, 255, 255, 0.8)';
+        labelElement.style.padding = '2px 4px';
+        labelElement.style.borderRadius = '2px';
+
+        container.appendChild(marker);
+        container.appendChild(labelElement);
+      };
+
+      // Clear any existing content
       container.innerHTML = '';
-      container.style.position = 'relative';
-      container.style.overflow = 'hidden';
-      
-      // Create a heading
-      const heading = document.createElement('h3');
-      heading.textContent = 'Basic Map Test';
-      heading.style.position = 'absolute';
-      heading.style.top = '10px';
-      heading.style.left = '10px';
-      heading.style.zIndex = '1000';
-      heading.style.backgroundColor = 'rgba(255, 255, 255, 0.8)';
-      heading.style.padding = '5px 10px';
-      heading.style.borderRadius = '4px';
-      heading.style.margin = '0';
-      heading.style.fontSize = '16px';
-      container.appendChild(heading);
-      
-      // Create markers for test locations
-      const markers = [
-        { name: 'New York', x: Math.round(width * 0.75), y: Math.round(height * 0.33) },
-        { name: 'San Francisco', x: Math.round(width * 0.15), y: Math.round(height * 0.4) },
-        { name: 'Miami', x: Math.round(width * 0.8), y: Math.round(height * 0.7) }
-      ];
-      
-      // Create a static map background (fallback)
-      const mapBackground = document.createElement('div');
-      mapBackground.style.position = 'absolute';
-      mapBackground.style.top = '0';
-      mapBackground.style.left = '0';
-      mapBackground.style.width = '100%';
-      mapBackground.style.height = '100%';
-      mapBackground.style.backgroundColor = '#e8ecf0';
-      mapBackground.style.backgroundImage = `linear-gradient(45deg, #d4e0ed 25%, transparent 25%), 
-                                             linear-gradient(-45deg, #d4e0ed 25%, transparent 25%), 
-                                             linear-gradient(45deg, transparent 75%, #d4e0ed 75%), 
-                                             linear-gradient(-45deg, transparent 75%, #d4e0ed 75%)`;
-      mapBackground.style.backgroundSize = '20px 20px';
-      mapBackground.style.backgroundPosition = '0 0, 0 10px, 10px -10px, -10px 0px';
-      container.appendChild(mapBackground);
-      
-      // Add a "US outline" rectangle as a simple representation
-      const usOutline = document.createElement('div');
-      usOutline.style.position = 'absolute';
-      usOutline.style.top = '30%';
-      usOutline.style.left = '15%';
-      usOutline.style.width = '70%';
-      usOutline.style.height = '40%';
-      usOutline.style.border = '2px solid #3388cc';
-      usOutline.style.borderRadius = '5px';
-      usOutline.style.backgroundColor = 'rgba(51, 136, 204, 0.1)';
-      container.appendChild(usOutline);
-      
-      // Create each marker
-      markers.forEach((marker, index) => {
-        const markerElement = document.createElement('div');
-        markerElement.style.position = 'absolute';
-        markerElement.style.top = `${marker.y - 25}px`;
-        markerElement.style.left = `${marker.x - 12}px`;
-        markerElement.style.width = '24px';
-        markerElement.style.height = '24px';
-        markerElement.style.borderRadius = '50% 50% 50% 0';
-        markerElement.style.backgroundColor = '#3388cc';
-        markerElement.style.transform = 'rotate(-45deg)';
-        markerElement.style.cursor = 'pointer';
-        markerElement.style.boxShadow = '0 2px 5px rgba(0,0,0,0.3)';
-        
-        // Create the inner circle
-        const inner = document.createElement('div');
-        inner.style.position = 'absolute';
-        inner.style.top = '6px';
-        inner.style.left = '6px';
-        inner.style.width = '12px';
-        inner.style.height = '12px';
-        inner.style.borderRadius = '50%';
-        inner.style.backgroundColor = 'white';
-        markerElement.appendChild(inner);
-        
-        // Create label
-        const label = document.createElement('div');
-        label.textContent = marker.name;
-        label.style.position = 'absolute';
-        label.style.top = '25px';
-        label.style.left = '0';
-        label.style.transform = 'rotate(45deg)';
-        label.style.whiteSpace = 'nowrap';
-        label.style.fontSize = '12px';
-        label.style.fontWeight = 'bold';
-        label.style.color = '#333';
-        label.style.backgroundColor = 'rgba(255, 255, 255, 0.8)';
-        label.style.padding = '2px 4px';
-        label.style.borderRadius = '2px';
-        markerElement.appendChild(label);
-        
-        // Add to container
-        container.appendChild(markerElement);
-        
-        // Add click event
-        markerElement.addEventListener('click', () => {
-          alert(`Clicked on ${marker.name}`);
-        });
-      });
-      
-      // Success callback
+
+      // Add a basic grid background
+      container.style.backgroundImage = 'linear-gradient(#ccc 1px, transparent 1px), linear-gradient(90deg, #ccc 1px, transparent 1px)';
+      container.style.backgroundSize = '20px 20px';
+
+      // Add some markers
+      createMarker(40.7128, -74.0060, 'New York');
+      createMarker(34.0522, -118.2437, 'Los Angeles');
+      createMarker(25.7617, -80.1918, 'Miami');
+
+      // Add a title to the map
+      const title = document.createElement('div');
+      title.textContent = 'Basic Map - DOM Fallback';
+      title.style.position = 'absolute';
+      title.style.top = '10px';
+      title.style.left = '10px';
+      title.style.padding = '5px 10px';
+      title.style.backgroundColor = 'white';
+      title.style.borderRadius = '5px';
+      title.style.boxShadow = '0 2px 5px rgba(0,0,0,0.1)';
+      title.style.fontSize = '14px';
+      title.style.fontWeight = 'bold';
+      container.appendChild(title);
+
       setStatus('success');
-      console.log('Basic map test rendered successfully');
-    } catch (error) {
-      // Error handling
+    } catch (err) {
+      console.error('Error creating basic map:', err);
       setStatus('error');
-      setErrorMessage(error instanceof Error ? error.message : 'Unknown error rendering map');
-      console.error('Error in basic map test:', error);
+      setErrorMessage(err instanceof Error ? err.message : 'Unknown error creating basic map');
     }
   }, []);
 
@@ -152,7 +108,7 @@ function BasicMapTest() {
           </span>
         )}
       </div>
-      
+
       <div 
         ref={mapRef} 
         style={{ 
@@ -163,7 +119,7 @@ function BasicMapTest() {
           backgroundColor: '#e0e0e0'
         }} 
       />
-      
+
       <div className="mt-4 text-sm text-gray-600">
         <p>This is a simple fallback map that doesn't rely on external libraries or network resources.</p>
         <p>If you can see this map with markers for New York, San Francisco, and Miami, basic DOM manipulation is working.</p>
