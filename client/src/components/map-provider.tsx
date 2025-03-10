@@ -1,90 +1,66 @@
 import React from 'react';
-import { useQuery } from '@tanstack/react-query';
-import { useToast } from '@/hooks/use-toast';
-import { Card, CardContent } from '@/components/ui/card';
-import { Alert, AlertDescription } from '@/components/ui/alert';
-import { Loader2 } from 'lucide-react';
-import MapView from './map-view';
-import type { KavaBar } from '@/hooks/use-kava-bars';
+import { KavaBar } from '@/hooks/use-kava-bars';
+import { useLocationContext } from '@/contexts/location-context';
 
 interface MapProviderProps {
-  barId?: number | string;
   zoom?: number;
-  height?: string;
-  width?: string;
   center?: { lat: number; lng: number };
+  height?: string;
+  bars: KavaBar[];
 }
 
-export default function MapProvider({
-  barId,
-  zoom = 12,
+const MapProvider: React.FC<MapProviderProps> = ({ 
+  zoom = 10, 
+  center, 
   height = '500px',
-  width = '100%',
-  center
-}: MapProviderProps) {
-  const { toast } = useToast();
+  bars 
+}) => {
+  const location = useLocationContext();
   
-  // If barId is provided, fetch the bar's location
-  const { data: bar, isLoading } = useQuery({
-    queryKey: barId ? [`/api/kava-bars/${barId}`] : [],
-    queryFn: async () => {
-      if (!barId) return null;
-      
-      const response = await fetch(`/api/kava-bars/${barId}`);
-      if (!response.ok) {
-        throw new Error('Failed to fetch bar details');
-      }
-      
-      return response.json();
-    },
-    enabled: !!barId,
-  });
-  
-  // Choose the location to display (either from props or from fetched bar)
-  const displayLocation = center || (bar?.location ? { 
-    lat: bar.location.lat, 
-    lng: bar.location.lng 
-  } : null);
-
-  if (isLoading) {
-    return (
-      <Card className="shadow-sm">
-        <CardContent className="flex items-center justify-center p-4" style={{ height }}>
-          <Loader2 className="h-8 w-8 animate-spin text-primary" />
-        </CardContent>
-      </Card>
-    );
-  }
-
-  if (!displayLocation) {
-    return (
-      <Card className="shadow-sm">
-        <CardContent className="p-4" style={{ height, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-          <Alert>
-            <AlertDescription>
-              Location data is not available. The map cannot be displayed.
-            </AlertDescription>
-          </Alert>
-        </CardContent>
-      </Card>
-    );
-  }
-
-  // Create an array with the single bar if we have it
-  const bars: KavaBar[] = bar ? [bar as KavaBar] : [];
-
-  // Use the MapView component to display the map with the bar location
+  // For now, we'll create a simple map visualization
+  // This can be replaced with a proper map implementation like Leaflet or Google Maps
   return (
-    <Card className="shadow-sm">
-      <CardContent className="p-0 overflow-hidden" style={{ height, width }}>
-        <div style={{ height: '100%', width: '100%' }}>
-          <MapView 
-            bars={bars} 
-            center={displayLocation} 
-            zoom={zoom} 
-          />
-        </div>
-      </CardContent>
-    </Card>
+    <div className="h-full w-full bg-muted/10 p-4 border rounded-md overflow-auto">
+      <div className="mb-4 p-2 bg-background rounded shadow">
+        <h3 className="font-medium mb-2">Map Visualization</h3>
+        <p className="text-sm text-muted-foreground mb-2">
+          {location.coordinates 
+            ? `Centered at ${location.coordinates.latitude.toFixed(4)}, ${location.coordinates.longitude.toFixed(4)}` 
+            : 'Using default map center'}
+        </p>
+        <p className="text-sm text-muted-foreground mb-1">
+          Zoom level: {zoom} | Showing {bars.length} bars
+        </p>
+        {location.description && (
+          <p className="text-sm font-medium">{location.description}</p>
+        )}
+      </div>
+      
+      <div className="grid grid-cols-2 md:grid-cols-3 gap-2">
+        {bars.map(bar => (
+          <div 
+            key={bar.id}
+            className="p-2 bg-background rounded shadow text-xs hover:bg-muted transition-colors"
+          >
+            <p className="font-medium truncate">{bar.name}</p>
+            <p className="text-muted-foreground truncate">{bar.address}</p>
+            {bar.location && (
+              <p className="text-muted-foreground">
+                ({bar.location.lat.toFixed(4)}, {bar.location.lng.toFixed(4)})
+              </p>
+            )}
+          </div>
+        ))}
+      </div>
+      
+      <div className="text-center mt-4 text-sm text-muted-foreground">
+        <p>
+          This is a placeholder for the actual map component. 
+          In a production environment, this would be replaced with Leaflet, Google Maps, or another mapping library.
+        </p>
+      </div>
+    </div>
   );
-}
+};
+
+export default MapProvider;

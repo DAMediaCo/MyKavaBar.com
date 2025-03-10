@@ -1,15 +1,36 @@
-import { useState, useEffect } from "react";
+import { useState } from "react";
 import { useKavaBars } from "@/hooks/use-kava-bars";
-import { useLocation, calculateDistance } from "@/hooks/use-location";
+import { useLocationContext } from "@/contexts/location-context";
 import KavaBarCard from "@/components/kava-bar-card";
 import MapProvider from "../components/map-provider";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Slider } from "@/components/ui/slider";
-import { Search, MapPin, List, Crosshair } from "lucide-react";
-import SpinningWheel from "@/components/spinning-wheel";
+import { Search, MapPin, List } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
+import LocationSelector from "@/components/location-selector";
+
+// Helper function to calculate distance between two coordinates
+function calculateDistance(
+  lat1: number,
+  lon1: number,
+  lat2: number,
+  lon2: number
+): number {
+  function toRad(degrees: number): number {
+    return degrees * (Math.PI / 180);
+  }
+  
+  const R = 3958.8; // Earth's radius in miles
+  const dLat = toRad(lat2 - lat1);
+  const dLon = toRad(lon2 - lon1);
+  const a =
+    Math.sin(dLat / 2) * Math.sin(dLat / 2) +
+    Math.cos(toRad(lat1)) * Math.cos(toRad(lat2)) *
+    Math.sin(dLon / 2) * Math.sin(dLon / 2);
+  const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+  return R * c;
+}
 
 type SortOption = "rating" | "distance" | "name";
 
@@ -18,28 +39,53 @@ export default function Home() {
   const { data: kavaBars, isLoading } = useKavaBars();
   const [view, setView] = useState<"list" | "map">("list");
   const [sortBy, setSortBy] = useState<SortOption>("distance");
-  const [radius, setRadius] = useState<number>(500);
-  const { coordinates, isLoading: isLoadingLocation, requestLocation } = useLocation();
+  const location = useLocationContext();
   const { toast } = useToast();
 
-  useEffect(() => {
-    const handleLocationRequest = async () => {
-      try {
-        await requestLocation();
-      } catch (error: any) {
-        toast({
-          title: "Location Error",
-          description: "Unable to get your location. Some features may be limited.",
-          variant: "destructive",
-        });
-      }
-    };
-
-    handleLocationRequest();
-  }, [requestLocation, toast]);
+  // No longer auto-request location on page load
+  // Location will be user-initiated through the LocationSelector component
 
   // Log total number of bars received
   console.log('Total kava bars received:', kavaBars?.length);
+
+  // Add detailed debugging for the map view
+  console.log('Current view mode:', view);
+  
+  // Check location format for all bars to debug mapping issues
+  const locationStats = {
+    total: kavaBars?.length || 0,
+    withLocation: 0,
+    withValidLocation: 0,
+    withoutLocation: 0,
+    stringLocations: 0,
+    objectLocations: 0
+  };
+  
+  kavaBars?.forEach(bar => {
+    if (bar.location) {
+      locationStats.withLocation++;
+      if (typeof bar.location === 'string') {
+        locationStats.stringLocations++;
+        try {
+          const parsed = JSON.parse(bar.location);
+          if (parsed && typeof parsed.lat === 'number' && typeof parsed.lng === 'number') {
+            locationStats.withValidLocation++;
+          }
+        } catch (e) {
+          // Invalid JSON string
+        }
+      } else if (typeof bar.location === 'object') {
+        locationStats.objectLocations++;
+        if (bar.location.lat && bar.location.lng) {
+          locationStats.withValidLocation++;
+        }
+      }
+    } else {
+      locationStats.withoutLocation++;
+    }
+  });
+  
+  console.log('Bar location statistics:', locationStats);
 
   // Log Melbourne area bars for debugging
   const melbourneBars = kavaBars?.filter(bar => 
@@ -73,14 +119,14 @@ export default function Home() {
     }
 
     // For list view, apply distance filter if location is available
-    if (coordinates && radius && bar.location?.lat && bar.location?.lng) {
+    if (location.coordinates && location.radius && bar.location?.lat && bar.location?.lng) {
       const distance = calculateDistance(
-        coordinates.latitude,
-        coordinates.longitude,
+        location.coordinates.latitude,
+        location.coordinates.longitude,
         bar.location.lat,
         bar.location.lng
       );
-      return matchesSearch && distance <= radius;
+      return matchesSearch && distance <= location.radius;
     }
 
     // If no location or missing coordinates, just use search filter
@@ -93,10 +139,10 @@ export default function Home() {
   const sortedBars = filteredBars?.map(bar => {
     let distance: number | undefined;
 
-    if (coordinates && bar.location?.lat && bar.location?.lng) {
+    if (location.coordinates && bar.location?.lat && bar.location?.lng) {
       distance = calculateDistance(
-        coordinates.latitude,
-        coordinates.longitude,
+        location.coordinates.latitude,
+        location.coordinates.longitude,
         bar.location.lat,
         bar.location.lng
       );
@@ -133,8 +179,8 @@ export default function Home() {
 
   const handleSortChange = (value: string) => {
     setSortBy(value as SortOption);
-    if (value === "distance" && !coordinates) {
-      requestLocation();
+    if (value === "distance" && !location.coordinates) {
+      location.requestLocation();
     }
   };
 
@@ -183,8 +229,8 @@ export default function Home() {
                 </SelectTrigger>
                 <SelectContent>
                   <SelectItem value="rating">Rating</SelectItem>
-                  <SelectItem value="distance" disabled={isLoadingLocation}>
-                    Distance {isLoadingLocation ? "(Loading...)" : !coordinates ? "(Enable location)" : ""}
+                  <SelectItem value="distance" disabled={location.isLoading}>
+                    Distance {location.isLoading ? "(Loading...)" : !location.coordinates ? "(Enable location)" : ""}
                   </SelectItem>
                   <SelectItem value="name">Name</SelectItem>
                 </SelectContent>
@@ -206,33 +252,8 @@ export default function Home() {
             </div>
           </div>
 
-          <div className="flex flex-col sm:flex-row gap-4 items-center">
-            <Button
-              variant="outline"
-              className="gap-2"
-              onClick={requestLocation}
-              disabled={isLoadingLocation}
-            >
-              <Crosshair className="h-4 w-4" />
-              {isLoadingLocation ? "Getting location..." : coordinates ? "Update location" : "Use my location"}
-            </Button>
-
-            {coordinates && (
-              <div className="flex-1 space-y-2">
-                <div className="flex justify-between items-center">
-                  <span className="text-sm text-muted-foreground">Search radius: {radius} miles</span>
-                </div>
-                <Slider
-                  value={[radius]}
-                  onValueChange={(value) => setRadius(value[0])}
-                  min={1}
-                  max={view === "map" ? 3000 : 500} // Larger radius for map view
-                  step={view === "map" ? 10 : 5}
-                  className="w-full"
-                />
-              </div>
-            )}
-          </div>
+          {/* New user-initiated location selector component */}
+          <LocationSelector />
         </div>
 
         {view === "list" ? (
@@ -249,14 +270,27 @@ export default function Home() {
           </div>
         ) : (
           <div className="h-[600px] rounded-lg overflow-hidden">
-            <MapProvider
-              zoom={coordinates ? 11 : 10}
-              height="600px"
-              center={coordinates ? {
-                lat: coordinates.latitude, 
-                lng: coordinates.longitude
-              } : undefined}
-            />
+            {/* If we have bars data, show the map */}
+            {sortedBars && sortedBars.length > 0 ? (
+              <MapProvider
+                zoom={location.coordinates ? 11 : 10}
+                height="600px"
+                center={location.coordinates ? {
+                  lat: location.coordinates.latitude, 
+                  lng: location.coordinates.longitude
+                } : undefined}
+                bars={sortedBars}
+              />
+            ) : (
+              <div className="h-full w-full flex items-center justify-center bg-muted/10">
+                <div className="text-center p-6">
+                  <h3 className="text-lg font-medium">Loading Map Data</h3>
+                  <p className="text-muted-foreground mt-2">
+                    Please wait while we prepare the map view...
+                  </p>
+                </div>
+              </div>
+            )}
           </div>
         )}
       </div>
