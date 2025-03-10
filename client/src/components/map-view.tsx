@@ -1,28 +1,30 @@
-import React, { useEffect, useRef, useState } from 'react';
-import './map-styles.css';
+import React, { useEffect, useRef } from 'react';
 import L from 'leaflet';
 import 'leaflet/dist/leaflet.css';
+import './map-styles.css';
 
-// Fix Leaflet default icon paths
+// Fix Leaflet icon path issues
 import icon from 'leaflet/dist/images/marker-icon.png';
 import iconShadow from 'leaflet/dist/images/marker-shadow.png';
 
-// Fix the icon issue
-delete (L.Icon.Default.prototype as any)._getIconUrl;
-L.Icon.Default.mergeOptions({
+// Custom marker icon setup
+const DefaultIcon = L.icon({
   iconUrl: icon,
-  iconRetinaUrl: icon,
   shadowUrl: iconShadow,
+  iconSize: [25, 41],
+  iconAnchor: [12, 41],
+  popupAnchor: [1, -34],
+  shadowSize: [41, 41]
 });
+L.Marker.prototype.options.icon = DefaultIcon;
 
 interface Bar {
-  id: number;
+  id: string;
   name: string;
+  latitude: number;
+  longitude: number;
   address: string;
-  lat?: number;
-  lng?: number;
   rating?: number;
-  photos?: string[];
 }
 
 interface MapViewProps {
@@ -34,118 +36,79 @@ interface MapViewProps {
 
 const MapView: React.FC<MapViewProps> = ({ bars, center, zoom, userLocation }) => {
   const mapRef = useRef<HTMLDivElement>(null);
-  const leafletMap = useRef<L.Map | null>(null);
-  const [mapLoaded, setMapLoaded] = useState(false);
+  const leafletMapRef = useRef<L.Map | null>(null);
   const markersRef = useRef<L.Marker[]>([]);
 
+  // Initialize map
   useEffect(() => {
     if (!mapRef.current) return;
 
-    try {
-      console.log('Initializing map...');
-
-      // Only initialize once
-      if (!leafletMap.current) {
-        // Create map
-        leafletMap.current = L.map(mapRef.current, {
-          center: [center.lat, center.lng],
-          zoom: zoom,
-          zoomControl: true,
-          attributionControl: true
-        });
-
-        // Add tile layer
-        L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
-          attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors',
-          maxZoom: 19
-        }).addTo(leafletMap.current);
-
-        console.log('Map initialized successfully');
-        setMapLoaded(true);
-      }
-    } catch (error) {
-      console.error('Error initializing map:', error);
+    // Clean up any existing map
+    if (leafletMapRef.current) {
+      leafletMapRef.current.remove();
     }
 
-    // Cleanup function
+    // Create new map
+    const map = L.map(mapRef.current).setView([center.lat, center.lng], zoom);
+
+    // Add tile layer
+    L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+      attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
+    }).addTo(map);
+
+    // Add user location marker if available
+    if (userLocation) {
+      const userMarker = L.marker([userLocation.lat, userLocation.lng], {
+        icon: L.divIcon({
+          className: 'user-location-marker',
+          html: '<div class="pulse"></div>',
+          iconSize: [20, 20],
+          iconAnchor: [10, 10]
+        })
+      }).addTo(map);
+
+      userMarker.bindPopup('Your Location').openPopup();
+    }
+
+    // Save map reference
+    leafletMapRef.current = map;
+
+    // Clean up function
     return () => {
-      if (leafletMap.current) {
-        console.log('Cleaning up map...');
-        leafletMap.current.remove();
-        leafletMap.current = null;
+      if (leafletMapRef.current) {
+        leafletMapRef.current.remove();
+        leafletMapRef.current = null;
       }
-    };
-  }, [center, zoom]);
-
-  // Add markers when map is loaded and when bars change
-  useEffect(() => {
-    if (!leafletMap.current || !mapLoaded) return;
-
-    try {
-      console.log('Adding markers to map...');
-
-      // Clear existing markers
-      markersRef.current.forEach(marker => marker.remove());
       markersRef.current = [];
+    };
+  }, [center, zoom]); // Only re-create map when center or zoom changes
 
-      // Add bar markers
-      bars.forEach((bar) => {
-        if (bar.lat && bar.lng) {
-          const marker = L.marker([bar.lat, bar.lng])
-            .addTo(leafletMap.current!)
-            .bindPopup(`
-              <b>${bar.name}</b><br/>
-              ${bar.address}<br/>
-              ${bar.rating ? `Rating: ${bar.rating}` : ''}
-            `);
-
-          markersRef.current.push(marker);
-        }
-      });
-
-      // Add user location marker if provided
-      if (userLocation) {
-        const userMarker = L.marker(
-          [userLocation.lat, userLocation.lng],
-          {
-            icon: new L.Icon({
-              iconUrl: 'https://raw.githubusercontent.com/pointhi/leaflet-color-markers/master/img/marker-icon-2x-blue.png',
-              shadowUrl: iconShadow,
-              iconSize: [25, 41],
-              iconAnchor: [12, 41],
-              popupAnchor: [1, -34],
-              shadowSize: [41, 41]
-            })
-          }
-        )
-          .addTo(leafletMap.current)
-          .bindPopup('Your location');
-
-        markersRef.current.push(userMarker);
-      }
-
-      console.log(`Added ${markersRef.current.length} markers to map`);
-    } catch (error) {
-      console.error('Error adding markers to map:', error);
-    }
-  }, [bars, userLocation, mapLoaded]);
-
-  // Update map center when it changes
+  // Handle bars update
   useEffect(() => {
-    if (leafletMap.current && mapLoaded) {
-      leafletMap.current.setView([center.lat, center.lng], zoom);
-    }
-  }, [center, zoom, mapLoaded]);
+    const map = leafletMapRef.current;
+    if (!map) return;
 
-  return (
-    <div className="map-container">
-      <div 
-        ref={mapRef} 
-        className="leaflet-container" 
-        data-testid="map-container"
-      />
-    </div>
-  );
+    // Clear existing markers
+    markersRef.current.forEach(marker => marker.remove());
+    markersRef.current = [];
+
+    // Add new markers
+    bars.forEach(bar => {
+      if (bar.latitude && bar.longitude) {
+        const marker = L.marker([bar.latitude, bar.longitude])
+          .addTo(map)
+          .bindPopup(`
+            <strong>${bar.name}</strong><br>
+            ${bar.address}<br>
+            ${bar.rating ? `Rating: ${bar.rating}/5` : ''}
+          `);
+
+        markersRef.current.push(marker);
+      }
+    });
+  }, [bars]); // Update markers when bars change
+
+  return <div ref={mapRef} className="leaflet-container" />;
 };
 
 export default MapView;

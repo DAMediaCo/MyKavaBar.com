@@ -2,8 +2,9 @@
 .leaflet-container {
   width: 100%;
   height: 100%;
+  min-height: 400px;
   background: #ffffff;
-  z-index: 0;
+  z-index: 1;
 }
 
 /* Map loading state */
@@ -40,6 +41,33 @@
   max-width: 80%;
 }
 
+/* User location marker pulse effect */
+.user-location-marker {
+  position: relative;
+}
+
+.pulse {
+  width: 20px;
+  height: 20px;
+  border-radius: 50%;
+  background: rgba(38, 126, 222, 0.7);
+  border: 2px solid #ffffff;
+  box-shadow: 0 0 0 rgba(38, 126, 222, 0.4);
+  animation: pulse 2s infinite;
+}
+
+@keyframes pulse {
+  0% {
+    box-shadow: 0 0 0 0 rgba(38, 126, 222, 0.4);
+  }
+  70% {
+    box-shadow: 0 0 0 10px rgba(38, 126, 222, 0);
+  }
+  100% {
+    box-shadow: 0 0 0 0 rgba(38, 126, 222, 0);
+  }
+}
+
 /* Custom marker styling */
 .user-location-marker div {
   transition: transform 0.2s ease;
@@ -59,6 +87,17 @@
   transform: scale(1.2);
 }
 
+/* Custom marker styling */
+.custom-marker-icon {
+  background-color: #ff6b6b;
+  border-radius: 50%;
+  border: 2px solid white;
+  width: 14px !important;
+  height: 14px !important;
+  margin-left: -7px !important;
+  margin-top: -7px !important;
+}
+
 /* Controls */
 .leaflet-control-container {
   position: absolute;
@@ -75,9 +114,9 @@
 .leaflet-control {
   clear: both;
   pointer-events: auto;
-  z-index: 400 !important; /* Updated z-index */
-  position: relative; /* from edited */
-  z-index: 800; /* from edited */
+  z-index: 1000 !important; /* Updated z-index */
+  position: relative;
+  z-index: 800;
 }
 
 /* Popup styling */
@@ -100,13 +139,27 @@
 }
 
 /* Essential panes */
-.leaflet-map-pane { z-index: 2; }
-.leaflet-tile-pane { z-index: 2; } /* from edited */
-.leaflet-overlay-pane { z-index: 40; }
-.leaflet-shadow-pane { z-index: 50; }
-.leaflet-marker-pane { z-index: 3; } /* from edited */
-.leaflet-tooltip-pane { z-index: 65; }
-.leaflet-popup-pane { z-index: 4; } /* from edited */
+.leaflet-map-pane {
+  z-index: 2;
+}
+.leaflet-tile-pane {
+  z-index: 2;
+}
+.leaflet-overlay-pane {
+  z-index: 40;
+}
+.leaflet-shadow-pane {
+  z-index: 50;
+}
+.leaflet-marker-pane {
+  z-index: 3;
+}
+.leaflet-tooltip-pane {
+  z-index: 65;
+}
+.leaflet-popup-pane {
+  z-index: 4;
+}
 
 /* Better control styling */
 .leaflet-control-zoom {
@@ -139,10 +192,10 @@
   width: 100%;
   height: 100%;
   z-index: 0;
-  position: relative; /* from edited */
-  width: 100%; /* from edited */
-  height: 400px; /* from edited */
-  overflow: hidden; /* from edited */
+  position: relative;
+  width: 100%;
+  height: 400px;
+  overflow: hidden;
 }
 
 .map-popup h3 {
@@ -178,7 +231,7 @@
 .leaflet-popup-content-wrapper {
   padding: 0;
   border-radius: 6px;
-  box-shadow: 0 3px 14px rgba(0,0,0,0.2);
+  box-shadow: 0 3px 14px rgba(0, 0, 0, 0.2);
 }
 
 .leaflet-popup-content {
@@ -189,7 +242,6 @@
 .leaflet-container a {
   color: #4B0082;
 }
-
 
 .map-view {
   width: 100%;
@@ -259,12 +311,6 @@
   box-shadow: 0 0 8px rgba(0, 0, 0, 0.5);
 }
 
-/* Map container styling */
-/*.leaflet-container {
-  height: 100%;
-  width: 100%;
-  z-index: 0;
-}*/
 
 /* Custom marker styles */
 .custom-marker {
@@ -289,66 +335,13 @@
   font-weight: bold;
 }
 
-/* Ensure the map container has proper dimensions */
-/*.map-container {
-  height: 500px;
-  width: 100%;
-  border-radius: 0.5rem;
-  overflow: hidden;
-  position: relative;
-  z-index: 0;
-}*/
-
-/* Improve popup styling */
-/*.leaflet-popup-content-wrapper {
-  border-radius: 0.5rem;
-  padding: 0.25rem;
-}
-
-.popup-content {
-  padding: 0.5rem;
-}*/
-
-/* Make the controls more visible */
-.leaflet-control-zoom {
-  box-shadow: 0 1px 5px rgba(0, 0, 0, 0.2);
-  border-radius: 0.25rem;
-}
-
 /* Fix for map attribution */
 .leaflet-control-attribution {
   font-size: 10px;
 }
 
-/* Fix for marker popups */
-/*.leaflet-popup-content {
-  margin: 0.5rem;
-  min-width: 200px;
-}*/
 
-/* Fix for tile loading */
-.leaflet-tile {
-  visibility: hidden; /* from edited */
-}
-.leaflet-tile-loaded {
-  visibility: visible; /* from edited */
-}
-
-/* Mobile adjustments */
-@media (max-width: 768px) {
-  .map-container {
-    height: 350px;
-  }
-}
-
-/* Basic container styles from edited */
-/*.leaflet-container {
-  height: 400px;
-  width: 100%;
-  z-index: 1;
-}*/
-
-/* Make sure all Leaflet elements are visible from edited */
+/* Make sure all Leaflet elements are visible */
 .leaflet-pane,
 .leaflet-tile,
 .leaflet-marker-icon,
@@ -364,22 +357,34 @@
   top: 0;
 }
 
-/* Markers from edited */
+/* Markers */
 .marker-pin {
   z-index: 1000;
 }
 
-/* Make sure map covers the area from edited */
-/*.leaflet-map-pane {
-  z-index: 2;
-}*/
 
-/* Fix for marker click issues from edited */
-/*.leaflet-marker-pane {
-  z-index: 3;
-}*/
+/* Fix for tile loading */
+.leaflet-tile {
+  visibility: hidden;
+}
+.leaflet-tile-loaded {
+  visibility: visible;
+}
 
-/* Make sure popup is above markers from edited */
-/*.leaflet-popup-pane {
-  z-index: 4;
-}*/
+/* Mobile adjustments */
+@media (max-width: 768px) {
+  .map-container {
+    height: 350px;
+  }
+}
+
+/* Don't let tooltips overflow their containers */
+.leaflet-tooltip {
+  white-space: normal !important;
+  max-width: 200px;
+}
+
+/* Fix for popup z-index issues */
+.leaflet-popup {
+  z-index: 1001 !important;
+}

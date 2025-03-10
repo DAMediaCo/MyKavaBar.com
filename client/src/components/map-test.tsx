@@ -1,58 +1,58 @@
-
-import React, { useEffect, useState } from 'react';
-import MapView from './map-view';
+import React, { useEffect, useRef, useState } from 'react';
 import L from 'leaflet';
-
-// Sample test data
-const testBars = [
-  {
-    id: 1,
-    name: 'Test Kava Bar 1',
-    address: '123 Main St, West Palm Beach, FL',
-    lat: 26.7056,
-    lng: -80.0364,
-    rating: 4.5
-  },
-  {
-    id: 2,
-    name: 'Test Kava Bar 2',
-    address: '456 Ocean Blvd, Palm Beach, FL',
-    lat: 26.7256,
-    lng: -80.0464,
-    rating: 4.2
-  },
-  {
-    id: 3,
-    name: 'Test Kava Bar 3',
-    address: '789 Beach Rd, Lake Worth, FL',
-    lat: 26.6856,
-    lng: -80.0564,
-    rating: 4.8
-  }
-];
+import 'leaflet/dist/leaflet.css';
 
 const MapTest: React.FC = () => {
   const [status, setStatus] = useState<'loading' | 'success' | 'error'>('loading');
   const [errorMessage, setErrorMessage] = useState<string>('');
-  
-  // Set up error catching for Leaflet loading issues
+  const mapContainerRef = useRef<HTMLDivElement>(null);
+  const mapRef = useRef<L.Map | null>(null);
+
   useEffect(() => {
+    if (!mapContainerRef.current) return;
+
     try {
-      // Ensure Leaflet is loaded
-      const leafletLoaded = typeof L !== 'undefined';
-      console.log("Leaflet loaded status:", leafletLoaded);
-      
-      // Check if window.L exists
-      if (window.L) {
-        console.log("Leaflet version:", window.L.version);
+      console.log("Initializing map test...");
+
+      // Check if Leaflet is available
+      if (typeof L === 'undefined') {
+        throw new Error('Leaflet library not loaded');
       }
-      
-      // Simulate loading process
-      const timer = setTimeout(() => {
-        setStatus('success');
-      }, 500);
-      
-      return () => clearTimeout(timer);
+
+      console.log("Leaflet version:", L.version);
+
+      // Initialize map
+      const map = L.map(mapContainerRef.current).setView([28.538336, -81.379234], 8);
+
+      // Add OSM tile layer
+      L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+        attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
+      }).addTo(map);
+
+      // Add a marker
+      L.marker([28.538336, -81.379234]).addTo(map)
+        .bindPopup('Test Marker')
+        .openPopup();
+
+      // Save map reference
+      mapRef.current = map;
+
+      // Set success status
+      setStatus('success');
+
+      // Trigger a resize event after rendering to ensure the map displays correctly
+      setTimeout(() => {
+        if (mapRef.current) {
+          mapRef.current.invalidateSize();
+        }
+      }, 100);
+
+      return () => {
+        if (mapRef.current) {
+          mapRef.current.remove();
+          mapRef.current = null;
+        }
+      };
     } catch (error) {
       console.error('Map test error:', error);
       setStatus('error');
@@ -60,72 +60,45 @@ const MapTest: React.FC = () => {
     }
   }, []);
 
-  // Test tile load
-  useEffect(() => {
-    // Create a test image to check if tiles can load
-    const testImage = new Image();
-    testImage.onload = () => {
-      console.log("Test tile loaded successfully");
-    };
-    testImage.onerror = (e) => {
-      console.error("Test tile failed to load:", e);
-      if (status !== 'error') {
-        setStatus('error');
-        setErrorMessage("Failed to load map tiles. Check your network connection or try a different browser.");
-      }
-    };
-    testImage.src = "https://a.tile.openstreetmap.org/1/1/1.png";
-    
-    return () => {
-      testImage.onload = null;
-      testImage.onerror = null;
-    };
-  }, []);
-
   return (
-    <div className="p-4 border rounded">
-      <h2 className="text-xl font-bold mb-2">Map Test</h2>
-      <div className="mb-2">
-        {status === 'loading' && (
-          <span className="px-2 py-1 bg-yellow-100 text-yellow-800 rounded text-sm">
-            Loading map...
-          </span>
-        )}
-        {status === 'success' && (
-          <span className="px-2 py-1 bg-green-100 text-green-800 rounded text-sm">
-            Map loaded successfully
-          </span>
-        )}
-        {status === 'error' && (
-          <span className="px-2 py-1 bg-red-100 text-red-800 rounded text-sm">
-            Error loading map: {errorMessage}
-          </span>
-        )}
-      </div>
-      
-      <div className="mt-4" style={{ height: '400px', width: '100%' }}>
-        {status !== 'error' && (
-          <MapView 
-            bars={testBars} 
-            center={{ lat: 26.7056, lng: -80.0364 }}
-            zoom={9}
-            userLocation={{ lat: 26.7156, lng: -80.0564 }}
-          />
-        )}
-      </div>
-      
-      <div className="mt-4 text-sm text-gray-600">
-        <p>This map should display three test markers in Palm Beach County, Florida.</p>
-        <p>If you're experiencing issues, try:</p>
-        <ul className="list-disc pl-5 mt-2">
-          <li>Checking your network connection</li>
-          <li>Disabling content blockers/ad blockers</li>
-          <li>Trying a different browser</li>
-          <li>Ensuring JavaScript is enabled</li>
-        </ul>
-      </div>
+    <div className="relative">
+      {status === 'loading' && (
+        <div className="absolute inset-0 flex items-center justify-center bg-gray-100 bg-opacity-75 z-10">
+          <div className="text-center">
+            <div className="spinner mb-2"></div>
+            <p>Loading map test...</p>
+          </div>
+        </div>
+      )}
+
+      {status === 'error' && (
+        <div className="p-4 bg-red-50 text-red-800 rounded-md mb-4">
+          <h3 className="font-semibold">Map Loading Error</h3>
+          <p>{errorMessage || 'Failed to load the map component'}</p>
+          <div className="mt-2 text-sm">
+            <p>Troubleshooting tips:</p>
+            <ul className="list-disc list-inside">
+              <li>Check if Leaflet library is loaded properly</li>
+              <li>Verify network access to tile server</li>
+              <li>Check console for detailed error messages</li>
+            </ul>
+          </div>
+        </div>
+      )}
+
+      <div 
+        ref={mapContainerRef} 
+        className="w-full h-[400px] rounded-md border border-gray-300"
+        style={{ display: status === 'error' ? 'none' : 'block' }}
+      />
+
+      {status === 'success' && (
+        <div className="mt-2 text-sm text-green-600">
+          ✓ Map loaded successfully
+        </div>
+      )}
     </div>
   );
-}
+};
 
 export default MapTest;
