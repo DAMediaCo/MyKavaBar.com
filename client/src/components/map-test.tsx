@@ -34,23 +34,11 @@ export default function MapTest() {
       const map = L.map(mapContainerRef.current).setView([34.0522, -118.2437], 5);
       mapRef.current = map;
       
-      // Add OpenStreetMap tile layer with fallback options
-      const tileLayer = L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+      // Add OpenStreetMap tile layer
+      L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
         attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors',
         maxZoom: 19,
-        zIndex: 1,
-        crossOrigin: true
       }).addTo(map);
-      
-      // Add event listener for tile loading errors
-      tileLayer.on('tileerror', function(error) {
-        console.error('Tile loading error:', error);
-        // Try alternative tile server if primary fails
-        L.tileLayer('https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}.png', {
-          attribution: '&copy; <a href="https://carto.com/attributions">CARTO</a>',
-          maxZoom: 19
-        }).addTo(map);
-      });
 
       // Add event listeners for debugging
       map.on('load', () => {
