@@ -1,188 +1,149 @@
-import React, { useEffect, useState, useRef } from 'react';
-import L from 'leaflet';
-import { MapContainer, TileLayer, Marker, Popup, useMap } from 'react-leaflet';
-import 'leaflet/dist/leaflet.css';
+import React, { useEffect, useRef, useState } from 'react';
 import './map-styles.css';
-import type { KavaBar } from '@/hooks/use-kava-bars';
+import L from 'leaflet';
+import 'leaflet/dist/leaflet.css';
 
-// Fix Leaflet icon path issues
+// Fix Leaflet default icon paths
 import icon from 'leaflet/dist/images/marker-icon.png';
 import iconShadow from 'leaflet/dist/images/marker-shadow.png';
 
-// Fix the icon paths issues
-let DefaultIcon = L.icon({
+// Fix the icon issue
+delete (L.Icon.Default.prototype as any)._getIconUrl;
+L.Icon.Default.mergeOptions({
   iconUrl: icon,
+  iconRetinaUrl: icon,
   shadowUrl: iconShadow,
-  iconSize: [25, 41],
-  iconAnchor: [12, 41],
-  popupAnchor: [1, -34],
 });
 
-L.Marker.prototype.options.icon = DefaultIcon;
-
-// Custom rating component for the popup
-const StarRating = ({ rating }: { rating: number }) => {
-  const fullStars = Math.floor(rating);
-  const hasHalfStar = rating % 1 >= 0.5;
-  const emptyStars = 5 - fullStars - (hasHalfStar ? 1 : 0);
-
-  return (
-    <div className="flex items-center">
-      {[...Array(fullStars)].map((_, i) => (
-        <span key={`full-${i}`} className="text-yellow-500">★</span>
-      ))}
-      {hasHalfStar && <span className="text-yellow-500">⯨</span>}
-      {[...Array(emptyStars)].map((_, i) => (
-        <span key={`empty-${i}`} className="text-gray-300">★</span>
-      ))}
-      <span className="ml-1 text-xs font-medium">{rating.toFixed(1)}</span>
-    </div>
-  );
-};
-
-// Component to recenter the map when props change
-function SetViewOnChange({ center, zoom }: { center?: [number, number], zoom?: number }) {
-  const map = useMap();
-
-  useEffect(() => {
-    if (center) {
-      map.setView(center, zoom || map.getZoom());
-    }
-  }, [center, zoom, map]);
-
-  return null;
+interface Bar {
+  id: number;
+  name: string;
+  address: string;
+  lat?: number;
+  lng?: number;
+  rating?: number;
+  photos?: string[];
 }
 
 interface MapViewProps {
-  bars: KavaBar[];
-  center?: { lat: number; lng: number };
-  zoom?: number;
-  userLocation?: { lat: number; lng: number } | null;
-  onMarkerClick?: (bar: KavaBar) => void;
+  bars: Bar[];
+  center: { lat: number; lng: number };
+  zoom: number;
+  userLocation?: { lat: number; lng: number };
 }
 
-const MapView: React.FC<MapViewProps> = ({ 
-  bars, 
-  center, 
-  zoom = 10, 
-  userLocation,
-  onMarkerClick
-}) => {
-  const [mapCenter, setMapCenter] = useState<[number, number]>([28.5383, -81.3792]); // Orlando as default
-  const [mapZoom, setMapZoom] = useState(zoom);
-  const mapRef = useRef<L.Map | null>(null);
+const MapView: React.FC<MapViewProps> = ({ bars, center, zoom, userLocation }) => {
+  const mapRef = useRef<HTMLDivElement>(null);
+  const leafletMap = useRef<L.Map | null>(null);
+  const [mapLoaded, setMapLoaded] = useState(false);
+  const markersRef = useRef<L.Marker[]>([]);
 
-  // Update map center when props change
   useEffect(() => {
-    if (center) {
-      setMapCenter([center.lat, center.lng]);
-    } else if (userLocation) {
-      setMapCenter([userLocation.lat, userLocation.lng]);
-    } else if (bars.length > 0 && bars[0].latitude && bars[0].longitude) {
-      setMapCenter([bars[0].latitude, bars[0].longitude]);
+    if (!mapRef.current) return;
+
+    try {
+      console.log('Initializing map...');
+
+      // Only initialize once
+      if (!leafletMap.current) {
+        // Create map
+        leafletMap.current = L.map(mapRef.current, {
+          center: [center.lat, center.lng],
+          zoom: zoom,
+          zoomControl: true,
+          attributionControl: true
+        });
+
+        // Add tile layer
+        L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+          attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors',
+          maxZoom: 19
+        }).addTo(leafletMap.current);
+
+        console.log('Map initialized successfully');
+        setMapLoaded(true);
+      }
+    } catch (error) {
+      console.error('Error initializing map:', error);
     }
-  }, [center, userLocation, bars]);
 
-  // Adjust zoom based on props
+    // Cleanup function
+    return () => {
+      if (leafletMap.current) {
+        console.log('Cleaning up map...');
+        leafletMap.current.remove();
+        leafletMap.current = null;
+      }
+    };
+  }, [center, zoom]);
+
+  // Add markers when map is loaded and when bars change
   useEffect(() => {
-    setMapZoom(zoom);
-  }, [zoom]);
+    if (!leafletMap.current || !mapLoaded) return;
 
-  // Handle map errors
-  const handleMapError = (error: any) => {
-    console.error("Map loading error:", error);
-  };
+    try {
+      console.log('Adding markers to map...');
 
-  return (
-    <div className="map-container">
-      <MapContainer
-        center={mapCenter}
-        zoom={mapZoom}
-        style={{ height: '100%', width: '100%' }}
-        whenCreated={(map) => {
-          mapRef.current = map;
-          console.log("Map created successfully");
-        }}
-        whenReady={() => console.log("Map is ready")}
-        className="z-0" // Lower z-index to prevent map from overlapping UI elements
-      >
-        <TileLayer
-          attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
-          url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
-          eventHandlers={{
-            loading: () => console.log("Tiles are loading"),
-            load: () => console.log("Tiles loaded successfully"),
-            error: handleMapError
-          }}
-        />
+      // Clear existing markers
+      markersRef.current.forEach(marker => marker.remove());
+      markersRef.current = [];
 
-        <SetViewOnChange center={mapCenter} zoom={mapZoom} />
+      // Add bar markers
+      bars.forEach((bar) => {
+        if (bar.lat && bar.lng) {
+          const marker = L.marker([bar.lat, bar.lng])
+            .addTo(leafletMap.current!)
+            .bindPopup(`
+              <b>${bar.name}</b><br/>
+              ${bar.address}<br/>
+              ${bar.rating ? `Rating: ${bar.rating}` : ''}
+            `);
 
-        {/* User location marker */}
-        {userLocation && (
-          <Marker 
-            position={[userLocation.lat, userLocation.lng]}
-            icon={new L.Icon({
-              iconUrl: 'https://cdn.rawgit.com/pointhi/leaflet-color-markers/master/img/marker-icon-2x-blue.png',
+          markersRef.current.push(marker);
+        }
+      });
+
+      // Add user location marker if provided
+      if (userLocation) {
+        const userMarker = L.marker(
+          [userLocation.lat, userLocation.lng],
+          {
+            icon: new L.Icon({
+              iconUrl: 'https://raw.githubusercontent.com/pointhi/leaflet-color-markers/master/img/marker-icon-2x-blue.png',
               shadowUrl: iconShadow,
               iconSize: [25, 41],
               iconAnchor: [12, 41],
               popupAnchor: [1, -34],
-            })}
-          >
-            <Popup>
-              <div className="font-medium text-blue-600">Your Location</div>
-            </Popup>
-          </Marker>
-        )}
+              shadowSize: [41, 41]
+            })
+          }
+        )
+          .addTo(leafletMap.current)
+          .bindPopup('Your location');
 
-        {/* Kava bar markers */}
-        {bars.map((bar) => {
-          if (!bar.latitude || !bar.longitude) return null;
-          console.log(`Rendering bar ${bar.name}:`, { rating: bar.rating, ratingType: typeof bar.rating, address: bar.address });
+        markersRef.current.push(userMarker);
+      }
 
-          return (
-            <Marker 
-              key={bar.id} 
-              position={[bar.latitude, bar.longitude]}
-              eventHandlers={{
-                click: () => {
-                  if (onMarkerClick) {
-                    onMarkerClick(bar);
-                  }
-                }
-              }}
-            >
-              <Popup>
-                <div className="popup-content">
-                  <h3 className="font-bold text-md">{bar.name}</h3>
-                  <p className="text-sm text-gray-600">{bar.address}</p>
-                  {bar.rating > 0 && <StarRating rating={bar.rating} />}
-                  {bar.phone && (
-                    <p className="text-sm mt-1">
-                      <a href={`tel:${bar.phone}`} className="text-blue-500 hover:underline">
-                        {bar.phone}
-                      </a>
-                    </p>
-                  )}
-                  {bar.website && (
-                    <p className="text-sm mt-1">
-                      <a 
-                        href={bar.website.startsWith('http') ? bar.website : `https://${bar.website}`} 
-                        target="_blank" 
-                        rel="noopener noreferrer"
-                        className="text-blue-500 hover:underline"
-                      >
-                        Visit Website
-                      </a>
-                    </p>
-                  )}
-                </div>
-              </Popup>
-            </Marker>
-          );
-        })}
-      </MapContainer>
+      console.log(`Added ${markersRef.current.length} markers to map`);
+    } catch (error) {
+      console.error('Error adding markers to map:', error);
+    }
+  }, [bars, userLocation, mapLoaded]);
+
+  // Update map center when it changes
+  useEffect(() => {
+    if (leafletMap.current && mapLoaded) {
+      leafletMap.current.setView([center.lat, center.lng], zoom);
+    }
+  }, [center, zoom, mapLoaded]);
+
+  return (
+    <div className="map-container">
+      <div 
+        ref={mapRef} 
+        className="leaflet-container" 
+        data-testid="map-container"
+      />
     </div>
   );
 };

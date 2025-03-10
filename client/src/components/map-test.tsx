@@ -1,32 +1,33 @@
 
-import React, { useState, useEffect } from 'react';
+import React, { useEffect, useState } from 'react';
 import MapView from './map-view';
+import L from 'leaflet';
 
-// Sample test data for markers
+// Sample test data
 const testBars = [
   {
     id: 1,
-    name: "Test Kava Bar 1",
-    address: "123 Test St, Test City, FL",
-    latitude: 26.7056,
-    longitude: -80.0364,
+    name: 'Test Kava Bar 1',
+    address: '123 Main St, West Palm Beach, FL',
+    lat: 26.7056,
+    lng: -80.0364,
     rating: 4.5
   },
   {
     id: 2,
-    name: "Test Kava Bar 2",
-    address: "456 Sample Ave, Test City, FL",
-    latitude: 26.6406,
-    longitude: -80.2831,
-    rating: 4.8
+    name: 'Test Kava Bar 2',
+    address: '456 Ocean Blvd, Palm Beach, FL',
+    lat: 26.7256,
+    lng: -80.0464,
+    rating: 4.2
   },
   {
     id: 3,
-    name: "Test Kava Bar 3",
-    address: "789 Demo Blvd, Test City, FL",
-    latitude: 26.8245,
-    longitude: -80.1362,
-    rating: 4.2
+    name: 'Test Kava Bar 3',
+    address: '789 Beach Rd, Lake Worth, FL',
+    lat: 26.6856,
+    lng: -80.0564,
+    rating: 4.8
   }
 ];
 
