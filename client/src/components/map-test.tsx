@@ -1,84 +1,78 @@
+
 import React, { useEffect, useRef, useState } from 'react';
 import L from 'leaflet';
 import 'leaflet/dist/leaflet.css';
+import './map-styles.css';
 
-const MapTest: React.FC = () => {
+// Fix Leaflet icon paths
+import icon from 'leaflet/dist/images/marker-icon.png';
+import iconShadow from 'leaflet/dist/images/marker-shadow.png';
+
+// Set up default icon for Leaflet
+let DefaultIcon = L.icon({
+  iconUrl: icon,
+  shadowUrl: iconShadow,
+  iconSize: [25, 41],
+  iconAnchor: [12, 41],
+  popupAnchor: [1, -34],
+  shadowSize: [41, 41]
+});
+
+L.Marker.prototype.options.icon = DefaultIcon;
+
+const MapTest = () => {
+  const mapContainerRef = useRef<HTMLDivElement>(null);
   const [status, setStatus] = useState<'loading' | 'success' | 'error'>('loading');
   const [errorMessage, setErrorMessage] = useState<string>('');
-  const mapContainerRef = useRef<HTMLDivElement>(null);
-  const mapRef = useRef<L.Map | null>(null);
-
+  
   useEffect(() => {
     if (!mapContainerRef.current) return;
-
+    
     try {
-      console.log("Initializing map test...");
-
-      // Check if Leaflet is available
-      if (typeof L === 'undefined') {
-        throw new Error('Leaflet library not loaded');
-      }
-
-      console.log("Leaflet version:", L.version);
-
-      // Initialize map
-      const map = L.map(mapContainerRef.current).setView([28.538336, -81.379234], 8);
-
-      // Add a more robust tile layer -  handling potential errors
-      const tileLayer = L.tileLayer('https://tile.openstreetmap.org/{z}/{x}/{y}.png', {
+      // Create map instance
+      const map = L.map(mapContainerRef.current).setView([27.9944, -82.4324], 10); // Tampa, FL as default
+      
+      // Add tile layer
+      L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
         attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors',
-        errorTileUrl: 'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNk+M9QHwADwQYE/g8BDwAAAAASUVORK5CYII=' // Default error tile
+        maxZoom: 19,
       }).addTo(map);
-
-      tileLayer.on('tileerror', (error) => {
-        console.error('Tile layer error:', error);
-        setStatus('error');
-        setErrorMessage("Failed to load map tiles. Check your internet connection.");
+      
+      // Add some test markers
+      const locations = [
+        { name: 'Test Location 1', lat: 27.9506, lng: -82.4572 },
+        { name: 'Test Location 2', lat: 28.0395, lng: -82.4946 },
+        { name: 'Test Location 3', lat: 27.9477, lng: -82.4584 },
+      ];
+      
+      locations.forEach(loc => {
+        L.marker([loc.lat, loc.lng])
+          .addTo(map)
+          .bindPopup(`<strong>${loc.name}</strong>`);
       });
-
-      // Add a marker
-      L.marker([28.538336, -81.379234]).addTo(map)
-        .bindPopup('Test Marker')
-        .openPopup();
-
-
-      // Save map reference
-      mapRef.current = map;
-
-      // Set success status
+      
       setStatus('success');
-
-      // Trigger a resize event after rendering to ensure the map displays correctly
-      setTimeout(() => {
-        if (mapRef.current) {
-          mapRef.current.invalidateSize();
-        }
-      }, 100);
-
+      
+      // Cleanup function
       return () => {
-        if (mapRef.current) {
-          mapRef.current.remove();
-          mapRef.current = null;
-        }
+        map.remove();
       };
     } catch (error) {
-      console.error('Map test error:', error);
+      console.error('Error initializing map:', error);
       setStatus('error');
-      setErrorMessage(error instanceof Error ? error.message : 'Unknown error');
+      setErrorMessage(error instanceof Error ? error.message : 'Unknown error initializing map');
     }
   }, []);
-
+  
   return (
-    <div className="relative">
+    <div className="w-full">
       {status === 'loading' && (
-        <div className="absolute inset-0 flex items-center justify-center bg-gray-100 bg-opacity-75 z-10">
-          <div className="text-center">
-            <div className="spinner mb-2"></div>
-            <p>Loading map test...</p>
-          </div>
+        <div className="p-4 bg-yellow-50 text-yellow-800 rounded-md mb-4">
+          <h3 className="font-semibold">Loading Map...</h3>
+          <p>Please wait while the map is being initialized.</p>
         </div>
       )}
-
+      
       {status === 'error' && (
         <div className="p-4 bg-red-50 text-red-800 rounded-md mb-4">
           <h3 className="font-semibold">Map Loading Error</h3>
