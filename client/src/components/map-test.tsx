@@ -33,6 +33,12 @@ export default function MapTest() {
       // Create map
       const map = L.map(mapContainerRef.current).setView([34.0522, -118.2437], 5);
       mapRef.current = map;
+      
+      // Add OpenStreetMap tile layer
+      L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+        attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors',
+        maxZoom: 19,
+      }).addTo(map);
 
       // Add event listeners for debugging
       map.on('load', () => {

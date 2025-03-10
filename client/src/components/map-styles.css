@@ -179,6 +179,9 @@
 }
 
 /* Edited styles for map popups */
+/* Import Leaflet CSS */
+@import 'leaflet/dist/leaflet.css';
+
 .map-container {
   width: 100%;
   height: 100%;
@@ -187,8 +190,8 @@
   width: 100%;
   height: 400px;
   overflow: hidden;
-  min-height: 200px; /* From changes */
-  background-color: #e0e0e0; /* From changes */
+  min-height: 200px;
+  background-color: #e0e0e0;
 }
 
 .map-popup h3 {

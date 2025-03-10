@@ -64,7 +64,17 @@ export default function MapView({ bars, center, zoom, userLocation }: MapViewPro
     setIsLoading(false);
   };
 
-  // Fallback if map fails to load
+  useEffect(() => {
+    if (mapRef.current && ref.current) {
+      // Add OpenStreetMap tile layer
+      L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+        attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors',
+        maxZoom: 19
+      }).addTo(mapRef.current);
+    }
+  }, [mapRef.current]);
+
+// Fallback if map fails to load
   if (error) {
     return (
       <div className="map-container">
