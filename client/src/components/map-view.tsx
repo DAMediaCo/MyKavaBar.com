@@ -66,11 +66,19 @@ export default function MapView({ bars, center, zoom, userLocation }: MapViewPro
 
   useEffect(() => {
     if (mapRef.current && ref.current) {
-      // Add OpenStreetMap tile layer
+      // Add OpenStreetMap tile layer with explicit z-index
       L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
         attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors',
-        maxZoom: 19
+        maxZoom: 19,
+        zIndex: 1
       }).addTo(mapRef.current);
+      
+      // Force a repaint of the map
+      setTimeout(() => {
+        if (mapRef.current) {
+          mapRef.current.invalidateSize();
+        }
+      }, 100);
     }
   }, [mapRef.current]);
 
