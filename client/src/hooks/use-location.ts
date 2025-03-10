@@ -30,6 +30,7 @@ export function useLocation() {
   const hasShownInitialToast = useRef(false);
   const hasCheckedPermissions = useRef(false);
   const hasAutoRequested = useRef(false);
+  const locationUpdatedToast = useRef(false); // Added to control toast display
 
   // Check permissions on mount
   useEffect(() => {
@@ -80,14 +81,17 @@ export function useLocation() {
 
   // Function to request location with improved error handling
   const requestLocation = () => {
+    console.log("Requesting location...");
     if (isRequesting.current) {
       console.log("Location request already in progress");
       return;
     }
 
-    console.log("Requesting location...");
-    setIsLoading(true);
+    // Reset toast flag when user explicitly requests location update
+    locationUpdatedToast.current = false;
     isRequesting.current = true;
+    setIsLoading(true);
+    setError(null);
 
     if (!navigator.geolocation) {
       setError("Geolocation is not supported by this browser");
@@ -119,10 +123,15 @@ export function useLocation() {
         setError(null);
         retryCount.current = 0;
 
-        toast({
-          title: "Location updated",
-          description: "Your location has been successfully updated",
-        });
+        //Only show toast if the flag is false.
+        if (!locationUpdatedToast.current) {
+          toast({
+            title: "Location updated",
+            description: "Your location has been successfully updated",
+          });
+          locationUpdatedToast.current = true;
+        }
+
       },
       (err) => {
         console.error("Geolocation error:", err.code, err.message);
