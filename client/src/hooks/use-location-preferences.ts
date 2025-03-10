@@ -1,5 +1,8 @@
 import { useState, useEffect, useCallback } from 'react';
 
+// Local storage key for saving preferences
+const LOCATION_PREF_KEY = 'mykavabar-location-prefs';
+
 // Define preset locations for quick selection
 export const PRESET_LOCATIONS = {
   'Orlando': { latitude: 28.5383, longitude: -81.3792, description: 'Orlando, FL', radius: 25 },
