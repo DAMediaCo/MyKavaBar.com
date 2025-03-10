@@ -1,3 +1,4 @@
+
 import { useState, useEffect, useRef } from "react";
 import L from "leaflet";
 import "leaflet/dist/leaflet.css";
@@ -20,7 +21,7 @@ export default function MapTest() {
 
     try {
       console.log("Initializing test map");
-
+      
       // Fix Leaflet icon issue
       delete L.Icon.Default.prototype._getIconUrl;
       L.Icon.Default.mergeOptions({
@@ -32,7 +33,7 @@ export default function MapTest() {
       // Create map
       const map = L.map(mapContainerRef.current).setView([34.0522, -118.2437], 5);
       mapRef.current = map;
-
+      
       // Add OpenStreetMap tile layer with fallback options
       const tileLayer = L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
         attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors',
@@ -40,7 +41,7 @@ export default function MapTest() {
         zIndex: 1,
         crossOrigin: true
       }).addTo(map);
-
+      
       // Add event listener for tile loading errors
       tileLayer.on('tileerror', function(error) {
         console.error('Tile loading error:', error);
@@ -62,6 +63,11 @@ export default function MapTest() {
         setErrorMessage(e.error?.message || 'Unknown map error');
       });
 
+      // Add tile layer with error handling
+      const tileLayer = L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+        attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors',
+        maxZoom: 19,
+      });
 
       tileLayer.on('loading', () => {
         console.log("Tile layer loading");
@@ -78,6 +84,7 @@ export default function MapTest() {
         setErrorMessage('Failed to load map tiles. Please check your network connection.');
       });
 
+      tileLayer.addTo(map);
 
       // Add test markers
       L.marker([34.0522, -118.2437]).addTo(map)
@@ -94,7 +101,7 @@ export default function MapTest() {
       const timeout = setTimeout(() => {
         if (status === 'loading') {
           console.warn("Map still loading after timeout");
-
+          
           // Check if the map seems to be working despite not firing events
           if (mapRef.current && mapRef.current.getContainer()) {
             const mapContainer = mapRef.current.getContainer();
@@ -129,14 +136,14 @@ export default function MapTest() {
   return (
     <div className="border rounded-md p-4">
       <h2 className="text-xl font-semibold mb-4">Map Test</h2>
-
+      
       {status === 'loading' && (
         <div className="p-4 bg-yellow-50 text-yellow-800 rounded-md mb-4">
           <h3 className="font-semibold">Loading Map...</h3>
           <p>Please wait while the map is being initialized.</p>
         </div>
       )}
-
+      
       {status === 'error' && (
         <div className="p-4 bg-red-50 text-red-800 rounded-md mb-4">
           <h3 className="font-semibold">Map Loading Error</h3>
