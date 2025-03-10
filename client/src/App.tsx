@@ -10,9 +10,6 @@ import { useLocation } from "wouter";
 import { OnboardingProvider } from "@/contexts/onboarding-context";
 import { ThemeProvider } from "@/contexts/theme-context";
 import OnboardingTutorial from "@/components/onboarding-tutorial";
-import ConnectionStatus from "@/components/connection-status";
-import { MapProvider } from "@/components/map-provider";
-import Footer from "@/components/footer";
 // Import all your page components
 import PrivacyPolicy from "./pages/privacy-policy";
 import NotFound from "@/pages/not-found";
@@ -143,7 +140,6 @@ function Router() {
           <Route component={NotFound} />
         </Switch>
       </main>
-      <Footer />
     </div>
   );
 }
@@ -153,12 +149,9 @@ function App() {
     <QueryClientProvider client={queryClient}>
       <ThemeProvider defaultTheme="light" storageKey="mykavabar-theme">
         <OnboardingProvider>
-          <MapProvider>
-            <Router />
-            <ConnectionStatus />
-            <Toaster />
-            <OnboardingTutorial />
-          </MapProvider>
+          <Router />
+          <Toaster />
+          <OnboardingTutorial />
         </OnboardingProvider>
       </ThemeProvider>
     </QueryClientProvider>

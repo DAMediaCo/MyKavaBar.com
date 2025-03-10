@@ -2,7 +2,7 @@ import { useState, useEffect } from "react";
 import { useKavaBars } from "@/hooks/use-kava-bars";
 import { useLocation, calculateDistance } from "@/hooks/use-location";
 import KavaBarCard from "@/components/kava-bar-card";
-import MapProvider from "@/components/map-provider";
+import MapProvider from "../components/map-provider";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
@@ -110,8 +110,8 @@ export default function Home() {
         const distB = b.distance ?? Infinity;
         return distA - distB;
       case "rating":
-        const ratingA = a.rating || 0;
-        const ratingB = b.rating || 0;
+        const ratingA = parseFloat(a.rating.toString()) || 0;
+        const ratingB = parseFloat(b.rating.toString()) || 0;
         return ratingB - ratingA;
       case "name":
         return a.name.localeCompare(b.name);
@@ -250,9 +250,12 @@ export default function Home() {
         ) : (
           <div className="h-[600px] rounded-lg overflow-hidden">
             <MapProvider
-              showAllBars={true}
               zoom={coordinates ? 11 : 10}
               height="600px"
+              center={coordinates ? {
+                lat: coordinates.latitude, 
+                lng: coordinates.longitude
+              } : undefined}
             />
           </div>
         )}

@@ -167,6 +167,13 @@ export default function BarEvents({ barId, ownerId }: BarEventsProps) {
 
   const { data: events, isLoading } = useQuery<BarEvent[]>({
     queryKey: [`/api/bars/${barId}/events`],
+    queryFn: async () => {
+      const response = await fetch(`/api/bars/${barId}/events`);
+      if (!response.ok) {
+        throw new Error('Failed to fetch events');
+      }
+      return response.json();
+    },
   });
 
   // Function to format the day key

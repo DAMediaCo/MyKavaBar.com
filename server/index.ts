@@ -48,23 +48,8 @@ app.disable("x-powered-by");
 
 // Enhanced CORS configuration for development
 app.use((req, res, next) => {
-  const origin = req.headers.origin;
-
-  // In development, accept all origins
-  if (process.env.NODE_ENV === "development") {
-    res.header("Access-Control-Allow-Origin", origin || "*");
-  } else {
-    // In production, only allow specific origins
-    const allowedOrigins = ["https://*.repl.co", "https://*.replit.dev"];
-    const isAllowed = allowedOrigins.some((pattern) =>
-      origin?.match(new RegExp(pattern.replace("*", ".*"))),
-    );
-    res.header(
-      "Access-Control-Allow-Origin",
-      isAllowed ? origin : "https://*.replit.dev",
-    );
-  }
-
+  // Accept all origins
+  res.header("Access-Control-Allow-Origin", "*");
   res.header("Access-Control-Allow-Methods", "GET, POST, PUT, DELETE, OPTIONS");
   res.header(
     "Access-Control-Allow-Headers",
