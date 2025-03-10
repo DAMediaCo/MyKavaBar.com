@@ -6,11 +6,11 @@ import { Toaster } from "@/components/ui/toaster";
 import { useUser } from "@/hooks/use-user";
 import { Loader2 } from "lucide-react";
 import NavBar from "@/components/nav-bar";
-import { useLocation as useWouterLocation } from "wouter";
+import { useLocation } from "wouter";
 import { OnboardingProvider } from "@/contexts/onboarding-context";
 import { ThemeProvider } from "@/contexts/theme-context";
-import { LocationProvider } from "@/contexts/location-context";
 import OnboardingTutorial from "@/components/onboarding-tutorial";
+import Footer from "@/components/footer";
 // Import all your page components
 import PrivacyPolicy from "./pages/privacy-policy";
 import NotFound from "@/pages/not-found";
@@ -42,7 +42,7 @@ interface ProtectedRouteProps {
 }
 
 function ProtectedRoute({ children, isAllowed }: ProtectedRouteProps) {
-  const [, navigate] = useWouterLocation();
+  const [, navigate] = useLocation();
 
   useEffect(() => {
     if (!isAllowed) {
@@ -141,6 +141,7 @@ function Router() {
           <Route component={NotFound} />
         </Switch>
       </main>
+      <Footer />
     </div>
   );
 }
@@ -150,11 +151,9 @@ function App() {
     <QueryClientProvider client={queryClient}>
       <ThemeProvider defaultTheme="light" storageKey="mykavabar-theme">
         <OnboardingProvider>
-          <LocationProvider>
-            <Router />
-            <Toaster />
-            <OnboardingTutorial />
-          </LocationProvider>
+          <Router />
+          <Toaster />
+          <OnboardingTutorial />
         </OnboardingProvider>
       </ThemeProvider>
     </QueryClientProvider>

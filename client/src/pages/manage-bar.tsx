@@ -20,7 +20,7 @@ import {
 import { Input } from "@/components/ui/input";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Separator } from "@/components/ui/separator";
-import BarEventForm, { type EventFormValues } from "../components/bar-event-form";
+import { EventForm, type EventFormValues } from "@/components/event-form";
 import {
   Dialog,
   DialogContent,
@@ -186,61 +186,40 @@ export default function ManageBar() {
 
   const createEventMutation = useMutation({
     mutationFn: async (data: EventFormValues) => {
-      // Add timezone information to help server correctly process dates
-      const timezone = Intl.DateTimeFormat().resolvedOptions().timeZone;
-      
-      // Process data based on recurring vs one-time events
-      const eventData = {
-        ...data,
-        // Make sure dayOfWeek is sent as a number
-        dayOfWeek: typeof data.dayOfWeek === 'string' ? parseInt(data.dayOfWeek) : data.dayOfWeek,
-        // For one-time events, ensure we have proper end date
-        endDate: data.isRecurring ? undefined : data.startDate,
-        // Include timezone info for server-side processing
-        timezone
-      };
-      
-      console.log('Submitting event data:', eventData);
-      
       const response = await fetch(`/api/bars/${id}/events`, {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
         },
-        body: JSON.stringify(eventData),
+        body: JSON.stringify(data),
         credentials: "include",
       });
 
       if (!response.ok) {
         const errorData = await response.json().catch(() => ({}));
-        console.error('Event creation failed:', errorData);
-        throw new Error(errorData.error || errorData.message || 'Failed to create event');
+        throw new Error(errorData.message || 'Failed to create event');
       }
 
       return response.json();
     },
-    onSuccess: (data) => {
-      console.log('Event created successfully:', data);
+    onSuccess: () => {
       toast({
         title: "Success",
         description: "Event created successfully",
       });
-      // Use correct react-query invalidation syntax
-      queryClient.invalidateQueries({ queryKey: [`/api/bars/${id}/events`] });
+      queryClient.invalidateQueries([`/api/bars/${id}/events`]);
     },
     onError: (error: Error) => {
-      console.error('Event creation error:', error);
       toast({
         variant: "destructive",
         title: "Error",
-        description: error.message || "Failed to create event. Please try again.",
+        description: error.message,
       });
     },
   });
 
   const deleteEventMutation = useMutation({
     mutationFn: async (eventId: number) => {
-      console.log(`Deleting event with ID: ${eventId} for bar: ${id}`);
       const response = await fetch(`/api/bars/${id}/events/${eventId}`, {
         method: "DELETE",
         credentials: "include",
@@ -248,27 +227,23 @@ export default function ManageBar() {
 
       if (!response.ok) {
         const errorData = await response.json().catch(() => ({}));
-        console.error("Event deletion failed:", errorData);
-        throw new Error(errorData.error || errorData.message || 'Failed to delete event');
+        throw new Error(errorData.message || 'Failed to delete event');
       }
 
       return response.json();
     },
-    onSuccess: (data) => {
-      console.log("Event successfully deleted:", data);
+    onSuccess: () => {
       toast({
         title: "Success",
         description: "Event deleted successfully",
       });
-      // Use correct react-query invalidation syntax
-      queryClient.invalidateQueries({ queryKey: [`/api/bars/${id}/events`] });
+      queryClient.invalidateQueries([`/api/bars/${id}/events`]);
     },
     onError: (error: Error) => {
-      console.error("Event deletion error:", error);
       toast({
         variant: "destructive",
         title: "Error",
-        description: error.message || "Failed to delete event. Please try again.",
+        description: error.message,
       });
     },
   });
@@ -278,7 +253,6 @@ export default function ManageBar() {
 
   const verifyKavatenderMutation = useMutation({
     mutationFn: async () => {
-      console.log("Verifying kavatender with phone:", phoneNumber);
       const response = await fetch("/api/kavatenders/verify", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -288,33 +262,28 @@ export default function ManageBar() {
 
       if (!response.ok) {
         const errorData = await response.json().catch(() => ({}));
-        console.error("Kavatender verification failed:", errorData);
-        throw new Error(errorData.error || errorData.message || 'Failed to verify kavatender');
+        throw new Error(errorData.message || 'Failed to verify kavatender');
       }
       return response.json();
     },
-    onSuccess: (data) => {
-      console.log("Kavatender verified successfully:", data);
+    onSuccess: () => {
       toast({
         title: "Success",
         description: "Kavatender verified successfully!",
       });
-      // Use correct react-query invalidation syntax
-      queryClient.invalidateQueries({ queryKey: [`/api/kavatenders/${id}`] });
+      queryClient.invalidateQueries([`/api/kavatenders/${id}`]);
     },
-    onError: (error: Error) => {
-      console.error("Kavatender verification error:", error);
+    onError: (error) => {
       toast({
         variant: "destructive",
         title: "Error",
-        description: error.message || "Failed to verify kavatender. Please try again.",
+        description: error.message,
       });
     },
   });
 
   const deleteKavatenderMutation = useMutation({
-    mutationFn: async (userId: number) => { // Changed type to match usage
-      console.log(`Deleting kavatender with user ID: ${userId}`);
+    mutationFn: async (userId: string) => {
       const response = await fetch(`/api/kavatenders/${id}`, {
         method: "DELETE",
         headers: { "Content-Type": "application/json" },
@@ -324,26 +293,22 @@ export default function ManageBar() {
 
       if (!response.ok) {
         const errorData = await response.json().catch(() => ({}));
-        console.error("Kavatender deletion failed:", errorData);
-        throw new Error(errorData.error || errorData.message || 'Failed to remove kavatender');
+        throw new Error(errorData.message || 'Failed to remove kavatender');
       }
       return response.json();
     },
-    onSuccess: (data) => {
-      console.log("Kavatender removed successfully:", data);
+    onSuccess: () => {
       toast({
         title: "Success",
         description: "Kavatender removed successfully!",
       });
-      // Use correct react-query invalidation syntax
-      queryClient.invalidateQueries({ queryKey: [`/api/kavatenders/${id}`] });
+      queryClient.invalidateQueries([`/api/kavatenders/${id}`]);
     },
-    onError: (error: Error) => {
-      console.error("Kavatender deletion error:", error);
+    onError: (error) => {
       toast({
         variant: "destructive",
         title: "Error",
-        description: error.message || "Failed to remove kavatender. Please try again.",
+        description: error.message,
       });
     },
   });
@@ -581,9 +546,9 @@ export default function ManageBar() {
                   <DialogHeader>
                     <DialogTitle>Add New Event</DialogTitle>
                   </DialogHeader>
-                  <BarEventForm
+                  <EventForm
                     onSubmit={handleCreateEvent}
-                    isLoading={createEventMutation.isPending}
+                    isSubmitting={createEventMutation.isPending}
                   />
                 </DialogContent>
               </Dialog>

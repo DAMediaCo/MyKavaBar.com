@@ -1,148 +1,122 @@
-import { useState, useEffect } from "react";
-import {
-  MapContainer,
-  TileLayer,
-  Marker,
-  Popup,
-  useMap,
-  ZoomControl
-} from "react-leaflet";
-import { Icon } from "leaflet";
+import { useState, useEffect, useRef } from "react";
+import { MapContainer, TileLayer, Marker, Popup, useMap } from "react-leaflet";
+import type { KavaBar } from "@/hooks/use-kava-bars";
 import { Loader2 } from "lucide-react";
 import "leaflet/dist/leaflet.css";
-import "leaflet.markercluster/dist/MarkerCluster.css";
-import "leaflet.markercluster/dist/MarkerCluster.Default.css";
-import MarkerClusterGroup from "react-leaflet-markercluster";
-import { KavaBar } from "@/hooks/use-kava-bars";
-import { useLocationContext } from "@/contexts/location-context";
+import "./map-styles.css";
+import L from "leaflet";
 
-// Import default marker icons since Leaflet's default markers are broken in production builds
-import userIcon from "../assets/user-location.svg";
-import barIcon from "../assets/bar-pin.svg";
-import sponsoredBarIcon from "../assets/sponsored-pin.svg";
+// Fix for Leaflet default icon paths by using static URLs
+// This ensures the images are available regardless of build configuration
+let DefaultIcon = L.icon({
+  iconUrl:
+    "https://cdn.jsdelivr.net/npm/leaflet@1.7.1/dist/images/marker-icon.png",
+  iconRetinaUrl:
+    "https://cdn.jsdelivr.net/npm/leaflet@1.7.1/dist/images/marker-icon-2x.png",
+  shadowUrl:
+    "https://cdn.jsdelivr.net/npm/leaflet@1.7.1/dist/images/marker-shadow.png",
+  iconSize: [25, 41],
+  iconAnchor: [12, 41],
+  popupAnchor: [1, -34],
+  shadowSize: [41, 41],
+});
 
-// Define custom icons
-const createIcon = (url: string, size: number = 32) => 
-  new Icon({
-    iconUrl: url,
-    iconSize: [size, size],
-    iconAnchor: [size/2, size],
-    popupAnchor: [0, -size],
-  });
+// Set the default icon for all markers
+L.Marker.prototype.options.icon = DefaultIcon;
 
-const UserLocationIcon = createIcon(userIcon);
-const BarMarkerIcon = createIcon(barIcon);
-const SponsoredBarIcon = createIcon(sponsoredBarIcon, 40);
+// Create simple dot icons instead of SVG for better browser compatibility
+const userIcon = L.divIcon({
+  className: "user-location-marker",
+  html: '<div style="background-color:#0066FF; width:14px; height:14px; border-radius:50%; border:2px solid white;"></div>',
+  iconSize: [18, 18],
+  iconAnchor: [9, 9],
+  popupAnchor: [0, -9],
+});
 
-// Helper component to update map view when props change
-function MapUpdater({ center, zoom }: { center?: { lat: number; lng: number }; zoom?: number }) {
+const barIcon = L.divIcon({
+  className: "kava-bar-marker",
+  html: '<div style="background-color:#FF0000; width:14px; height:14px; border-radius:50%; border:2px solid white;"></div>',
+  iconSize: [18, 18],
+  iconAnchor: [9, 9],
+  popupAnchor: [0, -9],
+});
+
+interface MapViewProps {
+  bars: KavaBar[];
+  center?: { lat: number; lng: number };
+  zoom?: number;
+  userLocation?: { lat: number; lng: number };
+}
+
+function MapUpdater({
+  center,
+  zoom,
+}: {
+  center?: { lat: number; lng: number };
+  zoom?: number;
+}) {
   const map = useMap();
+  const initialSetupRef = useRef(true);
+  const prevCenter = useRef(center);
 
   useEffect(() => {
-    if (center) {
+    // Only set view on initial setup or when center actually changes
+    if (initialSetupRef.current && center) {
       map.setView([center.lat, center.lng], zoom || map.getZoom());
+      initialSetupRef.current = false;
+      prevCenter.current = center;
+    } else if (
+      center &&
+      (!prevCenter.current ||
+        center.lat !== prevCenter.current.lat ||
+        center.lng !== prevCenter.current.lng)
+    ) {
+      map.setView([center.lat, center.lng], map.getZoom());
+      prevCenter.current = center;
     }
   }, [center, zoom, map]);
 
   return null;
 }
 
-// Helper function to parse location data, ensuring we always get a valid format or null
 function parseLocation(location: any): { lat: number; lng: number } | null {
   if (!location) return null;
 
-  // If location is a string, try to parse it
-  if (typeof location === 'string') {
-    try {
-      const parsed = JSON.parse(location);
-      if (parsed && typeof parsed.lat === 'number' && typeof parsed.lng === 'number') {
-        return { lat: parsed.lat, lng: parsed.lng };
-      }
-    } catch (e) {
-      console.error('Failed to parse location string:', location, e);
-      return null;
+  try {
+    if (typeof location === "string") {
+      location = JSON.parse(location);
     }
-  }
-  
-  // If location is an object, check if it has valid lat/lng properties
-  if (
-    typeof location === 'object' && 
-    location !== null &&
-    typeof location.lat === 'number' && 
-    typeof location.lng === 'number'
-  ) {
-    return { lat: location.lat, lng: location.lng };
-  }
-  
-  console.warn('Invalid location format:', location);
-  return null;
-}
 
-// Main MapView component props
-interface MapViewProps {
-  bars: KavaBar[];
-  center?: { lat: number; lng: number };
-  zoom?: number;
-  className?: string;
+    const lat = Number(location.lat);
+    const lng = Number(location.lng);
+
+    if (isNaN(lat) || isNaN(lng)) return null;
+    if (lat < -90 || lat > 90) return null;
+    if (lng < -180 || lng > 180) return null;
+
+    return { lat, lng };
+  } catch (e) {
+    console.error("Failed to parse location:", e);
+    return null;
+  }
 }
 
 export default function MapView({
   bars,
   center,
-  zoom = 10,
-  className,
+  zoom = 4,
+  userLocation,
 }: MapViewProps) {
   const [isLoading, setIsLoading] = useState(true);
   const [mapError, setMapError] = useState<string | null>(null);
-  const [validBars, setValidBars] = useState<KavaBar[]>([]);
-  const location = useLocationContext();
-  
-  // Use the provided center, user coordinates, or default Google Maps format location
-  const mapCenter = center || location.googleMapsLocation;
-  
-  // Process bars to ensure all have valid locations
-  useEffect(() => {
-    if (!bars || bars.length === 0) {
-      console.log("No bars provided to map view");
-      setValidBars([]);
-      return;
-    }
-    
-    console.log(`Processing ${bars.length} bars for map display`);
-    
-    // Filter bars to only those with valid locations
-    const barsWithValidLocations = bars.filter(bar => {
-      const location = parseLocation(bar.location);
-      return location !== null;
-    });
-    
-    console.log(`Found ${barsWithValidLocations.length} bars with valid locations out of ${bars.length}`);
-    setValidBars(barsWithValidLocations);
-    
-    // If we have valid bars but fewer than the total, log the problematic ones
-    if (barsWithValidLocations.length < bars.length && barsWithValidLocations.length > 0) {
-      const problemBars = bars.filter(bar => {
-        const location = parseLocation(bar.location);
-        return location === null;
-      });
-      
-      console.log("Sample of bars with invalid locations:", 
-        problemBars.slice(0, 3).map(b => ({
-          id: b.id,
-          name: b.name,
-          location: b.location,
-          type: b.location ? typeof b.location : 'null'
-        }))
-      );
-    }
-  }, [bars]);
+  const [isLeafletLoaded, setIsLeafletLoaded] = useState<boolean>(true); // Assume Leaflet is loaded
+  const defaultCenter = center || { lat: 39.8283, lng: -98.5795 }; // Default to center of US
 
   // Force reload the map tiles to ensure proper rendering
   useEffect(() => {
     // Set up a resize event listener to fix map rendering issues
     const handleResize = () => {
       console.log("Window resize detected, refreshing map");
-      window.dispatchEvent(new Event("resize"));
     };
 
     window.addEventListener("resize", handleResize);
@@ -161,7 +135,16 @@ export default function MapView({
     };
   }, []);
 
-  // Safety timeout to prevent infinite loading state
+  // Debugging information
+  useEffect(() => {
+    console.log("Map component rendering with:", {
+      barsCount: bars.length,
+      center: defaultCenter,
+      userLocation,
+      leafletLoaded: isLeafletLoaded,
+    });
+  }, [bars, defaultCenter, userLocation, isLeafletLoaded]);
+
   useEffect(() => {
     // Set a timeout to ensure loading screen doesn't stay indefinitely
     const timeout = setTimeout(() => {
@@ -169,80 +152,43 @@ export default function MapView({
         console.log("Map still loading after timeout, forcing ready state");
         setIsLoading(false);
       }
-    }, 8000); // 8 second timeout
+    }, 10000); // 5 second timeout
 
     return () => clearTimeout(timeout);
   }, [isLoading]);
 
-  // Debugging information
-  useEffect(() => {
-    console.log("Map component rendering with:", {
-      originalBarsCount: bars.length,
-      validBarsCount: validBars.length,
-      mapCenter,
-      userCoordinates: location.coordinates
-    });
-    
-    // Log first few valid bars for debugging
-    if (validBars.length > 0) {
-      console.log("First 3 valid bars:", validBars.slice(0, 3).map(bar => ({
-        id: bar.id,
-        name: bar.name,
-        location: parseLocation(bar.location),
-        address: bar.address
-      })));
-    }
-  }, [bars, validBars, mapCenter, location.coordinates]);
-
-  // If we don't have valid bars, show an appropriate message
-  if (validBars.length === 0 && !isLoading) {
-    return (
-      <div className="map-outer-container">
-        <div className="h-full w-full flex items-center justify-center bg-muted/10">
-          <div className="text-center p-6">
-            <h3 className="text-lg font-medium">No Bar Locations Available</h3>
-            <p className="text-muted-foreground mt-2">
-              No bars with valid location data could be found in this area.
-            </p>
-          </div>
-        </div>
-      </div>
-    );
-  }
-
   return (
-    <div className="map-outer-container relative h-full">
+    <div className="map-outer-container">
       {isLoading && (
-        <div className="absolute inset-0 z-10 flex flex-col items-center justify-center bg-background/80">
-          <Loader2 className="h-8 w-8 animate-spin text-primary" />
-          <p className="mt-2 text-sm text-muted-foreground">Loading map...</p>
+        <div className="map-loading">
+          <Loader2 className="h-8 w-8 animate-spin" />
+          <p className="text-sm text-muted-foreground mt-2">Loading map...</p>
         </div>
       )}
 
       {mapError && (
-        <div className="absolute top-2 left-2 right-2 z-10 bg-destructive/90 text-destructive-foreground p-2 rounded">
-          <p>{mapError}</p>
+        <div className="map-error">
+          <p className="text-destructive">{mapError}</p>
         </div>
       )}
 
       <MapContainer
-        center={[mapCenter.lat, mapCenter.lng]}
+        center={[defaultCenter.lat, defaultCenter.lng]}
         zoom={zoom}
         scrollWheelZoom={true}
+        doubleClickZoom={true}
         dragging={true}
-        className={`h-full w-full ${className || ''}`}
         whenReady={() => {
           console.log("Map is ready");
           setIsLoading(false);
         }}
-        zoomControl={false}
+        className="h-full w-full"
       >
-        <ZoomControl position="bottomright" />
-        <MapUpdater center={mapCenter} zoom={zoom} />
+        <MapUpdater center={center} zoom={zoom} />
 
         <TileLayer
           url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
-          attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>'
+          attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
           maxZoom={19}
           subdomains={["a", "b", "c"]}
           eventHandlers={{
@@ -254,77 +200,118 @@ export default function MapView({
               console.log("Tiles loaded successfully");
               setIsLoading(false);
               setMapError(null);
+
+              // Double-check that the map rendered properly
+              setTimeout(() => {
+                const mapContainer =
+                  document.querySelector(".leaflet-container");
+                if (mapContainer) {
+                  const tilesLoaded =
+                    document.querySelectorAll(".leaflet-tile").length > 0;
+                  if (!tilesLoaded) {
+                    console.log("Tiles not visible, triggering resize");
+                    window.dispatchEvent(new Event("resize"));
+                  }
+                }
+              }, 500);
             },
-            error: (e: any) => {
-              console.error("Tile loading error:", e);
-              setMapError("Unable to load map tiles. Check your internet connection.");
+            error: (e) => {
+              console.error("Error loading tiles:", e);
+
+              // Try alternative tile source
+              console.log("Attempting to use fallback tile source");
+              try {
+                const tileLayer = e.target;
+                // Use fallback tile source
+                if (tileLayer && typeof tileLayer.setUrl === "function") {
+                  tileLayer.setUrl(
+                    "https://tile.openstreetmap.de/{z}/{x}/{y}.png",
+                  );
+                  console.log("Switched to fallback tile source");
+                } else {
+                  throw new Error("Cannot switch tile source");
+                }
+              } catch (err) {
+                console.error("Failed to use fallback source:", err);
+                setMapError(
+                  "Failed to load map tiles. Please try again later.",
+                );
+                setIsLoading(false);
+              }
             },
           }}
         />
 
-        {/* Cluster group for bar markers */}
-        <MarkerClusterGroup chunkedLoading>
-          {validBars.map((bar) => {
-            const location = parseLocation(bar.location);
-            if (!location) return null;
-            
-            return (
-              <Marker
-                key={bar.id}
-                position={[location.lat, location.lng]}
-                icon={bar.isSponsored ? SponsoredBarIcon : BarMarkerIcon}
-                eventHandlers={{
-                  click: () => {
-                    console.log("Bar marker clicked:", bar.name);
-                  }
-                }}
-              >
-                <Popup>
-                  <div className="text-center">
-                    <h3 className="font-medium">{bar.name}</h3>
-                    <p className="text-xs mt-1">{bar.address}</p>
-                    {bar.rating && (
-                      <p className="text-sm mt-1">
-                        Rating: {bar.rating.toString()}★
-                      </p>
-                    )}
-                    <a
-                      href={`/kava-bars/${bar.id}`}
-                      className="inline-block mt-2 text-sm bg-primary text-primary-foreground px-2 py-1 rounded hover:bg-primary/90 transition-colors"
-                    >
-                      View Details
-                    </a>
-                  </div>
-                </Popup>
-              </Marker>
-            );
-          })}
-        </MarkerClusterGroup>
-
-        {/* User location marker */}
-        {location.coordinates && (
+        {userLocation && (
           <Marker
-            position={[location.coordinates.latitude, location.coordinates.longitude]}
-            icon={UserLocationIcon}
-            eventHandlers={{
-              click: () => {
-                console.log("User location marker clicked");
-              }
-            }}
+            position={[userLocation.lat, userLocation.lng]}
+            icon={userIcon}
           >
             <Popup>
-              <div className="text-center">
+              <div className="p-2">
                 <h3 className="font-medium">Your Location</h3>
-                <p className="text-xs mt-1">
-                  {location.coordinates.accuracy ? 
-                    `Accuracy: ~${Math.round(location.coordinates.accuracy)} meters` : 
-                    'Location accuracy unknown'}
-                </p>
               </div>
             </Popup>
           </Marker>
         )}
+
+        {bars.map((bar) => {
+          const location = parseLocation(bar.location);
+          if (!location) {
+            return null;
+          }
+
+          return (
+            <Marker
+              key={bar.id}
+              position={[location.lat, location.lng]}
+              icon={barIcon}
+            >
+              <Popup>
+                <div className="p-2">
+                  <h3 className="font-medium">{bar.name}</h3>
+                  <p className="text-sm mt-1">{bar.address}</p>
+                  {bar.phone && <p className="text-sm mt-1">{bar.phone}</p>}
+                  {userLocation && (
+                    <p className="text-sm mt-1 text-muted-foreground">
+                      {calculateDistance(
+                        userLocation.lat,
+                        userLocation.lng,
+                        location.lat,
+                        location.lng,
+                      ).toFixed(1)}{" "}
+                      miles away
+                    </p>
+                  )}
+                </div>
+              </Popup>
+            </Marker>
+          );
+        })}
       </MapContainer>
     </div>
   );
+}
+
+function calculateDistance(
+  lat1: number,
+  lon1: number,
+  lat2: number,
+  lon2: number,
+): number {
+  const R = 3958.8; // Radius of the Earth in miles
+  const dLat = deg2rad(lat2 - lat1);
+  const dLon = deg2rad(lon2 - lon1);
+  const a =
+    Math.sin(dLat / 2) * Math.sin(dLat / 2) +
+    Math.cos(deg2rad(lat1)) *
+      Math.cos(deg2rad(lat2)) *
+      Math.sin(dLon / 2) *
+      Math.sin(dLon / 2);
+  const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+  return R * c;
+}
+
+function deg2rad(deg: number): number {
+  return deg * (Math.PI / 180);
 }

@@ -20,7 +20,7 @@ import {
   AlertCircle,
   Copy,
 } from "lucide-react";
-import MapProvider from "../components/map-provider";
+import MapProvider from "@/components/map-provider";
 import { useToast } from "@/hooks/use-toast";
 import BarStaff from "@/components/bar-staff";
 import KavatenderCheckin from "@/components/kavatender-checkin";
@@ -44,14 +44,14 @@ const HoursDisplay = ({
   hours,
   businessStatus,
 }: {
-  hours: Hours | null | undefined;
+  hours: Hours | null;
   businessStatus?: string;
 }) => {
   // Add debug logging
   console.log("Hours Display:", {
     hours,
     businessStatus,
-    hasWeekdayText: hours && hours.weekday_text ? hours.weekday_text.length > 0 : false,
+    hasWeekdayText: hours?.weekday_text?.length > 0,
   });
 
   // If business is permanently closed, show that first
@@ -303,7 +303,7 @@ export default function BarDetails() {
 
       {bar.location && (
         <div className="h-[400px] rounded-lg overflow-hidden border border-border">
-          <MapProvider barId={bar.id} zoom={15} height="400px" center={bar.location} />
+          <MapProvider barId={bar.id} zoom={15} height="400px" />
         </div>
       )}
     </div>
