@@ -25,6 +25,18 @@ const tileProviders = [
     url: "https://{s}.tile.openstreetmap.de/{z}/{x}/{y}.png",
     attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors',
     maxZoom: 18
+  },
+  {
+    name: "Stamen Terrain",
+    url: "https://stamen-tiles-{s}.a.ssl.fastly.net/terrain/{z}/{x}/{y}.jpg",
+    attribution: 'Map tiles by <a href="http://stamen.com">Stamen Design</a>',
+    maxZoom: 18
+  },
+  {
+    name: "CyclOSM",
+    url: "https://{s}.tile-cyclosm.openstreetmap.fr/cyclosm/{z}/{x}/{y}.png",
+    attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors',
+    maxZoom: 20
   }
 ];
 
@@ -197,9 +209,9 @@ export default function MapView({
         </div>
       )}
       
-      {/* Diagnostic information - can be removed in production */}
-      <div className="absolute bottom-1 left-1 z-[1000] bg-white/80 text-xs p-1 rounded shadow">
-        Map provider: {tileProviders[activeTileProvider].name}
+      {/* Map provider information with fallback status */}
+      <div className="absolute bottom-2 left-2 z-[1000] bg-black/30 text-white text-xs px-2 py-1 rounded shadow">
+        Map: {tileProviders[activeTileProvider].name}
         {tileLoadError && (
           <span className="text-amber-500 ml-1">(fallback active)</span>
         )}
@@ -238,6 +250,24 @@ export default function MapView({
             },
           }}
         />
+        
+        {/* Provider indicator - shows which map provider is currently active */}
+        <div className="map-provider-indicator">
+          <div className="absolute bottom-2 right-2 bg-white/80 text-xs rounded px-2 py-1 shadow z-[1000] backdrop-blur-sm">
+            Map: <strong>{tileProviders[activeTileProvider].name}</strong>
+            {tileLoadError && (
+              <span className="ml-1 text-amber-600 animate-pulse"> (Switching providers...)</span>
+            )}
+          </div>
+        </div>
+        
+        {/* Location indicator/control */}
+        {!userLocation && (
+          <div className="absolute top-2 right-2 bg-white/90 rounded px-3 py-2 shadow z-[1000] backdrop-blur-sm flex items-center gap-2">
+            <div className="w-2 h-2 rounded-full bg-amber-500 animate-pulse"></div>
+            <span className="text-xs text-gray-700">Location not enabled</span>
+          </div>
+        )}
 
         {userLocation && (
           <Marker

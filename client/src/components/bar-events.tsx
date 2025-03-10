@@ -65,6 +65,9 @@ function QuickEventForm({ barId, onSuccess }: { barId: number; onSuccess: () => 
   const queryClient = useQueryClient();
   const [eventType, setEventType] = useState<'recurring' | 'oneTime'>('recurring');
   
+  // Display the current timezone for user awareness
+  const clientTimezone = Intl.DateTimeFormat().resolvedOptions().timeZone;
+  
   const form = useForm<EventFormData>({
     resolver: zodResolver(eventSchema),
     defaultValues: {
@@ -76,7 +79,7 @@ function QuickEventForm({ barId, onSuccess }: { barId: number; onSuccess: () => 
       isRecurring: true,
       startDate: "",
       endDate: "",
-      timezone: Intl.DateTimeFormat().resolvedOptions().timeZone,
+      timezone: clientTimezone,
     },
   });
 
@@ -101,11 +104,17 @@ function QuickEventForm({ barId, onSuccess }: { barId: number; onSuccess: () => 
 
   const createEvent = useMutation({
     mutationFn: async (data: EventFormData) => {
-      // Prepare complete data with timezone info for debugging
+      // Always include timezone information with every event
+      // This helps with rendering and calculations on the server
       const clientTimezone = Intl.DateTimeFormat().resolvedOptions().timeZone;
       
       // Create a copy of the data to avoid modifying the original
-      const submissionData = { ...data, timezone: clientTimezone };
+      const submissionData = { 
+        ...data, 
+        timezone: clientTimezone,
+        // Include a human-readable client timezone name for debugging/display
+        timezoneName: clientTimezone
+      };
       
       // Handle date format for proper database storage (prevent timezone shifting)
       // This is critical when storing a date that should be the same regardless of timezone
@@ -271,6 +280,11 @@ function QuickEventForm({ barId, onSuccess }: { barId: number; onSuccess: () => 
             )}
           />
         </div>
+        
+        {/* Show timezone information to user */}
+        <div className="text-xs text-muted-foreground bg-muted px-3 py-2 rounded">
+          All times are in your local timezone: <span className="font-medium">{clientTimezone}</span>
+        </div>
 
         <Button type="submit" className="w-full" disabled={createEvent.isPending}>
           {createEvent.isPending ? "Creating..." : "Create Event"}
@@ -309,10 +323,27 @@ export default function BarEvents({ barId, ownerId }: BarEventsProps) {
       const date = new Date(Date.UTC(year, month - 1, day));
       
       // Format consistently with UTC date to avoid any timezone shifting
-      return format(date, 'MMM d, yyyy');
+      // Use a more human-readable format with day of week
+      return format(date, 'EEEE, MMM d, yyyy');
     } catch (error) {
       console.error('Error formatting date:', error, dateStr);
       return dateStr || 'Invalid date';
+    }
+  };
+  
+  // Function to get a local time string that handles timezone correctly
+  const formatTimeString = (timeStr: string) => {
+    try {
+      if (!timeStr) return '';
+      
+      // Create a date object with a fixed date (1970-01-01) and the time from the parameter
+      const date = new Date(`1970-01-01T${timeStr}`);
+      
+      // Return a nicely formatted time in locale format
+      return format(date, 'h:mm a');
+    } catch (error) {
+      console.error('Error formatting time:', error, timeStr);
+      return timeStr || '';
     }
   };
 
@@ -384,8 +415,7 @@ export default function BarEvents({ barId, ownerId }: BarEventsProps) {
                       </Badge>
                     </div>
                     <div className="text-sm text-muted-foreground">
-                      {format(new Date(`1970-01-01T${event.startTime}`), 'h:mm a')} - 
-                      {format(new Date(`1970-01-01T${event.endTime}`), 'h:mm a')}
+                      {formatTimeString(event.startTime)} - {formatTimeString(event.endTime)}
                     </div>
                     {event.description && (
                       <p className="text-sm">{event.description}</p>
@@ -409,8 +439,7 @@ export default function BarEvents({ barId, ownerId }: BarEventsProps) {
                         </Badge>
                       </div>
                       <div className="text-sm text-muted-foreground">
-                        {format(new Date(`1970-01-01T${event.startTime}`), 'h:mm a')} - 
-                        {format(new Date(`1970-01-01T${event.endTime}`), 'h:mm a')}
+                        {formatTimeString(event.startTime)} - {formatTimeString(event.endTime)}
                       </div>
                       {event.description && (
                         <p className="text-sm">{event.description}</p>

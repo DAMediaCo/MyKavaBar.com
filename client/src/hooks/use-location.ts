@@ -30,7 +30,7 @@ export function useLocation() {
   const hasShownInitialToast = useRef(false);
   const hasCheckedPermissions = useRef(false);
 
-  // Only check permissions on mount
+  // Check permissions on mount
   useEffect(() => {
     if (!hasCheckedPermissions.current) {
       checkPermissions();
