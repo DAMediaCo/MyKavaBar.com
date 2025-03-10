@@ -20,7 +20,7 @@ import {
 import { Input } from "@/components/ui/input";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Separator } from "@/components/ui/separator";
-import { EventForm, type EventFormValues } from "@/components/event-form";
+import BarEventForm, { type EventFormValues } from "@/components/bar-event-form";
 import {
   Dialog,
   DialogContent,
@@ -546,9 +546,11 @@ export default function ManageBar() {
                   <DialogHeader>
                     <DialogTitle>Add New Event</DialogTitle>
                   </DialogHeader>
-                  <EventForm
+                  <BarEventForm
                     onSubmit={handleCreateEvent}
                     isSubmitting={createEventMutation.isPending}
+                    barTimezone={bar?.timezone || null}
+                    barLocation={bar?.location || null}
                   />
                 </DialogContent>
               </Dialog>

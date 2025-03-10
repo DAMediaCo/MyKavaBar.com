@@ -110,8 +110,8 @@ export default function Home() {
         const distB = b.distance ?? Infinity;
         return distA - distB;
       case "rating":
-        const ratingA = a.rating ? parseFloat(a.rating) : 0;
-        const ratingB = b.rating ? parseFloat(b.rating) : 0;
+        const ratingA = a.rating || 0;
+        const ratingB = b.rating || 0;
         return ratingB - ratingA;
       case "name":
         return a.name.localeCompare(b.name);

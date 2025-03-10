@@ -13,7 +13,7 @@ export const getApiUrl = (path: string): string => {
   // Make sure path starts with /
   const formattedPath = path.startsWith('/') ? path : `/${path}`;
   
-  // For development and production environments
+  // In Replit environment, use the same origin to avoid CORS issues
   const baseUrl = window.location.origin;
   return `${baseUrl}${formattedPath}`;
 };

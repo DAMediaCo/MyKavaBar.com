@@ -10,6 +10,8 @@ import { useLocation } from "wouter";
 import { OnboardingProvider } from "@/contexts/onboarding-context";
 import { ThemeProvider } from "@/contexts/theme-context";
 import OnboardingTutorial from "@/components/onboarding-tutorial";
+import ConnectionStatus from "@/components/connection-status";
+import { MapProvider } from "@/components/map-provider";
 import Footer from "@/components/footer";
 // Import all your page components
 import PrivacyPolicy from "./pages/privacy-policy";
@@ -151,9 +153,12 @@ function App() {
     <QueryClientProvider client={queryClient}>
       <ThemeProvider defaultTheme="light" storageKey="mykavabar-theme">
         <OnboardingProvider>
-          <Router />
-          <Toaster />
-          <OnboardingTutorial />
+          <MapProvider>
+            <Router />
+            <ConnectionStatus />
+            <Toaster />
+            <OnboardingTutorial />
+          </MapProvider>
         </OnboardingProvider>
       </ThemeProvider>
     </QueryClientProvider>

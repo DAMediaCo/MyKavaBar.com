@@ -1,136 +1,185 @@
-import { ReactNode, useState, useEffect, useRef } from "react";
-import { useLocation } from "@/hooks/use-location";
-import { useKavaBars } from "@/hooks/use-kava-bars";
-import GoogleMapView from "./google-map-view";
-import "./google-map-styles.css";
-import type { KavaBar } from "@/hooks/use-kava-bars";
-import { AlertTriangle } from "lucide-react";
+import React, { createContext, useContext, useState, useEffect } from "react";
+import { useJsApiLoader } from "@react-google-maps/api";
+import { Loader2, AlertTriangle } from "lucide-react";
+import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 
-interface MapProviderProps {
-  children?: ReactNode;
-  barId?: number;
-  showAllBars?: boolean;
-  zoom?: number;
-  height?: string;
+// Define the libraries we'll need
+const libraries = ['places', 'geometry'] as any;
+
+// Define the Map context type
+interface MapContextType {
+  isLoaded: boolean;
+  loadError: Error | undefined;
+  apiKey: string | undefined;
+  geocodeAddress: (address: string) => Promise<{ lat: number; lng: number } | null>;
+  getTimezone: (location: { lat: number; lng: number }, timestamp?: number) => Promise<string | null>;
+  formatDateForTimezone: (date: Date, timezone: string) => string;
 }
 
-export default function MapProvider({ 
-  children, 
-  barId, 
-  showAllBars = false,
-  zoom = 13,
-  height = "400px"
-}: MapProviderProps) {
-  const { data: kavaBars = [] } = useKavaBars();
-  const { coordinates } = useLocation();
-  const [visibleBars, setVisibleBars] = useState<KavaBar[]>([]);
-  const [mapCenter, setMapCenter] = useState<{lat: number, lng: number} | undefined>(undefined);
-  const [error, setError] = useState<string | null>(null);
-  const attemptsRef = useRef(0);
-  
-  // Helper function to safely parse location data
-  const parseLocation = (location: any): {lat: number, lng: number} | null => {
-    if (!location) return null;
-    
+// Create the Map context
+const MapContext = createContext<MapContextType | null>(null);
+
+// Custom hook for using the Map context
+export function useMap() {
+  const context = useContext(MapContext);
+  if (!context) {
+    throw new Error("useMap must be used within a MapProvider");
+  }
+  return context;
+}
+
+interface MapProviderProps {
+  children: React.ReactNode;
+}
+
+export function MapProvider({ children }: MapProviderProps) {
+  // Get the Google Maps API key from environment variables
+  const apiKey = import.meta.env.VITE_GOOGLE_MAPS_API_KEY as string;
+  const [keyAvailable, setKeyAvailable] = useState<boolean>(!!apiKey);
+
+  // Load the Google Maps JS API
+  const { isLoaded, loadError } = useJsApiLoader({
+    id: 'google-map-script',
+    googleMapsApiKey: apiKey || '',
+    libraries,
+  });
+
+  // Log API key availability on mount
+  useEffect(() => {
+    if (!apiKey) {
+      console.error('Google Maps API key not found. Map functionality will be limited.');
+      setKeyAvailable(false);
+    } else {
+      console.log('Google Maps API key is available');
+      setKeyAvailable(true);
+    }
+  }, [apiKey]);
+
+  // Geocode an address to coordinates
+  const geocodeAddress = async (address: string): Promise<{ lat: number; lng: number } | null> => {
+    if (!isLoaded || !keyAvailable) {
+      console.error("Google Maps API not loaded, cannot geocode address");
+      return null;
+    }
+
     try {
-      let locationObj = location;
-      if (typeof location === 'string') {
-        locationObj = JSON.parse(location);
+      const geocoder = new google.maps.Geocoder();
+      const result = await new Promise<google.maps.GeocoderResult[] | null>((resolve, reject) => {
+        geocoder.geocode({ address }, (results, status) => {
+          if (status === google.maps.GeocoderStatus.OK && results && results.length > 0) {
+            resolve(results);
+          } else {
+            reject(new Error(`Geocoding failed with status: ${status}`));
+          }
+        });
+      });
+
+      if (result && result[0] && result[0].geometry && result[0].geometry.location) {
+        const location = result[0].geometry.location;
+        return {
+          lat: location.lat(),
+          lng: location.lng()
+        };
       }
-      
-      const lat = Number(locationObj.lat);
-      const lng = Number(locationObj.lng);
-      
-      if (isNaN(lat) || isNaN(lng)) return null;
-      if (lat < -90 || lat > 90) return null;
-      if (lng < -180 || lng > 180) return null;
-      
-      return { lat, lng };
-    } catch (e) {
-      console.error("Failed to parse location:", e);
+      return null;
+    } catch (error) {
+      console.error("Error geocoding address:", error);
       return null;
     }
   };
-  
-  // Set up user location and relevant bars
-  useEffect(() => {
-    attemptsRef.current += 1;
-    
-    try {
-      // If specific bar ID provided, find and center on that bar
-      if (barId && kavaBars.length > 0) {
-        const targetBar = kavaBars.find((bar: KavaBar) => bar.id === Number(barId));
-        if (targetBar && targetBar.location) {
-          const location = parseLocation(targetBar.location);
-          
-          if (location) {
-            setMapCenter(location);
-            setVisibleBars([targetBar]);
-            setError(null);
-          } else {
-            setError("Could not load map: invalid location data");
-          }
-        } else {
-          setError("Bar location information not available");
-        }
-      } 
-      // If showing all bars, use them all
-      else if (showAllBars) {
-        const barsWithValidLocations = kavaBars.filter((bar: KavaBar) => {
-          return parseLocation(bar.location) !== null;
-        });
-        
-        setVisibleBars(barsWithValidLocations);
-        
-        // Center on user if available, otherwise use first bar with location
-        if (coordinates) {
-          setMapCenter({ lat: coordinates.latitude, lng: coordinates.longitude });
-          setError(null);
-        } else if (barsWithValidLocations.length > 0) {
-          const firstBarWithLocation = barsWithValidLocations[0];
-          const location = parseLocation(firstBarWithLocation.location);
-          
-          if (location) {
-            setMapCenter(location);
-            setError(null);
-          } else {
-            setError("Could not determine map center");
-          }
-        } else {
-          setError("No valid locations found");
-        }
-      }
-    } catch (err) {
-      console.error("Error in map setup:", err);
-      setError("Failed to initialize map");
+
+  // Get timezone from coordinates
+  const getTimezone = async (
+    location: { lat: number; lng: number },
+    timestamp = Math.floor(Date.now() / 1000)
+  ): Promise<string | null> => {
+    if (!isLoaded || !keyAvailable) {
+      console.error("Google Maps API not loaded, cannot get timezone");
+      return null;
     }
-  }, [barId, showAllBars, kavaBars, coordinates]);
 
-  // Only show map when we have centers and bars to display and no errors
-  const shouldShowMap = !error && (mapCenter || coordinates) && visibleBars.length > 0;
+    try {
+      // Use the Google Maps Time Zone API
+      const response = await fetch(
+        `https://maps.googleapis.com/maps/api/timezone/json?location=${location.lat},${location.lng}&timestamp=${timestamp}&key=${apiKey}`
+      );
+      
+      const data = await response.json();
+      
+      if (data.status === "OK") {
+        return data.timeZoneId;
+      } else {
+        console.error("Timezone API error:", data.status, data.errorMessage);
+        return null;
+      }
+    } catch (error) {
+      console.error("Error getting timezone:", error);
+      return null;
+    }
+  };
 
-  return (
-    <div style={{ height: height, width: "100%", position: "relative" }}>
-      {shouldShowMap ? (
-        <GoogleMapView
-          bars={visibleBars}
-          center={mapCenter}
-          zoom={zoom}
-          userLocation={coordinates ? { lat: coordinates.latitude, lng: coordinates.longitude } : undefined}
-        />
-      ) : (
-        <div className="flex flex-col items-center justify-center h-full bg-gray-100 rounded-md">
-          {error ? (
-            <>
-              <AlertTriangle className="h-8 w-8 text-amber-500 mb-2" />
-              <p className="text-muted-foreground text-center px-4">{error}</p>
-            </>
-          ) : (
-            <p className="text-muted-foreground">Loading map...</p>
-          )}
+  // Format date according to timezone
+  const formatDateForTimezone = (date: Date, timezone: string): string => {
+    try {
+      return new Date(date).toLocaleString('en-US', {
+        timeZone: timezone,
+        weekday: 'long',
+        year: 'numeric',
+        month: 'long',
+        day: 'numeric',
+        hour: '2-digit',
+        minute: '2-digit'
+      });
+    } catch (error) {
+      console.error("Error formatting date for timezone:", error);
+      return date.toLocaleString();
+    }
+  };
+
+  // Create the context value
+  const contextValue: MapContextType = {
+    isLoaded,
+    loadError,
+    apiKey,
+    geocodeAddress,
+    getTimezone,
+    formatDateForTimezone
+  };
+
+  // Show a loading spinner while the API is loading
+  if (!isLoaded && !loadError) {
+    return (
+      <div className="flex items-center justify-center p-6">
+        <div className="text-center">
+          <Loader2 className="h-8 w-8 animate-spin mx-auto" />
+          <p className="mt-2 text-sm text-muted-foreground">Loading Google Maps API...</p>
         </div>
-      )}
+      </div>
+    );
+  }
+
+  // Show an error if the API failed to load
+  if (loadError || !keyAvailable) {
+    return (
+      <div className="p-4">
+        <Alert variant="destructive">
+          <AlertTriangle className="h-4 w-4" />
+          <AlertTitle>Google Maps Error</AlertTitle>
+          <AlertDescription>
+            {loadError ? 
+              `Failed to load Google Maps: ${loadError.message}` : 
+              'Google Maps API key is missing. Some features may not work correctly.'}
+          </AlertDescription>
+        </Alert>
+        {children} {/* Still render children so the app can function with limited features */}
+      </div>
+    );
+  }
+
+  // Provide the context to the children
+  return (
+    <MapContext.Provider value={contextValue}>
       {children}
-    </div>
+    </MapContext.Provider>
   );
 }

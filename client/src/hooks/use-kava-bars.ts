@@ -26,7 +26,7 @@ interface PublicKavaBar {
   address: string;
   phone: string | null;
   businessStatus: string;
-  rating: number;
+  rating: number | string; // Accept both number and string to handle type discrepancies
   isSponsored: boolean;
   verificationStatus: string;
   placeId: string | null;

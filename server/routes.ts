@@ -155,6 +155,55 @@ export function registerRoutes(app: Express, server: Server): void {
   app.use("/api/admin", adminRoutes);
   // Register event routes
   registerEventRoutes(app);
+  
+  // Health check endpoint
+  app.get("/api/health", (req: Request, res: Response) => {
+    const serverAddress = server.address();
+    const port = typeof serverAddress === 'object' && serverAddress 
+      ? serverAddress.port 
+      : process.env.PORT || 5000;
+      
+    res.json({
+      status: "ok",
+      timestamp: new Date().toISOString(),
+      port: port,
+      uptime: process.uptime() + "s",
+      environment: process.env.NODE_ENV || "development"
+    });
+  });
+  
+  // Database status endpoint
+  app.get("/api/database-status", async (req: Request, res: Response) => {
+    try {
+      // Use the built-in executeWithRetry with a short timeout to check database status
+      const dbStatus = await executeWithRetry(
+        async () => {
+          // Simple query to check database connectivity
+          const result = await db.select({ count: sql`count(*)` }).from(kavaBars);
+          return result[0].count > 0;
+        },
+        { 
+          maxRetries: 1,
+          retryDelay: 0,
+          timeoutMs: 2000, // Short timeout for quick health check
+          highPriority: true,
+          allowFailure: true
+        }
+      );
+      
+      res.json({
+        connected: true,
+        timestamp: new Date().toISOString()
+      });
+    } catch (error) {
+      console.error("Database status check failed:", error);
+      res.json({
+        connected: false,
+        timestamp: new Date().toISOString(),
+        error: "Database connection failed"
+      });
+    }
+  });
 
   // Set up WebSocket server with error handling
   try {
