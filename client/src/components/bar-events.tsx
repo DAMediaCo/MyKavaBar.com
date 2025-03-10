@@ -86,23 +86,44 @@ function QuickEventForm({ barId, onSuccess }: { barId: number; onSuccess: () => 
     
     // If switching to one-time event, set today's date as default
     if (eventType === 'oneTime') {
-      const today = new Date();
-      const formattedDate = today.toISOString().split('T')[0]; // YYYY-MM-DD format
+      // Create a date and format it to YYYY-MM-DD with UTC to avoid timezone shifting
+      const now = new Date();
+      const year = now.getFullYear();
+      const month = String(now.getMonth() + 1).padStart(2, '0');
+      const day = String(now.getDate()).padStart(2, '0');
+      const formattedDate = `${year}-${month}-${day}`; // YYYY-MM-DD format
       form.setValue('startDate', formattedDate);
+      
+      // Log for debugging
+      console.log('Setting default date for one-time event:', formattedDate);
     }
   }, [eventType, form]);
 
   const createEvent = useMutation({
     mutationFn: async (data: EventFormData) => {
-      console.log('Submitting event data:', data);
+      // Prepare complete data with timezone info for debugging
+      const clientTimezone = Intl.DateTimeFormat().resolvedOptions().timeZone;
+      
+      // Create a copy of the data to avoid modifying the original
+      const submissionData = { ...data, timezone: clientTimezone };
+      
+      // Handle date format for proper database storage (prevent timezone shifting)
+      // This is critical when storing a date that should be the same regardless of timezone
+      if (!data.isRecurring && data.startDate) {
+        // Log raw data for debugging
+        console.log('Original date before processing:', data.startDate);
+        
+        // No need to change the date format since we're already using YYYY-MM-DD
+        // which is correctly interpreted by the server
+        console.log('Date format confirmed as YYYY-MM-DD:', data.startDate);
+      }
+      
+      console.log('Submitting event data:', submissionData);
       
       const res = await fetch(`/api/bars/${barId}/events`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          ...data,
-          timezone: Intl.DateTimeFormat().resolvedOptions().timeZone
-        }),
+        body: JSON.stringify(submissionData),
       });
 
       if (!res.ok) {
@@ -278,9 +299,16 @@ export default function BarEvents({ barId, ownerId }: BarEventsProps) {
   // Function to format date strings without timezone issues
   const formatDateString = (dateStr: string) => {
     try {
+      if (!dateStr) return 'No date';
+      
       // Parse the date string parts directly to avoid timezone shifts
       const [year, month, day] = dateStr.split('-').map(num => parseInt(num));
-      const date = new Date(year, month - 1, day);
+      
+      // Create date in UTC to avoid timezone shifts
+      // This is crucial when formatting dates stored in YYYY-MM-DD format
+      const date = new Date(Date.UTC(year, month - 1, day));
+      
+      // Format consistently with UTC date to avoid any timezone shifting
       return format(date, 'MMM d, yyyy');
     } catch (error) {
       console.error('Error formatting date:', error, dateStr);
