@@ -1,206 +1,252 @@
+
 import React, { useEffect, useRef, useState } from 'react';
 import L from 'leaflet';
 import 'leaflet/dist/leaflet.css';
 import { EyeIcon } from 'lucide-react';
 import './map-styles.css';
 
+// Fix Leaflet icon paths
+// This is necessary because of how bundlers handle assets
+import icon from 'leaflet/dist/images/marker-icon.png';
+import iconShadow from 'leaflet/dist/images/marker-shadow.png';
+
+// Fix default icon issue
+let DefaultIcon = L.icon({
+  iconUrl: icon,
+  shadowUrl: iconShadow,
+  iconSize: [25, 41],
+  iconAnchor: [12, 41],
+  popupAnchor: [1, -34],
+  tooltipAnchor: [16, -28],
+  shadowSize: [41, 41]
+});
+
+L.Marker.prototype.options.icon = DefaultIcon;
+
+// Tile layer URLs to try (in order of preference)
+const TILE_LAYERS = [
+  {
+    url: 'https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png',
+    attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
+  },
+  {
+    url: 'https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png',
+    attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors &copy; <a href="https://carto.com/attributions">CARTO</a>'
+  },
+  {
+    url: 'https://server.arcgisonline.com/ArcGIS/rest/services/World_Street_Map/MapServer/tile/{z}/{y}/{x}',
+    attribution: 'Tiles &copy; Esri &mdash; Source: Esri, DeLorme, NAVTEQ, USGS, Intermap, iPC, NRCAN, Esri Japan, METI, Esri China (Hong Kong), Esri (Thailand), TomTom, 2012'
+  }
+];
+
 interface MapViewProps {
   bars: any[];
-  center?: { lat: number; lng: number };
-  zoom?: number;
-  userLocation?: { lat: number; lng: number };
+  center: { lat: number; lng: number };
+  zoom: number;
+  onMarkerClick?: (bar: any) => void;
+  selectedBarId?: string;
 }
 
 const MapView: React.FC<MapViewProps> = ({ 
-  bars = [], 
-  center = { lat: 26.7056, lng: -80.0364 }, // Default to West Palm Beach
-  zoom = 10,
-  userLocation
+  bars, 
+  center, 
+  zoom, 
+  onMarkerClick,
+  selectedBarId 
 }) => {
   const mapRef = useRef<L.Map | null>(null);
   const mapContainerRef = useRef<HTMLDivElement>(null);
-  const markersLayerRef = useRef<L.LayerGroup | null>(null);
-  const [tileFallbackIndex, setTileFallbackIndex] = useState(0);
+  const markersRef = useRef<{ [key: string]: L.Marker }>({});
+  const [currentTileLayerIndex, setCurrentTileLayerIndex] = useState(0);
+  const [isLoaded, setIsLoaded] = useState(false);
 
-  // Multiple tile sources in case one fails
-  const tileSources = [
-    {
-      url: 'https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png',
-      attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
-    },
-    {
-      url: 'https://{s}.tile.opentopomap.org/{z}/{x}/{y}.png',
-      attribution: 'Map data: &copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
-    },
-    {
-      url: 'https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png',
-      attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>, &copy; <a href="https://carto.com/attributions">CARTO</a>'
-    }
-  ];
-
-  // Create map instance
+  // Initialize map
   useEffect(() => {
     if (!mapContainerRef.current) return;
+    
+    // Clean up previous map instance if it exists
+    if (mapRef.current) {
+      mapRef.current.remove();
+      mapRef.current = null;
+    }
 
-    // Initialize map if it doesn't exist
-    if (!mapRef.current) {
-      console.log('Initializing map with center:', center, 'and zoom:', zoom);
-      try {
-        // Create map instance
-        mapRef.current = L.map(mapContainerRef.current).setView(
-          [center.lat, center.lng], 
-          zoom
-        );
+    try {
+      console.log('Initializing Leaflet map...');
+      const map = L.map(mapContainerRef.current).setView([center.lat, center.lng], zoom);
+      mapRef.current = map;
 
-        // Add tile layer using current fallback index
-        const currentTileSource = tileSources[tileFallbackIndex];
-        const tileLayer = L.tileLayer(currentTileSource.url, {
-          attribution: currentTileSource.attribution,
-          maxZoom: 19
-        });
+      // Add tile layer with error handling
+      const addTileLayer = (index: number) => {
+        if (index >= TILE_LAYERS.length) {
+          console.error('All tile layers failed to load');
+          return false;
+        }
 
-        tileLayer.on('tileerror', () => {
-          console.log('Tile error detected, trying next tile source');
-          // Try next tile source if current one fails
-          if (tileFallbackIndex < tileSources.length - 1) {
-            setTileFallbackIndex(prev => prev + 1);
-          }
-        });
+        const layer = TILE_LAYERS[index];
+        try {
+          const tileLayer = L.tileLayer(layer.url, {
+            attribution: layer.attribution,
+            maxZoom: 19
+          });
+          
+          tileLayer.on('tileerror', () => {
+            console.warn(`Tile layer ${index} failed, trying next one...`);
+            map.removeLayer(tileLayer);
+            setCurrentTileLayerIndex(prev => prev + 1);
+            addTileLayer(index + 1);
+          });
+          
+          tileLayer.addTo(map);
+          return true;
+        } catch (error) {
+          console.error(`Error adding tile layer ${index}:`, error);
+          setCurrentTileLayerIndex(prev => prev + 1);
+          return addTileLayer(index + 1);
+        }
+      };
 
-        tileLayer.addTo(mapRef.current);
-
-        // Create a layer group for markers
-        markersLayerRef.current = L.layerGroup().addTo(mapRef.current);
-      } catch (err) {
-        console.error('Error initializing map:', err);
-      }
+      // Start with the current tile layer index
+      addTileLayer(currentTileLayerIndex);
+      
+      // Add scale control
+      L.control.scale().addTo(map);
+      
+      // Map is now loaded
+      setIsLoaded(true);
+    } catch (error) {
+      console.error('Error initializing map:', error);
     }
 
     // Cleanup function
     return () => {
       if (mapRef.current) {
-        console.log('Cleaning up map');
         mapRef.current.remove();
         mapRef.current = null;
-        markersLayerRef.current = null;
       }
     };
-  }, [center, zoom, tileFallbackIndex]);
+  }, [center, zoom, currentTileLayerIndex]);
 
-  // Handle tile source changes
+  // Add markers for bars
   useEffect(() => {
-    if (!mapRef.current) return;
-
-    // Remove existing tile layers
-    mapRef.current.eachLayer((layer) => {
-      if (layer instanceof L.TileLayer) {
-        mapRef.current?.removeLayer(layer);
-      }
-    });
-
-    // Add new tile layer
-    const currentTileSource = tileSources[tileFallbackIndex];
-    L.tileLayer(currentTileSource.url, {
-      attribution: currentTileSource.attribution,
-      maxZoom: 19
-    }).addTo(mapRef.current);
-
-    console.log(`Switched to tile source ${tileFallbackIndex + 1}/${tileSources.length}`);
-  }, [tileFallbackIndex]);
-
-  // Update markers when bars change
-  useEffect(() => {
-    if (!mapRef.current || !markersLayerRef.current) return;
-
+    if (!mapRef.current || !isLoaded || !bars.length) return;
+    
     // Clear existing markers
-    markersLayerRef.current.clearLayers();
-
-    // Add markers for bars
+    Object.values(markersRef.current).forEach(marker => {
+      if (mapRef.current) marker.removeFrom(mapRef.current);
+    });
+    markersRef.current = {};
+    
+    // Add new markers
     bars.forEach(bar => {
-      if (!bar.latitude || !bar.longitude) return;
-
+      if (!bar.location?.lat || !bar.location?.lng) return;
+      
       try {
         // Create marker
-        const marker = L.marker([bar.latitude, bar.longitude]);
-
+        const marker = L.marker([bar.location.lat, bar.location.lng], {
+          title: bar.name
+        });
+        
+        // Determine if this marker should be highlighted
+        if (selectedBarId && bar.id === selectedBarId) {
+          marker.setIcon(L.divIcon({
+            className: 'highlighted-marker',
+            html: `<div class="marker-icon selected"></div>`,
+            iconSize: [30, 30],
+            iconAnchor: [15, 30]
+          }));
+        }
+        
         // Add popup
         marker.bindPopup(`
           <div class="map-popup">
             <h3>${bar.name}</h3>
-            <p>${bar.address || 'Address not available'}</p>
-            ${bar.rating ? `<p>Rating: ${bar.rating}/5</p>` : ''}
-            <a href="/bar/${bar.id}" class="popup-link">
-              <span class="popup-view">View Details</span>
-              <span class="popup-icon">👁️</span>
-            </a>
+            <p>${bar.address || 'No address available'}</p>
+            ${bar.phone ? `<p><a href="tel:${bar.phone}">${bar.phone}</a></p>` : ''}
+            ${bar.website ? `<p><a href="${bar.website}" target="_blank" rel="noopener noreferrer">Visit Website</a></p>` : ''}
           </div>
         `);
-
-        // Add to layer group
-        marker.addTo(markersLayerRef.current!);
-      } catch (err) {
-        console.error(`Error adding marker for bar ${bar.id}:`, err);
+        
+        // Add click handler
+        if (onMarkerClick) {
+          marker.on('click', () => {
+            onMarkerClick(bar);
+          });
+        }
+        
+        // Add to map
+        marker.addTo(mapRef.current);
+        
+        // Store reference
+        markersRef.current[bar.id] = marker;
+      } catch (error) {
+        console.error(`Error adding marker for ${bar.name}:`, error);
       }
     });
-
-    // Add user location marker if available
-    if (userLocation) {
-      const userMarker = L.circleMarker(
-        [userLocation.lat, userLocation.lng],
-        { 
-          radius: 8, 
-          fillColor: '#4B0082', 
-          color: '#000', 
-          weight: 1, 
-          opacity: 1, 
-          fillOpacity: 0.8 
+    
+    // If we have bars and no center was explicitly provided, fit bounds
+    if (bars.length > 0 && mapRef.current) {
+      try {
+        const points = bars
+          .filter(bar => bar.location?.lat && bar.location?.lng)
+          .map(bar => [bar.location.lat, bar.location.lng]);
+          
+        if (points.length > 0) {
+          const bounds = L.latLngBounds(points as [number, number][]);
+          mapRef.current.fitBounds(bounds, { padding: [50, 50] });
         }
-      ).addTo(markersLayerRef.current);
-
-      userMarker.bindPopup('Your location');
+      } catch (error) {
+        console.error('Error fitting bounds:', error);
+      }
     }
-
-  }, [bars, userLocation]);
-
-  // Handle resize events to fix container sizing issues
+  }, [bars, isLoaded, onMarkerClick, selectedBarId]);
+  
+  // Center map or highlight selected bar when selectedBarId changes
   useEffect(() => {
+    if (!mapRef.current || !isLoaded || !selectedBarId) return;
+    
+    const marker = markersRef.current[selectedBarId];
+    if (marker) {
+      // Center map on marker
+      const markerPosition = marker.getLatLng();
+      mapRef.current.setView(markerPosition, mapRef.current.getZoom());
+      
+      // Open popup
+      marker.openPopup();
+    }
+  }, [selectedBarId, isLoaded]);
+
+  // Add periodic resize handler to fix container sizing issues
+  useEffect(() => {
+    if (!mapRef.current) return;
+    
     const handleResize = () => {
       if (mapRef.current) {
         mapRef.current.invalidateSize();
       }
     };
-
+    
+    // Initial invalidate
+    setTimeout(handleResize, 100);
+    
+    // Set up interval to periodically invalidate size
+    const interval = setInterval(handleResize, 2000);
+    
+    // Add window resize listener
     window.addEventListener('resize', handleResize);
-
-    // Periodically check and fix map size
-    const interval = setInterval(() => {
-      if (mapRef.current && mapContainerRef.current) {
-        mapRef.current.invalidateSize();
-      }
-    }, 2000);
-
+    
     return () => {
-      window.removeEventListener('resize', handleResize);
       clearInterval(interval);
+      window.removeEventListener('resize', handleResize);
     };
-  }, []);
+  }, [isLoaded]);
 
   return (
-    <div 
-      ref={mapContainerRef} 
-      style={{ 
-        width: '100%', 
-        height: '100%', 
-        position: 'relative',
-        zIndex: 0
-      }}
-      className="map-container"
-    >
-      {/* Overlay for when map is loading */}
-      {!mapRef.current && (
-        <div className="absolute inset-0 flex items-center justify-center bg-gray-100 bg-opacity-70 z-10">
-          <div className="text-center">
-            <p className="text-gray-600">Loading map...</p>
+    <div className="map-container">
+      <div ref={mapContainerRef} className="map-view"></div>
+      {!isLoaded && (
+        <div className="map-loading">
+          <div className="map-loading-indicator">
+            <span>Loading map...</span>
           </div>
         </div>
       )}

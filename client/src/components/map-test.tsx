@@ -1,41 +1,48 @@
+
 import React, { useState, useEffect } from 'react';
 import MapView from './map-view';
 
-const MapTest = () => {
-  const [status, setStatus] = useState('loading');
-  const [testBars, setTestBars] = useState([]);
+// Sample test data
+const testBars = [
+  {
+    id: '1',
+    name: 'Kava Bar 1',
+    location: { lat: 26.7153, lng: -80.0534 },
+    address: '123 Main St, West Palm Beach, FL',
+    phone: '(555) 123-4567',
+    website: 'https://example.com'
+  },
+  {
+    id: '2',
+    name: 'Kava Bar 2',
+    location: { lat: 26.6834, lng: -80.0997 },
+    address: '456 Palm Ave, Wellington, FL',
+    phone: '(555) 987-6543',
+    website: 'https://example.com'
+  },
+  {
+    id: '3',
+    name: 'Kava Bar 3',
+    location: { lat: 26.7372, lng: -80.1201 },
+    address: '789 Royal Rd, Royal Palm Beach, FL',
+    phone: '(555) 765-4321',
+    website: 'https://example.com'
+  }
+];
 
+const MapTest: React.FC = () => {
+  const [status, setStatus] = useState<'loading' | 'success' | 'error'>('loading');
+  
   useEffect(() => {
-    // Create sample data for testing the map
-    const sampleBars = [
-      {
-        id: 'test1',
-        name: 'Test Kava Bar 1',
-        address: '123 Test St, West Palm Beach, FL',
-        rating: 4.5,
-        latitude: 26.7056,
-        longitude: -80.0364
-      },
-      {
-        id: 'test2',
-        name: 'Test Kava Bar 2',
-        address: '456 Sample Ave, Lake Worth, FL',
-        rating: 4.2,
-        latitude: 26.6166,
-        longitude: -80.0673
-      },
-      {
-        id: 'test3',
-        name: 'Test Kava Bar 3',
-        address: '789 Demo Blvd, Boynton Beach, FL',
-        rating: 4.7,
-        latitude: 26.5281,
-        longitude: -80.0731
+    // Simulate loading process
+    setTimeout(() => {
+      try {
+        setStatus('success');
+      } catch (error) {
+        console.error('Map test error:', error);
+        setStatus('error');
       }
-    ];
-
-    setTestBars(sampleBars);
-    setStatus('success');
+    }, 500);
   }, []);
 
   return (
