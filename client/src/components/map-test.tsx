@@ -2,47 +2,51 @@
 import React, { useState, useEffect } from 'react';
 import MapView from './map-view';
 
-// Sample test data
+// Sample test data for markers
 const testBars = [
   {
-    id: '1',
-    name: 'Kava Bar 1',
-    location: { lat: 26.7153, lng: -80.0534 },
-    address: '123 Main St, West Palm Beach, FL',
-    phone: '(555) 123-4567',
-    website: 'https://example.com'
+    id: 1,
+    name: "Test Kava Bar 1",
+    address: "123 Test St, Test City, FL",
+    latitude: 26.7056,
+    longitude: -80.0364,
+    rating: 4.5
   },
   {
-    id: '2',
-    name: 'Kava Bar 2',
-    location: { lat: 26.6834, lng: -80.0997 },
-    address: '456 Palm Ave, Wellington, FL',
-    phone: '(555) 987-6543',
-    website: 'https://example.com'
+    id: 2,
+    name: "Test Kava Bar 2",
+    address: "456 Sample Ave, Test City, FL",
+    latitude: 26.6406,
+    longitude: -80.2831,
+    rating: 4.8
   },
   {
-    id: '3',
-    name: 'Kava Bar 3',
-    location: { lat: 26.7372, lng: -80.1201 },
-    address: '789 Royal Rd, Royal Palm Beach, FL',
-    phone: '(555) 765-4321',
-    website: 'https://example.com'
+    id: 3,
+    name: "Test Kava Bar 3",
+    address: "789 Demo Blvd, Test City, FL",
+    latitude: 26.8245,
+    longitude: -80.1362,
+    rating: 4.2
   }
 ];
 
 const MapTest: React.FC = () => {
   const [status, setStatus] = useState<'loading' | 'success' | 'error'>('loading');
+  const [errorMessage, setErrorMessage] = useState<string>('');
   
   useEffect(() => {
     // Simulate loading process
-    setTimeout(() => {
+    const timer = setTimeout(() => {
       try {
         setStatus('success');
       } catch (error) {
         console.error('Map test error:', error);
         setStatus('error');
+        setErrorMessage(error instanceof Error ? error.message : 'Unknown error');
       }
     }, 500);
+    
+    return () => clearTimeout(timer);
   }, []);
 
   return (
@@ -61,7 +65,7 @@ const MapTest: React.FC = () => {
         )}
         {status === 'error' && (
           <span className="px-2 py-1 bg-red-100 text-red-800 rounded text-sm">
-            Error loading map
+            Error loading map: {errorMessage}
           </span>
         )}
       </div>
@@ -71,9 +75,10 @@ const MapTest: React.FC = () => {
           bars={testBars}
           center={{ lat: 26.7056, lng: -80.0364 }}
           zoom={10}
+          onBarClick={(bar) => console.log('Clicked on bar:', bar)}
         />
       </div>
-
+      
       <div className="mt-4 text-sm text-gray-600">
         <ul className="list-disc pl-5">
           <li>If you can see the map with markers, the map functionality is working correctly.</li>

@@ -1,17 +1,15 @@
-
 import React, { useEffect, useRef, useState } from 'react';
 import L from 'leaflet';
 import 'leaflet/dist/leaflet.css';
 import { EyeIcon } from 'lucide-react';
 import './map-styles.css';
 
-// Fix Leaflet icon paths
-// This is necessary because of how bundlers handle assets
+// Import marker icons directly
 import icon from 'leaflet/dist/images/marker-icon.png';
 import iconShadow from 'leaflet/dist/images/marker-shadow.png';
 
 // Fix default icon issue
-let DefaultIcon = L.icon({
+const DefaultIcon = L.icon({
   iconUrl: icon,
   shadowUrl: iconShadow,
   iconSize: [25, 41],
@@ -21,6 +19,7 @@ let DefaultIcon = L.icon({
   shadowSize: [41, 41]
 });
 
+// Set default icon
 L.Marker.prototype.options.icon = DefaultIcon;
 
 // Tile layer URLs to try (in order of preference)
@@ -43,213 +42,178 @@ interface MapViewProps {
   bars: any[];
   center: { lat: number; lng: number };
   zoom: number;
-  onMarkerClick?: (bar: any) => void;
-  selectedBarId?: string;
+  onBarClick?: (bar: any) => void;
 }
 
 const MapView: React.FC<MapViewProps> = ({ 
-  bars, 
-  center, 
-  zoom, 
-  onMarkerClick,
-  selectedBarId 
+  bars = [], 
+  center = { lat: 27.6648, lng: -81.5158 }, // Florida by default
+  zoom = 7,
+  onBarClick
 }) => {
   const mapRef = useRef<L.Map | null>(null);
   const mapContainerRef = useRef<HTMLDivElement>(null);
-  const markersRef = useRef<{ [key: string]: L.Marker }>({});
-  const [currentTileLayerIndex, setCurrentTileLayerIndex] = useState(0);
-  const [isLoaded, setIsLoaded] = useState(false);
+  const [mapLoaded, setMapLoaded] = useState(false);
+  const [tileLayerIndex, setTileLayerIndex] = useState(0);
+  const [error, setError] = useState<string | null>(null);
 
-  // Initialize map
+  // Initialize map on component mount
   useEffect(() => {
     if (!mapContainerRef.current) return;
-    
-    // Clean up previous map instance if it exists
-    if (mapRef.current) {
-      mapRef.current.remove();
-      mapRef.current = null;
-    }
 
     try {
-      console.log('Initializing Leaflet map...');
-      const map = L.map(mapContainerRef.current).setView([center.lat, center.lng], zoom);
-      mapRef.current = map;
+      console.log("Initializing map...");
 
-      // Add tile layer with error handling
-      const addTileLayer = (index: number) => {
-        if (index >= TILE_LAYERS.length) {
-          console.error('All tile layers failed to load');
-          return false;
-        }
+      // Create map instance if it doesn't exist
+      if (!mapRef.current && mapContainerRef.current) {
+        mapRef.current = L.map(mapContainerRef.current, {
+          center: [center.lat, center.lng],
+          zoom: zoom,
+          zoomControl: true,
+          attributionControl: true
+        });
 
-        const layer = TILE_LAYERS[index];
+        console.log("Map instance created successfully");
+      }
+
+      // Try to add the current tile layer
+      const addTileLayer = () => {
+        if (!mapRef.current) return;
+
         try {
-          const tileLayer = L.tileLayer(layer.url, {
-            attribution: layer.attribution,
+          const currentLayer = TILE_LAYERS[tileLayerIndex];
+          console.log(`Adding tile layer ${tileLayerIndex}: ${currentLayer.url}`);
+
+          L.tileLayer(currentLayer.url, {
+            attribution: currentLayer.attribution,
             maxZoom: 19
-          });
-          
-          tileLayer.on('tileerror', () => {
-            console.warn(`Tile layer ${index} failed, trying next one...`);
-            map.removeLayer(tileLayer);
-            setCurrentTileLayerIndex(prev => prev + 1);
-            addTileLayer(index + 1);
-          });
-          
-          tileLayer.addTo(map);
-          return true;
-        } catch (error) {
-          console.error(`Error adding tile layer ${index}:`, error);
-          setCurrentTileLayerIndex(prev => prev + 1);
-          return addTileLayer(index + 1);
+          }).addTo(mapRef.current);
+
+          console.log("Tile layer added successfully");
+          setMapLoaded(true);
+        } catch (err) {
+          console.error("Error adding tile layer:", err);
+
+          // Try next tile layer if available
+          if (tileLayerIndex < TILE_LAYERS.length - 1) {
+            setTileLayerIndex(tileLayerIndex + 1);
+          } else {
+            setError("Failed to load map tiles from any source");
+          }
         }
       };
 
-      // Start with the current tile layer index
-      addTileLayer(currentTileLayerIndex);
-      
-      // Add scale control
-      L.control.scale().addTo(map);
-      
-      // Map is now loaded
-      setIsLoaded(true);
-    } catch (error) {
-      console.error('Error initializing map:', error);
-    }
+      addTileLayer();
 
-    // Cleanup function
-    return () => {
-      if (mapRef.current) {
-        mapRef.current.remove();
-        mapRef.current = null;
-      }
-    };
-  }, [center, zoom, currentTileLayerIndex]);
+      // Add markers for bars
+      if (mapRef.current && bars.length > 0) {
+        console.log(`Adding ${bars.length} markers to map`);
 
-  // Add markers for bars
-  useEffect(() => {
-    if (!mapRef.current || !isLoaded || !bars.length) return;
-    
-    // Clear existing markers
-    Object.values(markersRef.current).forEach(marker => {
-      if (mapRef.current) marker.removeFrom(mapRef.current);
-    });
-    markersRef.current = {};
-    
-    // Add new markers
-    bars.forEach(bar => {
-      if (!bar.location?.lat || !bar.location?.lng) return;
-      
-      try {
-        // Create marker
-        const marker = L.marker([bar.location.lat, bar.location.lng], {
-          title: bar.name
+        bars.forEach(bar => {
+          if (bar.latitude && bar.longitude) {
+            const marker = L.marker([bar.latitude, bar.longitude], { 
+              title: bar.name,
+              alt: `Marker for ${bar.name}`
+            }).addTo(mapRef.current!);
+
+            // Add popup with bar info
+            marker.bindPopup(`
+              <div>
+                <strong>${bar.name}</strong>
+                <p>${bar.address || 'Address not available'}</p>
+                ${bar.rating ? `<p>Rating: ${bar.rating}/5</p>` : ''}
+                <button class="view-details">View Details</button>
+              </div>
+            `);
+
+            // Handle click event if callback provided
+            if (onBarClick) {
+              marker.on('click', () => {
+                onBarClick(bar);
+              });
+            }
+          }
         });
-        
-        // Determine if this marker should be highlighted
-        if (selectedBarId && bar.id === selectedBarId) {
-          marker.setIcon(L.divIcon({
-            className: 'highlighted-marker',
-            html: `<div class="marker-icon selected"></div>`,
-            iconSize: [30, 30],
-            iconAnchor: [15, 30]
-          }));
-        }
-        
-        // Add popup
-        marker.bindPopup(`
-          <div class="map-popup">
-            <h3>${bar.name}</h3>
-            <p>${bar.address || 'No address available'}</p>
-            ${bar.phone ? `<p><a href="tel:${bar.phone}">${bar.phone}</a></p>` : ''}
-            ${bar.website ? `<p><a href="${bar.website}" target="_blank" rel="noopener noreferrer">Visit Website</a></p>` : ''}
-          </div>
-        `);
-        
-        // Add click handler
-        if (onMarkerClick) {
-          marker.on('click', () => {
-            onMarkerClick(bar);
-          });
-        }
-        
-        // Add to map
-        marker.addTo(mapRef.current);
-        
-        // Store reference
-        markersRef.current[bar.id] = marker;
-      } catch (error) {
-        console.error(`Error adding marker for ${bar.name}:`, error);
-      }
-    });
-    
-    // If we have bars and no center was explicitly provided, fit bounds
-    if (bars.length > 0 && mapRef.current) {
-      try {
-        const points = bars
-          .filter(bar => bar.location?.lat && bar.location?.lng)
-          .map(bar => [bar.location.lat, bar.location.lng]);
-          
-        if (points.length > 0) {
-          const bounds = L.latLngBounds(points as [number, number][]);
-          mapRef.current.fitBounds(bounds, { padding: [50, 50] });
-        }
-      } catch (error) {
-        console.error('Error fitting bounds:', error);
-      }
-    }
-  }, [bars, isLoaded, onMarkerClick, selectedBarId]);
-  
-  // Center map or highlight selected bar when selectedBarId changes
-  useEffect(() => {
-    if (!mapRef.current || !isLoaded || !selectedBarId) return;
-    
-    const marker = markersRef.current[selectedBarId];
-    if (marker) {
-      // Center map on marker
-      const markerPosition = marker.getLatLng();
-      mapRef.current.setView(markerPosition, mapRef.current.getZoom());
-      
-      // Open popup
-      marker.openPopup();
-    }
-  }, [selectedBarId, isLoaded]);
 
-  // Add periodic resize handler to fix container sizing issues
+        console.log("Markers added successfully");
+      }
+
+      // Cleanup function
+      return () => {
+        if (mapRef.current) {
+          console.log("Cleaning up map instance");
+          mapRef.current.remove();
+          mapRef.current = null;
+        }
+      };
+    } catch (err) {
+      console.error("Error initializing map:", err);
+      setError(`Map initialization error: ${err instanceof Error ? err.message : 'Unknown error'}`);
+    }
+  }, [bars, center, zoom, tileLayerIndex, onBarClick]);
+
+  // Handle container size changes
   useEffect(() => {
     if (!mapRef.current) return;
-    
+
     const handleResize = () => {
       if (mapRef.current) {
+        console.log("Invalidating map size");
         mapRef.current.invalidateSize();
       }
     };
-    
-    // Initial invalidate
-    setTimeout(handleResize, 100);
-    
-    // Set up interval to periodically invalidate size
-    const interval = setInterval(handleResize, 2000);
-    
-    // Add window resize listener
+
+    // Initial invalidation after a short delay to ensure container is properly sized
+    const initialResizeTimeout = setTimeout(handleResize, 500);
+
+    // Periodic check for size changes (helpful for mobile devices and dynamic layouts)
+    const intervalId = setInterval(handleResize, 2000);
+
+    // Event listener for window resize
     window.addEventListener('resize', handleResize);
-    
+
     return () => {
-      clearInterval(interval);
+      clearTimeout(initialResizeTimeout);
+      clearInterval(intervalId);
       window.removeEventListener('resize', handleResize);
     };
-  }, [isLoaded]);
+  }, [mapRef.current]);
 
   return (
-    <div className="map-container">
-      <div ref={mapContainerRef} className="map-view"></div>
-      {!isLoaded && (
-        <div className="map-loading">
-          <div className="map-loading-indicator">
-            <span>Loading map...</span>
+    <div className="relative w-full h-full">
+      {/* Map loading indicator */}
+      {!mapLoaded && !error && (
+        <div className="absolute inset-0 flex items-center justify-center bg-gray-100 bg-opacity-75 z-20">
+          <div className="text-center">
+            <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-green-500 mx-auto"></div>
+            <p className="mt-2 text-sm text-gray-600">Loading map...</p>
           </div>
         </div>
       )}
+
+      {/* Error message */}
+      {error && (
+        <div className="absolute inset-0 flex items-center justify-center bg-red-100 bg-opacity-75 z-20">
+          <div className="text-center p-4 max-w-md">
+            <div className="text-red-500 text-3xl mb-2">⚠️</div>
+            <p className="font-semibold text-red-800">Map Error</p>
+            <p className="mt-1 text-sm text-red-700">{error}</p>
+            <button 
+              className="mt-3 px-4 py-2 bg-red-600 text-white rounded hover:bg-red-700"
+              onClick={() => window.location.reload()}
+            >
+              Reload
+            </button>
+          </div>
+        </div>
+      )}
+
+      {/* Map container */}
+      <div 
+        ref={mapContainerRef} 
+        className="w-full h-full leaflet-container" 
+        style={{ minHeight: '300px' }}
+      />
     </div>
   );
 };
