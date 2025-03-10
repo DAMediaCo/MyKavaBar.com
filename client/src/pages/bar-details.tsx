@@ -20,7 +20,7 @@ import {
   AlertCircle,
   Copy,
 } from "lucide-react";
-import MapView from "@/components/map-view";
+import MapProvider from "@/components/map-provider";
 import { useToast } from "@/hooks/use-toast";
 import BarStaff from "@/components/bar-staff";
 import KavatenderCheckin from "@/components/kavatender-checkin";
@@ -303,7 +303,7 @@ export default function BarDetails() {
 
       {bar.location && (
         <div className="h-[400px] rounded-lg overflow-hidden border border-border">
-          <MapView bars={[bar]} center={bar.location} zoom={15} />
+          <MapProvider barId={bar.id} zoom={15} height="400px" />
         </div>
       )}
     </div>

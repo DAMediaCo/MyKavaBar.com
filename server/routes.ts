@@ -1175,38 +1175,6 @@ export function registerRoutes(app: Express, server: Server): void {
     }
   });
 
-  // Photo endpoints with debug logging
-  app.get("/api/bars/:id/photos", async (req, res) => {
-    try {
-      const barId = Number(req.params.id);
-      console.log(`Fetching photos for bar ${barId}`, {
-        authenticated: req.isAuthenticated(),
-        user: req.user ? { id: req.user.id, role: req.user.role } : null,
-      });
-
-      const photos = await db.query.kavaBarPhotos.findMany({
-        where: eq(kavaBarPhotos.barId, barId),
-        orderBy: [desc(kavaBarPhotos.createdAt)],
-      });
-
-      console.log(`Found ${photos.length} photos for bar ${barId}`);
-      res.json(photos);
-    } catch (error: any) {
-      console.error("Error fetching photos:", error);
-      res.status(500).json({ error: "Failed to fetch photos" });
-    }
-  });
-
-  // Photo upload endpoint - requires authentication
-  app.post(
-    "/api/bars/:id/photos",
-    isAuthenticated,
-    upload.single("photo"),
-    async (req, res) => {
-      // ... existing upload implementation ...
-    },
-  );
-
   // Photo deletion endpoint - requires authentication
   app.delete(
     "/api/bars/:id/photos/:photoId",
@@ -1550,9 +1518,9 @@ export function registerRoutes(app: Express, server: Server): void {
       res.status(500).json({ error: error.message });
     }
   });
-  
+
   // Admin CRUD endpoints for kava bars management
-  
+
   // Create a new kava bar
   app.post("/api/admin/bars", async (req, res) => {
     if (!req.isAuthenticated()) {
@@ -1562,33 +1530,38 @@ export function registerRoutes(app: Express, server: Server): void {
     if (!req.user.isAdmin) {
       return res.status(403).json({ error: "Admin access required" });
     }
-    
+
     try {
       const barData = req.body;
-      const locationValue = barData.location ? JSON.stringify(barData.location) : null;
+      const locationValue = barData.location
+        ? JSON.stringify(barData.location)
+        : null;
       const ratingValue = barData.rating ? parseFloat(barData.rating) : null;
-      
+
       // Insert the new bar
-      const result = await db.insert(kavaBars).values({
-        name: barData.name,
-        address: barData.address,
-        phone: barData.phone || null,
-        placeId: barData.placeId || null,
-        rating: ratingValue,
-        location: locationValue,
-        verificationStatus: 'pending',
-        businessStatus: 'OPERATIONAL',
-        createdAt: new Date(),
-        updatedAt: new Date()
-      }).returning();
-      
+      const result = await db
+        .insert(kavaBars)
+        .values({
+          name: barData.name,
+          address: barData.address,
+          phone: barData.phone || null,
+          placeId: barData.placeId || null,
+          rating: ratingValue,
+          location: locationValue,
+          verificationStatus: "pending",
+          businessStatus: "OPERATIONAL",
+          createdAt: new Date(),
+          updatedAt: new Date(),
+        })
+        .returning();
+
       res.status(201).json(result[0]);
     } catch (error: any) {
       console.error("Error adding bar:", error);
       res.status(500).json({ error: error.message });
     }
   });
-  
+
   // Update an existing kava bar
   app.put("/api/admin/bars/:id", async (req, res) => {
     if (!req.isAuthenticated()) {
@@ -1598,21 +1571,24 @@ export function registerRoutes(app: Express, server: Server): void {
     if (!req.user.isAdmin) {
       return res.status(403).json({ error: "Admin access required" });
     }
-    
+
     const { id } = req.params;
     const barId = parseInt(id);
-    
+
     if (isNaN(barId)) {
       return res.status(400).json({ error: "Invalid bar ID" });
     }
-    
+
     try {
       const barData = req.body;
-      const locationValue = barData.location ? JSON.stringify(barData.location) : null;
+      const locationValue = barData.location
+        ? JSON.stringify(barData.location)
+        : null;
       const ratingValue = barData.rating ? parseFloat(barData.rating) : null;
-      
+
       // Update the bar
-      const result = await db.update(kavaBars)
+      const result = await db
+        .update(kavaBars)
         .set({
           name: barData.name,
           address: barData.address,
@@ -1620,22 +1596,22 @@ export function registerRoutes(app: Express, server: Server): void {
           placeId: barData.placeId || null,
           rating: ratingValue,
           location: locationValue,
-          updatedAt: new Date()
+          updatedAt: new Date(),
         })
         .where(eq(kavaBars.id, barId))
         .returning();
-      
+
       if (result.length === 0) {
         return res.status(404).json({ error: "Bar not found" });
       }
-      
+
       res.json(result[0]);
     } catch (error: any) {
       console.error("Error updating bar:", error);
       res.status(500).json({ error: error.message });
     }
   });
-  
+
   // Delete a kava bar
   app.delete("/api/admin/bars/:id", async (req, res) => {
     if (!req.isAuthenticated()) {
@@ -1645,27 +1621,27 @@ export function registerRoutes(app: Express, server: Server): void {
     if (!req.user.isAdmin) {
       return res.status(403).json({ error: "Admin access required" });
     }
-    
+
     const { id } = req.params;
     const barId = parseInt(id);
-    
+
     if (isNaN(barId)) {
       return res.status(400).json({ error: "Invalid bar ID" });
     }
-    
+
     try {
       // First, check if the bar exists
       const existingBar = await db.query.kavaBars.findFirst({
-        where: eq(kavaBars.id, barId)
+        where: eq(kavaBars.id, barId),
       });
-      
+
       if (!existingBar) {
         return res.status(404).json({ error: "Bar not found" });
       }
-      
+
       // Delete the bar
       await db.delete(kavaBars).where(eq(kavaBars.id, barId));
-      
+
       res.json({ success: true, message: "Bar deleted successfully" });
     } catch (error: any) {
       console.error("Error deleting bar:", error);
@@ -2101,9 +2077,9 @@ export function registerRoutes(app: Express, server: Server): void {
         authenticated: req.isAuthenticated(),
         hasFile: !!req.file,
         fileSize: req.file ? req.file.size : 0,
-        barId: req.params.id
+        barId: req.params.id,
       });
-      
+
       if (!req.isAuthenticated()) {
         console.log("User not authenticated");
         return res.status(401).send("Not authenticated");
@@ -2125,31 +2101,26 @@ export function registerRoutes(app: Express, server: Server): void {
         })
         .jpeg({ quality: 80 })
         .toBuffer();
-      
+
       console.log("Image processed successfully");
-      
+
       // Generate a unique filename
       const filename = `${barId}-${randomUUID()}.jpg`;
-      
-      // Use the uploadImageToStorage function from your utility
-      const { publicUrl } = await uploadImageToStorage(processedImageBuffer, filename);
-      
-      console.log("Image uploaded to storage:", publicUrl);
 
-      // Create uploads directory if it doesn't exist
-      const uploadsDir = path.join(process.cwd(), 'public', 'uploads');
-      await fs.mkdir(uploadsDir, { recursive: true });
-      
-      const filePath = path.join(uploadsDir, filename);
-      console.log("Saving photo to:", filePath);
-      await fs.writeFile(filePath, processedImageBuffer);
+      // Use the uploadImageToStorage function from your utility
+      const { publicUrl } = await uploadImageToStorage(
+        processedImageBuffer,
+        filename,
+      );
+
+      console.log("Image uploaded to storage:", publicUrl);
 
       // Save photo record in database
       const [photo] = await db
         .insert(kavaBarPhotos)
         .values({
           barId,
-          url: `/uploads/${filename}`,
+          url: publicUrl,
           uploadedById: req.user.id,
           caption: req.body.caption || null,
         })
@@ -2159,24 +2130,6 @@ export function registerRoutes(app: Express, server: Server): void {
       res.status(201).json(photo);
     } catch (error: any) {
       console.error("Photo upload error:", error);
-      res.status(500).json({ error: error.message });
-    }
-  });
-
-  app.get("/api/bars/:id/photos", async (req, res) => {
-    try {
-      const barId = Number(req.params.id);
-      console.log("Fetching photos for bar:", barId);
-
-      const photos = await db.query.kavaBarPhotos.findMany({
-        where: eq(kavaBarPhotos.barId, barId),
-        orderBy: desc(kavaBarPhotos.createdAt),
-      });
-
-      console.log("Found photos:", photos);
-      res.json(photos);
-    } catch (error: any) {
-      console.error("Error fetching photos:", error);
       res.status(500).json({ error: error.message });
     }
   });
@@ -3436,72 +3389,23 @@ export function registerRoutes(app: Express, server: Server): void {
     }
   });
 
-  // Add photo upload and retrieval endpoints after the existing bar routes
-  app.post("/api/bars/:id/photos", upload.single("photo"), async (req, res) => {
-    try {
-      if (!req.isAuthenticated()) {
-        return res.status(401).send("Not authenticated");
-      }
+  // app.get("/api/bars/:id/photos", async (req, res) => {
+  //   try {
+  //     const barId = Number(req.params.id);
+  //     console.log("Fetching photos for bar:", barId);
 
-      if (!req.file) {
-        return res.status(400).send("No photo uploaded");
-      }
+  //     const photos = await db.query.kavaBarPhotos.findMany({
+  //       where: eq(kavaBarPhotos.barId, barId),
+  //       orderBy: desc(kavaBarPhotos.createdAt),
+  //     });
 
-      const barId = Number(req.params.id);
-      console.log("Processing photo upload for bar:", barId);
-
-      // Process the uploaded image with Sharp
-      const processedImageBuffer = await sharp(req.file.buffer)
-        .resize(1200, null, {
-          withoutEnlargement: true,
-          fit: "inside",
-        })
-        .jpeg({ quality: 80 })
-        .toBuffer();
-
-      // Generate a unique filename
-      const filename = `${randomUUID()}.jpg`;
-      const filePath = path.join(uploadsPath, filename);
-
-      console.log("Saving photo to:", filePath);
-      await fs.writeFile(filePath, processedImageBuffer);
-
-      // Save photo record in database
-      const [photo] = await db
-        .insert(kavaBarPhotos)
-        .values({
-          barId,
-          url: `/uploads/${filename}`,
-          uploadedById: req.user.id,
-          caption: req.body.caption || null,
-        })
-        .returning();
-
-      console.log("Saved photo to database:", photo);
-      res.status(201).json(photo);
-    } catch (error: any) {
-      console.error("Photo upload error:", error);
-      res.status(500).json({ error: error.message });
-    }
-  });
-
-  app.get("/api/bars/:id/photos", async (req, res) => {
-    try {
-      const barId = Number(req.params.id);
-      console.log("Fetching photos for bar:", barId);
-
-      const photos = await db.query.kavaBarPhotos.findMany({
-        where: eq(kavaBarPhotos.barId, barId),
-        orderBy: desc(kavaBarPhotos.createdAt),
-      });
-
-      console.log("Found photos:", photos);
-      res.json(photos);
-    } catch (error: any) {
-      console.error("Error fetching photos:", error);
-      res.status(500).json({ error: error.message });
-    }
-  });
+  //     console.log("Found photos:", photos);
+  //     res.json(photos);
+  //   } catch (error: any) {
+  //     console.error("Error fetching photos:", error);
+  //     res.status(500).json({ error: error.message });
+  //   }
+  // });
 
   app.delete("/api/bars/:barId/photos/:photoId", async (req, res) => {
     try {
@@ -4054,73 +3958,6 @@ export function registerRoutes(app: Express, server: Server): void {
         details:
           process.env.NODE_ENV === "development" ? error.stack : undefined,
       });
-    }
-  });
-
-  // Add photo upload and retrieval endpoints after the existing bar routes
-  app.post("/api/bars/:id/photos", upload.single("photo"), async (req, res) => {
-    try {
-      if (!req.isAuthenticated()) {
-        return res.status(401).send("Not authenticated");
-      }
-
-      if (!req.file) {
-        return res.status(400).send("No photo uploaded");
-      }
-
-      const barId = Number(req.params.id);
-      console.log("Processing photo upload for bar:", barId);
-
-      // Process the uploaded image with Sharp
-      const processedImageBuffer = await sharp(req.file.buffer)
-        .resize(1200, null, {
-          withoutEnlargement: true,
-          fit: "inside",
-        })
-        .jpeg({ quality: 80 })
-        .toBuffer();
-
-      // Generate a unique filename
-      const filename = `${randomUUID()}.jpg`;
-      const filePath = path.join(uploadsPath, filename);
-
-      console.log("Saving photo to:", filePath);
-      await fs.writeFile(filePath, processedImageBuffer);
-
-      // Save photo record in database
-      const [photo] = await db
-        .insert(kavaBarPhotos)
-        .values({
-          barId,
-          url: `/uploads/${filename}`,
-          uploadedById: req.user.id,
-          caption: req.body.caption || null,
-        })
-        .returning();
-
-      console.log("Saved photo to database:", photo);
-      res.status(201).json(photo);
-    } catch (error: any) {
-      console.error("Photo upload error:", error);
-      res.status(500).json({ error: error.message });
-    }
-  });
-
-  app.get("/api/bars/:id/photos", async (req, res) => {
-    try {
-      const barId = Number(req.params.id);
-      console.log("Fetching photos for bar:", barId);
-
-      const photos = await db.query.kavaBarPhotos.findMany({
-        where: eq(kavaBarPhotos.barId, barId),
-        orderBy: desc(kavaBarPhotos.createdAt),
-      });
-
-      console.log("Found photos:", photos);
-      res.json(photos);
-    } catch (error: any) {
-      console.error("Error fetching photos:", error);
-      res.status(500).json({ error: error.message });
     }
   });
 

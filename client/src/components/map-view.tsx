@@ -1,21 +1,24 @@
-import { useState, useEffect, useRef } from 'react';
-import { MapContainer, TileLayer, Marker, Popup, useMap } from 'react-leaflet';
-import type { KavaBar } from '@/hooks/use-kava-bars';
-import { Loader2 } from 'lucide-react';
-import 'leaflet/dist/leaflet.css';
-import './map-styles.css';
-import L from 'leaflet';
+import { useState, useEffect, useRef } from "react";
+import { MapContainer, TileLayer, Marker, Popup, useMap } from "react-leaflet";
+import type { KavaBar } from "@/hooks/use-kava-bars";
+import { Loader2 } from "lucide-react";
+import "leaflet/dist/leaflet.css";
+import "./map-styles.css";
+import L from "leaflet";
 
 // Fix for Leaflet default icon paths by using static URLs
 // This ensures the images are available regardless of build configuration
 let DefaultIcon = L.icon({
-  iconUrl: 'https://cdn.jsdelivr.net/npm/leaflet@1.7.1/dist/images/marker-icon.png',
-  iconRetinaUrl: 'https://cdn.jsdelivr.net/npm/leaflet@1.7.1/dist/images/marker-icon-2x.png',
-  shadowUrl: 'https://cdn.jsdelivr.net/npm/leaflet@1.7.1/dist/images/marker-shadow.png',
+  iconUrl:
+    "https://cdn.jsdelivr.net/npm/leaflet@1.7.1/dist/images/marker-icon.png",
+  iconRetinaUrl:
+    "https://cdn.jsdelivr.net/npm/leaflet@1.7.1/dist/images/marker-icon-2x.png",
+  shadowUrl:
+    "https://cdn.jsdelivr.net/npm/leaflet@1.7.1/dist/images/marker-shadow.png",
   iconSize: [25, 41],
   iconAnchor: [12, 41],
   popupAnchor: [1, -34],
-  shadowSize: [41, 41]
+  shadowSize: [41, 41],
 });
 
 // Set the default icon for all markers
@@ -23,19 +26,19 @@ L.Marker.prototype.options.icon = DefaultIcon;
 
 // Create simple dot icons instead of SVG for better browser compatibility
 const userIcon = L.divIcon({
-  className: 'user-location-marker',
+  className: "user-location-marker",
   html: '<div style="background-color:#0066FF; width:14px; height:14px; border-radius:50%; border:2px solid white;"></div>',
   iconSize: [18, 18],
   iconAnchor: [9, 9],
-  popupAnchor: [0, -9]
+  popupAnchor: [0, -9],
 });
 
 const barIcon = L.divIcon({
-  className: 'kava-bar-marker',
+  className: "kava-bar-marker",
   html: '<div style="background-color:#FF0000; width:14px; height:14px; border-radius:50%; border:2px solid white;"></div>',
   iconSize: [18, 18],
   iconAnchor: [9, 9],
-  popupAnchor: [0, -9]
+  popupAnchor: [0, -9],
 });
 
 interface MapViewProps {
@@ -45,7 +48,13 @@ interface MapViewProps {
   userLocation?: { lat: number; lng: number };
 }
 
-function MapUpdater({ center, zoom }: { center?: { lat: number; lng: number }, zoom?: number }) {
+function MapUpdater({
+  center,
+  zoom,
+}: {
+  center?: { lat: number; lng: number };
+  zoom?: number;
+}) {
   const map = useMap();
   const initialSetupRef = useRef(true);
   const prevCenter = useRef(center);
@@ -56,9 +65,12 @@ function MapUpdater({ center, zoom }: { center?: { lat: number; lng: number }, z
       map.setView([center.lat, center.lng], zoom || map.getZoom());
       initialSetupRef.current = false;
       prevCenter.current = center;
-    } else if (center && (!prevCenter.current || 
-      center.lat !== prevCenter.current.lat || 
-      center.lng !== prevCenter.current.lng)) {
+    } else if (
+      center &&
+      (!prevCenter.current ||
+        center.lat !== prevCenter.current.lat ||
+        center.lng !== prevCenter.current.lng)
+    ) {
       map.setView([center.lat, center.lng], map.getZoom());
       prevCenter.current = center;
     }
@@ -67,11 +79,11 @@ function MapUpdater({ center, zoom }: { center?: { lat: number; lng: number }, z
   return null;
 }
 
-function parseLocation(location: any): { lat: number, lng: number } | null {
+function parseLocation(location: any): { lat: number; lng: number } | null {
   if (!location) return null;
 
   try {
-    if (typeof location === 'string') {
+    if (typeof location === "string") {
       location = JSON.parse(location);
     }
 
@@ -84,47 +96,52 @@ function parseLocation(location: any): { lat: number, lng: number } | null {
 
     return { lat, lng };
   } catch (e) {
-    console.error('Failed to parse location:', e);
+    console.error("Failed to parse location:", e);
     return null;
   }
 }
 
-export default function MapView({ bars, center, zoom = 4, userLocation }: MapViewProps) {
+export default function MapView({
+  bars,
+  center,
+  zoom = 4,
+  userLocation,
+}: MapViewProps) {
   const [isLoading, setIsLoading] = useState(true);
   const [mapError, setMapError] = useState<string | null>(null);
   const [isLeafletLoaded, setIsLeafletLoaded] = useState<boolean>(true); // Assume Leaflet is loaded
   const defaultCenter = center || { lat: 39.8283, lng: -98.5795 }; // Default to center of US
-  
+
   // Force reload the map tiles to ensure proper rendering
   useEffect(() => {
     // Set up a resize event listener to fix map rendering issues
     const handleResize = () => {
-      console.log('Window resize detected, refreshing map');
+      console.log("Window resize detected, refreshing map");
     };
-    
-    window.addEventListener('resize', handleResize);
-    
+
+    window.addEventListener("resize", handleResize);
+
     // Force reload the map tiles after a short delay
     const reloadTimer = setTimeout(() => {
-      if (document.querySelector('.leaflet-container')) {
-        console.log('Map container found, forcing tile reload');
-        window.dispatchEvent(new Event('resize'));
+      if (document.querySelector(".leaflet-container")) {
+        console.log("Map container found, forcing tile reload");
+        window.dispatchEvent(new Event("resize"));
       }
     }, 1000);
-    
+
     return () => {
-      window.removeEventListener('resize', handleResize);
+      window.removeEventListener("resize", handleResize);
       clearTimeout(reloadTimer);
     };
   }, []);
-  
+
   // Debugging information
   useEffect(() => {
-    console.log('Map component rendering with:', {
+    console.log("Map component rendering with:", {
       barsCount: bars.length,
       center: defaultCenter,
       userLocation,
-      leafletLoaded: isLeafletLoaded
+      leafletLoaded: isLeafletLoaded,
     });
   }, [bars, defaultCenter, userLocation, isLeafletLoaded]);
 
@@ -132,11 +149,11 @@ export default function MapView({ bars, center, zoom = 4, userLocation }: MapVie
     // Set a timeout to ensure loading screen doesn't stay indefinitely
     const timeout = setTimeout(() => {
       if (isLoading) {
-        console.log('Map still loading after timeout, forcing ready state');
+        console.log("Map still loading after timeout, forcing ready state");
         setIsLoading(false);
       }
-    }, 5000); // 5 second timeout
-    
+    }, 10000); // 5 second timeout
+
     return () => clearTimeout(timeout);
   }, [isLoading]);
 
@@ -162,7 +179,7 @@ export default function MapView({ bars, center, zoom = 4, userLocation }: MapVie
         doubleClickZoom={true}
         dragging={true}
         whenReady={() => {
-          console.log('Map is ready');
+          console.log("Map is ready");
           setIsLoading(false);
         }}
         className="h-full w-full"
@@ -173,46 +190,52 @@ export default function MapView({ bars, center, zoom = 4, userLocation }: MapVie
           url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
           attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
           maxZoom={19}
-          subdomains={['a', 'b', 'c']}
+          subdomains={["a", "b", "c"]}
           eventHandlers={{
             loading: () => {
-              console.log('Tiles loading...');
+              console.log("Tiles loading...");
               setIsLoading(true);
             },
             load: () => {
-              console.log('Tiles loaded successfully');
+              console.log("Tiles loaded successfully");
               setIsLoading(false);
               setMapError(null);
-              
+
               // Double-check that the map rendered properly
               setTimeout(() => {
-                const mapContainer = document.querySelector('.leaflet-container');
+                const mapContainer =
+                  document.querySelector(".leaflet-container");
                 if (mapContainer) {
-                  const tilesLoaded = document.querySelectorAll('.leaflet-tile').length > 0;
+                  const tilesLoaded =
+                    document.querySelectorAll(".leaflet-tile").length > 0;
                   if (!tilesLoaded) {
-                    console.log('Tiles not visible, triggering resize');
-                    window.dispatchEvent(new Event('resize'));
+                    console.log("Tiles not visible, triggering resize");
+                    window.dispatchEvent(new Event("resize"));
                   }
                 }
               }, 500);
             },
             error: (e) => {
-              console.error('Error loading tiles:', e);
-              
+              console.error("Error loading tiles:", e);
+
               // Try alternative tile source
-              console.log('Attempting to use fallback tile source');
+              console.log("Attempting to use fallback tile source");
               try {
                 const tileLayer = e.target;
                 // Use fallback tile source
-                if (tileLayer && typeof tileLayer.setUrl === 'function') {
-                  tileLayer.setUrl("https://tile.openstreetmap.de/{z}/{x}/{y}.png");
-                  console.log('Switched to fallback tile source');
+                if (tileLayer && typeof tileLayer.setUrl === "function") {
+                  tileLayer.setUrl(
+                    "https://tile.openstreetmap.de/{z}/{x}/{y}.png",
+                  );
+                  console.log("Switched to fallback tile source");
                 } else {
-                  throw new Error('Cannot switch tile source');
+                  throw new Error("Cannot switch tile source");
                 }
               } catch (err) {
-                console.error('Failed to use fallback source:', err);
-                setMapError('Failed to load map tiles. Please try again later.');
+                console.error("Failed to use fallback source:", err);
+                setMapError(
+                  "Failed to load map tiles. Please try again later.",
+                );
                 setIsLoading(false);
               }
             },
@@ -248,17 +271,16 @@ export default function MapView({ bars, center, zoom = 4, userLocation }: MapVie
                 <div className="p-2">
                   <h3 className="font-medium">{bar.name}</h3>
                   <p className="text-sm mt-1">{bar.address}</p>
-                  {bar.phone && (
-                    <p className="text-sm mt-1">{bar.phone}</p>
-                  )}
+                  {bar.phone && <p className="text-sm mt-1">{bar.phone}</p>}
                   {userLocation && (
                     <p className="text-sm mt-1 text-muted-foreground">
                       {calculateDistance(
                         userLocation.lat,
                         userLocation.lng,
                         location.lat,
-                        location.lng
-                      ).toFixed(1)} miles away
+                        location.lng,
+                      ).toFixed(1)}{" "}
+                      miles away
                     </p>
                   )}
                 </div>
@@ -271,14 +293,21 @@ export default function MapView({ bars, center, zoom = 4, userLocation }: MapVie
   );
 }
 
-function calculateDistance(lat1: number, lon1: number, lat2: number, lon2: number): number {
+function calculateDistance(
+  lat1: number,
+  lon1: number,
+  lat2: number,
+  lon2: number,
+): number {
   const R = 3958.8; // Radius of the Earth in miles
   const dLat = deg2rad(lat2 - lat1);
   const dLon = deg2rad(lon2 - lon1);
   const a =
     Math.sin(dLat / 2) * Math.sin(dLat / 2) +
-    Math.cos(deg2rad(lat1)) * Math.cos(deg2rad(lat2)) *
-    Math.sin(dLon / 2) * Math.sin(dLon / 2);
+    Math.cos(deg2rad(lat1)) *
+      Math.cos(deg2rad(lat2)) *
+      Math.sin(dLon / 2) *
+      Math.sin(dLon / 2);
   const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
   return R * c;
 }

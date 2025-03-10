@@ -2,7 +2,7 @@ import { useState, useEffect } from "react";
 import { useKavaBars } from "@/hooks/use-kava-bars";
 import { useLocation, calculateDistance } from "@/hooks/use-location";
 import KavaBarCard from "@/components/kava-bar-card";
-import MapView from "@/components/map-view";
+import MapProvider from "@/components/map-provider";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
@@ -249,21 +249,10 @@ export default function Home() {
           </div>
         ) : (
           <div className="h-[600px] rounded-lg overflow-hidden">
-            <MapView
-              bars={sortedBars || []}
-              userLocation={coordinates ? {
-                lat: coordinates.latitude,
-                lng: coordinates.longitude
-              } : undefined}
-              center={coordinates ? {
-                lat: coordinates.latitude,
-                lng: coordinates.longitude
-              } : {
-                // Default center to Melbourne, FL
-                lat: 28.0836,
-                lng: -80.6081
-              }}
+            <MapProvider
+              showAllBars={true}
               zoom={coordinates ? 11 : 10}
+              height="600px"
             />
           </div>
         )}
