@@ -262,9 +262,9 @@
 
 /* Map container styling */
 .leaflet-container {
-  width: 100%;
   height: 100%;
-  z-index: 10;
+  width: 100%;
+  z-index: 0;
 }
 
 /* Custom marker styles */
@@ -288,4 +288,54 @@
   border: 2px solid rgba(74, 158, 92, 0.8);
   color: white;
   font-weight: bold;
+}
+
+/* Ensure the map container has proper dimensions */
+.map-container {
+  height: 500px;
+  width: 100%;
+  border-radius: 0.5rem;
+  overflow: hidden;
+  position: relative;
+  z-index: 0;
+}
+
+
+/* Improve popup styling */
+.leaflet-popup-content-wrapper {
+  border-radius: 0.5rem;
+  padding: 0.25rem;
+}
+
+.popup-content {
+  padding: 0.5rem;
+}
+
+/* Make the controls more visible */
+.leaflet-control-zoom {
+  box-shadow: 0 1px 5px rgba(0, 0, 0, 0.2);
+  border-radius: 0.25rem;
+}
+
+/* Fix for map attribution */
+.leaflet-control-attribution {
+  font-size: 10px;
+}
+
+/* Fix for marker popups */
+.leaflet-popup-content {
+  margin: 0.5rem;
+  min-width: 200px;
+}
+
+/* Fix for tile loading */
+.leaflet-tile {
+  visibility: inherit !important;
+}
+
+/* Mobile adjustments */
+@media (max-width: 768px) {
+  .map-container {
+    height: 350px;
+  }
 }
