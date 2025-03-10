@@ -22,17 +22,27 @@ export default function Home() {
   const { coordinates, isLoading: isLoadingLocation, requestLocation, locationError } = useLocation();
   const { toast } = useToast();
 
-  // Auto-request location when component mounts
+  // Auto-request location when component mounts (single time only)
   useEffect(() => {
+    const hasRequestedLocation = sessionStorage.getItem('hasRequestedLocation');
+    
     const handleLocationRequest = async () => {
       try {
+        if (hasRequestedLocation) {
+          console.log("Location already requested in this session - skipping");
+          return;
+        }
+        
         console.log("Home page: Auto-requesting location on page load");
+        sessionStorage.setItem('hasRequestedLocation', 'true');
+        
         // Use a small delay to ensure UI is ready
         setTimeout(() => {
           navigator.geolocation.getCurrentPosition(
             (position) => {
               console.log("Location request succeeded");
-              requestLocation(); // Use our hook's implementation after success
+              // Only call requestLocation once after we have permission
+              requestLocation();
             },
             (error) => {
               console.log("Location request error:", error.code);
@@ -58,7 +68,12 @@ export default function Home() {
     };
 
     handleLocationRequest();
-  }, [requestLocation, toast]);
+    
+    // Cleanup function
+    return () => {
+      console.log("Cleaning up location request effect");
+    };
+  }, []); // Remove dependencies to ensure it only runs once
 
   // Log total number of bars received
   console.log('Total kava bars received:', kavaBars?.length);
