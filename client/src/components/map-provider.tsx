@@ -35,19 +35,49 @@ export default function MapProvider({
     try {
       let locationObj = location;
       if (typeof location === 'string') {
-        locationObj = JSON.parse(location);
+        try {
+          locationObj = JSON.parse(location);
+        } catch (parseError) {
+          console.error("Failed to parse location string:", parseError);
+          return null;
+        }
       }
       
-      const lat = Number(locationObj.lat);
-      const lng = Number(locationObj.lng);
+      // Handle various location formats
+      let lat: number, lng: number;
       
-      if (isNaN(lat) || isNaN(lng)) return null;
-      if (lat < -90 || lat > 90) return null;
-      if (lng < -180 || lng > 180) return null;
+      if (typeof locationObj === 'object') {
+        if ('lat' in locationObj && 'lng' in locationObj) {
+          lat = Number(locationObj.lat);
+          lng = Number(locationObj.lng);
+        } else if ('latitude' in locationObj && 'longitude' in locationObj) {
+          lat = Number(locationObj.latitude);
+          lng = Number(locationObj.longitude);
+        } else {
+          console.error("Unknown location object format:", locationObj);
+          return null;
+        }
+      } else {
+        console.error("Location is not an object:", locationObj);
+        return null;
+      }
+      
+      if (isNaN(lat) || isNaN(lng)) {
+        console.error("Invalid coordinates (NaN):", { lat, lng });
+        return null;
+      }
+      if (lat < -90 || lat > 90) {
+        console.error("Invalid latitude (out of range):", lat);
+        return null;
+      }
+      if (lng < -180 || lng > 180) {
+        console.error("Invalid longitude (out of range):", lng);
+        return null;
+      }
       
       return { lat, lng };
     } catch (e) {
-      console.error("Failed to parse location:", e);
+      console.error("Failed to parse location:", e, "Original location:", location);
       return null;
     }
   };

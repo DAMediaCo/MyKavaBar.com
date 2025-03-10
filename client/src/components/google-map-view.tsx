@@ -21,20 +21,51 @@ function parseLocation(location: any): { lat: number; lng: number } | null {
   if (!location) return null;
 
   try {
+    let locationObj = location;
     if (typeof location === "string") {
-      location = JSON.parse(location);
+      try {
+        locationObj = JSON.parse(location);
+      } catch (parseError) {
+        console.error("Failed to parse location string:", parseError);
+        return null;
+      }
     }
 
-    const lat = Number(location.lat);
-    const lng = Number(location.lng);
+    // Handle various location formats
+    let lat: number, lng: number;
 
-    if (isNaN(lat) || isNaN(lng)) return null;
-    if (lat < -90 || lat > 90) return null;
-    if (lng < -180 || lng > 180) return null;
+    if (typeof locationObj === 'object') {
+      if ('lat' in locationObj && 'lng' in locationObj) {
+        lat = Number(locationObj.lat);
+        lng = Number(locationObj.lng);
+      } else if ('latitude' in locationObj && 'longitude' in locationObj) {
+        lat = Number(locationObj.latitude);
+        lng = Number(locationObj.longitude);
+      } else {
+        console.error("Unknown location object format:", locationObj);
+        return null;
+      }
+    } else {
+      console.error("Location is not an object:", locationObj);
+      return null;
+    }
+
+    if (isNaN(lat) || isNaN(lng)) {
+      console.error("Invalid coordinates (NaN):", { lat, lng });
+      return null;
+    }
+    if (lat < -90 || lat > 90) {
+      console.error("Invalid latitude (out of range):", lat);
+      return null;
+    }
+    if (lng < -180 || lng > 180) {
+      console.error("Invalid longitude (out of range):", lng);
+      return null;
+    }
 
     return { lat, lng };
   } catch (e) {
-    console.error("Failed to parse location:", e);
+    console.error("Failed to parse location:", e, "Original location:", location);
     return null;
   }
 }
@@ -55,10 +86,13 @@ export default function GoogleMapView({
   // Load the Google Maps JS API with error handling for API key
   const apiKey = import.meta.env.VITE_GOOGLE_MAPS_API_KEY;
   console.log('Google Maps API key available:', !!apiKey);
+  console.log('API Key length:', apiKey ? apiKey.length : 0);
   
+  // Add more detailed debugging for Google Maps loading
   const { isLoaded, loadError } = useJsApiLoader({
     id: 'google-map-script',
     googleMapsApiKey: apiKey || '',
+    version: 'weekly',
   });
 
   // Handle map load
@@ -177,19 +211,19 @@ export default function GoogleMapView({
         {/* Kava bar markers */}
         {bars.map((bar) => {
           const location = parseLocation(bar.location);
-          if (!location) return null;
-
+          if (!location) {
+            console.warn(`Invalid location for bar: ${bar.name}`, bar.location);
+            return null;
+          }
+          
+          console.log(`Adding marker for ${bar.name} at:`, location);
+          
           return (
             <Marker
               key={bar.id}
               position={location}
               icon={{
-                path: 0, // Circle
-                fillColor: '#FF0000',
-                fillOpacity: 1,
-                strokeColor: '#FFFFFF',
-                strokeWeight: 2,
-                scale: 7,
+                url: "https://maps.google.com/mapfiles/ms/icons/red-dot.png"
               }}
               title={bar.name}
               onClick={() => setSelectedBar(bar)}

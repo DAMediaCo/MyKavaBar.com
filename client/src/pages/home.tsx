@@ -110,8 +110,9 @@ export default function Home() {
         const distB = b.distance ?? Infinity;
         return distA - distB;
       case "rating":
-        const ratingA = a.rating ? parseFloat(a.rating) : 0;
-        const ratingB = b.rating ? parseFloat(b.rating) : 0;
+        // Handle rating which could be a string or number
+        const ratingA = a.rating ? (typeof a.rating === 'string' ? parseFloat(a.rating) : a.rating) : 0;
+        const ratingB = b.rating ? (typeof b.rating === 'string' ? parseFloat(b.rating) : b.rating) : 0;
         return ratingB - ratingA;
       case "name":
         return a.name.localeCompare(b.name);
@@ -254,6 +255,12 @@ export default function Home() {
               zoom={coordinates ? 11 : 10}
               height="600px"
             />
+            <div className="absolute bottom-4 right-4 bg-white p-2 rounded-md shadow-md z-10 text-xs">
+              <p className="font-semibold">Showing {kavaBars?.length || 0} kava bars</p>
+              {coordinates && (
+                <p className="text-muted-foreground">Your location is being used</p>
+              )}
+            </div>
           </div>
         )}
       </div>

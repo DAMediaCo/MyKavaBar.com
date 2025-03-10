@@ -35,6 +35,7 @@ import Damiana from "@/pages/learn/damiana";
 import ManageBar from "./pages/manage-bar";
 import TermsOfService from "./pages/terms-of-service";
 import CookiePolicy from "./pages/cookie-policy";
+import MapTestPage from "./pages/map-test";
 
 interface ProtectedRouteProps {
   children: React.ReactNode;
@@ -90,6 +91,9 @@ function Router() {
           <Route path="/learn/blue-lotus" component={BlueLotus} />
           <Route path="/learn/kanna" component={Kanna} />
           <Route path="/learn/damiana" component={Damiana} />
+          
+          {/* Test routes */}
+          <Route path="/map-test" component={MapTestPage} />
 
           {/* Protected routes */}
           <Route path="/profile">
