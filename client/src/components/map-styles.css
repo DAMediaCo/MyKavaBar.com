@@ -3,8 +3,6 @@
   width: 100%;
   height: 100%;
   background: #ffffff;
-  min-height: 300px;
-  z-index: 10;
 }
 
 /* Map loading state */
@@ -76,7 +74,6 @@
 .leaflet-control {
   clear: both;
   pointer-events: auto;
-  z-index: 1000 !important;
 }
 
 /* Popup styling */
@@ -99,27 +96,3 @@
 .leaflet-marker-pane { z-index: 60; }
 .leaflet-tooltip-pane { z-index: 65; }
 .leaflet-popup-pane { z-index: 70; }
-
-/* Fix for iOS safari 100vh issue */
-@supports (-webkit-touch-callout: none) {
-  .map-container {
-    height: -webkit-fill-available;
-  }
-}
-
-/* Error tile styling */
-.leaflet-tile-error {
-  background-color: rgba(255, 235, 235, 0.5);
-  border: 1px dashed #ffb6b6;
-}
-
-/* Provider indicator */
-.map-provider-indicator {
-  font-size: 10px;
-  z-index: 1000;
-}
-
-/* Fix icon issues */
-.leaflet-marker-icon {
-  background-color: transparent !important;
-}

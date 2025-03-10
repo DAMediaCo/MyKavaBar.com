@@ -19,32 +19,6 @@ L.Icon.Default.mergeOptions({
 // Multiple tile layers for fallback in case one provider is down
 const tileLayers = [
   {
-    name: 'OpenStreetMap',
-    url: 'https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png',
-    attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors',
-    maxZoom: 19
-  },
-  {
-    name: 'Stadia Maps',
-    url: 'https://tiles.stadiamaps.com/tiles/alidade_smooth/{z}/{x}/{y}{r}.png',
-    attribution: '&copy; <a href="https://stadiamaps.com/">Stadia Maps</a>, &copy; <a href="https://openmaptiles.org/">OpenMapTiles</a>',
-    maxZoom: 20
-  },
-  {
-    name: 'Esri WorldStreetMap',
-    url: 'https://server.arcgisonline.com/ArcGIS/rest/services/World_Street_Map/MapServer/tile/{z}/{y}/{x}',
-    attribution: 'Tiles &copy; Esri',
-    maxZoom: 18
-  },
-  {
-    name: 'CartoDB Voyager',
-    url: 'https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png',
-    attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>, &copy; <a href="https://carto.com/attributions">CARTO</a>',
-    maxZoom: 19
-  }
-];
-const tileLayers = [
-  {
     url: "https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}.png",
     attribution: '&copy; <a href="https://carto.com/">CARTO</a> contributors',
     name: "CARTO"
