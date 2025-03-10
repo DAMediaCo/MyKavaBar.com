@@ -1,10 +1,11 @@
+
 import React, { useState, useEffect, useRef } from 'react';
 import { MapContainer, TileLayer, Marker, Popup, useMap } from 'react-leaflet';
 import 'leaflet/dist/leaflet.css';
 import L from 'leaflet';
 
 // Fix Leaflet icon issues with embedded marker icons to avoid external dependencies
-const iconUrl = 'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAABkAAAApCAYAAADAk4LOAAAFgUlEQVR4Aa1XA5BjWRTN2oW17d3YaZtr2962HUzbDNpjszW24mRt28p47v7zq/bXZtrp/lWnXr337j3nPCe85NcypgSFdugCpW5YoDAMRaIMqRi6aKq5E3YqDQO3qAwjVWrD8Ncq/RBpykd8oZUb/kaJutow8r1aP9II0WmLKLIsJyv1w/kqw9Ch2MYdB++12Onxee/QMwvf4/Dk/Lfp/i4nxTXtOoQ4pW5Aj7wpici1A9erdAN2OH64x8OSP9j3Ft3b7aWkTg/Fm91siTra0f9on5sQr9INejH6CUUUpavjFNq1B+Oadhxmnfa8RfEmN8VNAsQhPqF55xHkMzz3jSmChWU6f7/XZKNH+9+hBLOHYozuKQPxyMPUKkrX/K0uWnfFaJGS1QPRtZsOPtr3NsW0uyh6NNCOkU3Yz+bXbT3I8G3xE5EXLXtCXbbqwCO9zPQYPRTZ5vIDXD7U+w7rFDEoUUf7ibHIR4y6bLVPXrz8JVZEql13trxwue/uDivd3fkWRbS6/IA2bID4uk0UpF1N8qLlbBlXs4Ee7HLTfV1j54APvODnSfOWBqtKVvjgLKzF5YdEk5ewRkGlK0i33Eofffc7HT56jD7/6U+qH3Cx7SBLNntH5YIPvODnyfIXZYRVDPqgHtLs5ABHD3YzLuespb7t79FY34DjMwrVrcTuwlT55YMPvOBnRrJ4VXTdNnYug5ucHLBjEpt30701A3Ts+HEa73u6dT3FNWwflY86eMHPk+Yu+i6pzUpRrW7SNDg5JHR4KapmM5Wv2E8Tfcb1HoqqHMHU+uWDD7zg54mz5/2BSnizi9T1Dg4QQXLToGNCkb6tb1NU+QAlGr1++eADrzhn/u8Q2YZhQVlZ5+CAOtqfbhmaUCS1ezNFVm2imDbPmPng5wmz+gwh+oHDce0eUtQ6OGDIyR0uUhUsoO3vfDmmgOezH0mZN59x7MBi++WDL1g/eEiU3avlidO671bkLfwbw5XV2P8Pzo0ydy4t2/0eu33xYSOMOD8hTf4CrBtGMSoXfPLchX+J0ruSePw3LZeK0juPJbYzrhkH0io7B3k164hiGvawhOKMLkrQLyVpZg8rHFW7E2uHOL888IBPlNZ1FPzstSJM694fWr6RwpvcJK60+0HCILTBzZLFNdtAzJaohze60T8qBzyh5ZuOg5e7uwQppofEmf2++DYvmySqGBuKaicF1blQjhuHdvCIMvp8whTTfZzI7RldpwtSzL+F1+wkdZ2TBOW2gIF88PBTzD/gpeREAMEbxnJcaJHNHrpzji0gQCS6hdkEeYt9DF/2qPcEC8RM28Hwmr3sdNyht00byAut2k3gufWNtgtOEOFGUwcXWNDbdNbpgBGxEvKkOQsxivJx33iow0Vw5S6SVTrpVq11ysA2Rp7gTfPfktc6zhtXBBC+adRLshf6sG2RfHPZ5EAc4sVZ83yCN00Fk/4kggu40ZTvIEm5g24qtU4KjBrx/BTTH8ifVASAG7gKrnWxJDcU7x8X6Ecczhm3o6YicvsLXWfh3Ch1W0k8x0nXF+0fFxgt4phz8QvypiwCCFKMqXCnqXExjq10beH+UUA7+nG6mdG/Pu0f3LgFcGrl2s0kNNjpmoJ9o4B29CMO8dMT4Q5ox8uitF6fqsrJOr8qnwNbRzv6hSnG5wP+64C7h9lp30hKNtKdWjtdkbuPA19nJ7Tz3zR/ibgARbhb4AlhavcBebmTHcFl2fvYEnW0ox9xMxKBS8btJ+KiEbq9zA4RthQXDhPa0T9TEe69gWupwc6uBUphquXgf+/FrIjweHQS4/pduMe5ERUMHUd9xv8ZR98CxkS4F2n3EUrUZ10EYNw7BWm9x1GiPssi3GgiGRDKWRYZfXlON+dfNbM+GgIwYdwAAAAASUVORK5CYII=';
+const iconUrl = 'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAABkAAAApCAYAAADAk4LOAAAFgUlEQVR4Aa1XA5BjWRTN2oW17d3YaZtr2962HUzbDNpjszW24mRt28p47v7zq/bXZtrp/lWnXr337j3nPCe/meEEhMkNybdLO6MfF9cLBeaSJ1oHJDunCerCm/B0+zA9gQEEiNZJdBgBGA8MhGZuwvCjQUw487tgFQyjv8SYw8CAVS1Q9WedKBjljJSYAbOGUtgL7bcXn2MR5GlQ5JoM8k/KfvSgW+ZA7n1/O5vR0/pnPxMjVLGcmUDm8z//J0E3ulEaoQQSxSOqR+aWJtXWdlVSJzeZEjUcWaUSiY5i6HmtjXYqXDbkjErGX8PptCIzFMB3jeEqMRbL6JoyYP4mZSd67BcDlGTc9xJhMQB5U14SYCzKWtvHovTtFrwK7YdIHNoIQlJG2UBCPYynMRbLK9FYp2xxMUXQ0dQ9YJe05X/lKCFuA8EwVX8XvgWCuXCsAzwJTRJIceKFk++R65aMBHO5+cJwblyvYhnJoJyHCgOYNmLjPhWXiAkqhJJ/mc0Z5sHpzU9s1QAmNXQKPAYvJYyD8YJO4Na0Eub0iEyQI1OchW50TIrYl4eGcK5+NSxXpY/r8W3KbEGib4j/JkCQcU9OjIIPWttk9BjXfu0mPEFu dDf3/d9JRBaNdnBkugOtVNwvNYJ/BrLpXK2fQteL7P9/VBHpYEFyvNM0dMYfuLz62db28XKeAlnJS1qytLAsBVQmvu7PCcoGCE7rwUffFmfXswjqWCxQFtZLKbZZYLB4KwxQCz8dXw9fDN+MOmOoRRqE0tKhX4iNuwLLL2RRSmKY/vXYw3cWKwG4vjgxHQeA7z7P8zQq6Z+P8/gECgUHw/LhOogx0lZjDxwdDDfEWeZbnPzjOHDvcNXb+LwCGTvVgKcl3s+LS8np51k1/15KLz9kUP3mzo69u3r3STmv7Pj6+WpOy7aTZtm9rP3WUjSklJvHeOIvpB3/vXPlDtjqifugz7X9P7P5G1yn6S71cKVKmbvP2gaBgaGTayKUFwi6Fatlxz6+5aHjbvKjX5JaNXWK0vNlunpl+l4N7Z2ei9gP1S3+qcUGIi2+ZwSTzpvP9KhFRvw32bsb2ZfJkFC5QKBeFEgGYPnNB64deffcwTziT3rXotlbr9ebzaFjPQ08R/m563KAZzY3L4ENbQcKuB9J32HGbxLYrPO/5c/qQXv5Z3ZnGBcnPBkhhSdb/xLycIlviJee86CMjE4ZpZlYcQ== ';
 const shadowUrl = 'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAACkAAAApCAQAAAACach9AAACMUlEQVR4Ae3ShY7jQBAE0Aoz/f9/HTMzhg1zrdKUrJbdx+Kd2nD8VNudfsL/Th///dyQN2TH6f3y/BGpC379rV+S+qqetBOxImNQXL8JCAr2V4iMQXHGNJxeCfZXhSRBcQMfvkOWUdtfzlLgAENmZDcmo2TVmt8OSM2eXxBp3DjHSMFutqS7SbmemzBiR+xpKCNUIRkdkkYxhAkyGoBvyQFEJEefwSmmvBfJuJ6aKqKWnAkvGZOaZXTUgFqYULWNSHUckZuR1HIIimUExutRxwzOLROIG4vKmCKQt364mIlhSyzAf1m9lHZHJZrlAOMMztRRiKimp/rpdJDc9Awry5xTZCte7FHtuS8wJgeYGrex28xNTd086Dik7vUMscQOa8y4DoGtCCSkAKlNwpgNtphjrC6MIHUkR6YWxxs6Sc5xqn222mmCRFzIt8lEdKx+ikCtg91qS2WpwVfBelJCiQJwvzixfI9cxZQWgiSJelKnwBElKYtDOb2MFbhmUigbReQBV0Cg1Sg8w4SUyYWspo9fF+Lu0J5qkYdMgUctIGPMXgAlyHTRBs4sVn7Bnsc473AqkDZkMgpZNAR5MQszDpqQrZVSg6KRHRtGjrUKGWFpAH4mRLbrZA0LmrindwvLyu+0Hy7Ptn2fTNFu1Kdo1X7Ysx9w/A/SAXhH6QssIAAAAASUVORK5CYII=';
 
 // Fix Leaflet icon issues - this is critical to ensure icons display correctly
@@ -119,18 +120,20 @@ function TileLayerFallback() {
   );
 }
 
-// Force a refresh of the map
-function MapRefresher({ interval = 5000 }) {
+// Force refreshing component for map
+function MapRefresher() {
   const map = useMap();
   
   useEffect(() => {
-    const refreshTimer = setInterval(() => {
-      console.log("Map refresh triggered");
-      map.invalidateSize();
-    }, interval);
+    const timer = setInterval(() => {
+      if (map) {
+        map.invalidateSize();
+        console.log("Periodic map refresh");
+      }
+    }, 3000);
     
-    return () => clearInterval(refreshTimer);
-  }, [map, interval]);
+    return () => clearInterval(timer);
+  }, [map]);
   
   return null;
 }
@@ -184,65 +187,53 @@ function MapTest() {
     return () => clearTimeout(timeoutId);
   }, [mapLoaded]);
 
-  if (mapError) {
-    return (
-      <div className="p-4 border border-red-500 bg-red-100 rounded">
-        <h3 className="text-red-700 font-bold">Error Loading Map</h3>
-        <p>{mapError}</p>
-        <button 
-          className="mt-2 px-3 py-1 bg-blue-500 text-white rounded hover:bg-blue-600"
-          onClick={() => window.location.reload()}
-        >
-          Reload Page
-        </button>
-      </div>
-    );
-  }
+  // Handle successful map reference acquisition
+  const handleMapCreated = (map: L.Map) => {
+    console.log("Map reference obtained");
+    mapRef.current = map;
+    setMapLoaded(true);
+    
+    // Add initial invalidation to handle mobile issues
+    setTimeout(() => {
+      map.invalidateSize();
+      console.log("Initial map size refresh");
+    }, 100);
+  };
 
   return (
-    <div className="p-4 border rounded">
-      <h2 className="text-xl font-bold mb-2">React Leaflet Map Test</h2>
-      <div className="mb-2">
-        {mapLoaded ? (
-          <span className="px-2 py-1 bg-green-100 text-green-800 rounded text-sm">
-            Map loaded successfully
-          </span>
-        ) : (
-          <span className="px-2 py-1 bg-yellow-100 text-yellow-800 rounded text-sm">
-            Loading map...
-          </span>
+    <div className="flex flex-col">
+      <div className="h-[400px] w-full border rounded overflow-hidden relative">
+        {mapError && (
+          <div className="absolute inset-0 flex items-center justify-center bg-red-50 z-10">
+            <div className="text-red-500">
+              <p>{mapError}</p>
+              <button 
+                className="mt-2 px-4 py-2 bg-red-100 rounded" 
+                onClick={() => window.location.reload()}
+              >
+                Reload Page
+              </button>
+            </div>
+          </div>
         )}
-      </div>
-      
-      {/* Explicit height and width are critical for map rendering */}
-      <div style={{ height: '500px', width: '100%', border: '1px solid #ccc', position: 'relative' }}>
+        
         <MapContainer 
           center={[center.lat, center.lng]} 
           zoom={4} 
-          style={{ height: '100%', width: '100%' }}
-          whenReady={() => {
-            console.log("Map ready");
-            if (mapRef.current) {
-              console.log("Map reference already exists");
-            }
-            setMapLoaded(true);
-          }}
-          ref={mapRef}
-          attributionControl={false}
-          zoomControl={true}
+          className="h-full w-full"
+          whenCreated={handleMapCreated}
         >
           <TileLayerFallback />
-          <MapRefresher interval={10000} />
+          <MapRefresher />
           
-          {/* Markers for test locations */}
-          {testPoints.map((point, index) => (
+          {testPoints.map((point, idx) => (
             <Marker 
-              key={index} 
+              key={idx} 
               position={[point.lat, point.lng]}
             >
               <Popup>
-                <div>{point.name}</div>
-                <div className="text-xs text-gray-500">
+                <div>
+                  <strong>{point.name}</strong><br/>
                   {point.lat.toFixed(4)}, {point.lng.toFixed(4)}
                 </div>
               </Popup>
@@ -263,4 +254,4 @@ function MapTest() {
   );
 }
 
-export default React.memo(MapTest);
+export default MapTest;

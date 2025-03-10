@@ -3,6 +3,7 @@
   width: 100%;
   height: 100%;
   background: #ffffff;
+  z-index: 0;
 }
 
 /* Map loading state */
@@ -67,25 +68,33 @@
 .leaflet-top,
 .leaflet-bottom {
   position: absolute;
-  z-index: 1000;
+  z-index: 1; /* Overridden by edited styles */
   pointer-events: none;
 }
 
 .leaflet-control {
   clear: both;
   pointer-events: auto;
+  z-index: 1 !important; /* Added from edited styles */
 }
 
 /* Popup styling */
 .leaflet-popup-content-wrapper {
   background: #ffffff;
   color: #333333;
-  border-radius: 4px;
-  padding: 1rem;
+  border-radius: 0.5rem;
+  padding: 0.25rem;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.15);
+}
+
+.leaflet-popup-content {
+  margin: 0.5rem 0.75rem;
+  line-height: 1.4;
 }
 
 .leaflet-popup-tip {
   background: #ffffff;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.15);
 }
 
 /* Essential panes */
@@ -96,3 +105,30 @@
 .leaflet-marker-pane { z-index: 60; }
 .leaflet-tooltip-pane { z-index: 65; }
 .leaflet-popup-pane { z-index: 70; }
+
+/* Better control styling */
+.leaflet-control-zoom {
+  border: none !important;
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.1) !important;
+}
+
+.leaflet-control-zoom a {
+  border-radius: 0.25rem !important;
+  width: 30px !important;
+  height: 30px !important;
+  line-height: 30px !important;
+}
+
+/* Marker and shadow fixes for mobile */
+.leaflet-marker-icon,
+.leaflet-marker-shadow {
+  will-change: transform;
+}
+
+
+/* Make controls more touch-friendly */
+.leaflet-touch .leaflet-control-zoom a {
+  width: 34px !important;
+  height: 34px !important;
+  line-height: 34px !important;
+}
