@@ -24,15 +24,23 @@ const MapTest: React.FC = () => {
       // Initialize map
       const map = L.map(mapContainerRef.current).setView([28.538336, -81.379234], 8);
 
-      // Add OSM tile layer
-      L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
-        attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
+      // Add a more robust tile layer -  handling potential errors
+      const tileLayer = L.tileLayer('https://tile.openstreetmap.org/{z}/{x}/{y}.png', {
+        attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors',
+        errorTileUrl: 'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNk+M9QHwADwQYE/g8BDwAAAAASUVORK5CYII=' // Default error tile
       }).addTo(map);
+
+      tileLayer.on('tileerror', (error) => {
+        console.error('Tile layer error:', error);
+        setStatus('error');
+        setErrorMessage("Failed to load map tiles. Check your internet connection.");
+      });
 
       // Add a marker
       L.marker([28.538336, -81.379234]).addTo(map)
         .bindPopup('Test Marker')
         .openPopup();
+
 
       // Save map reference
       mapRef.current = map;
@@ -78,9 +86,9 @@ const MapTest: React.FC = () => {
           <div className="mt-2 text-sm">
             <p>Troubleshooting tips:</p>
             <ul className="list-disc list-inside">
-              <li>Check if Leaflet library is loaded properly</li>
-              <li>Verify network access to tile server</li>
-              <li>Check console for detailed error messages</li>
+              <li>Check your internet connection</li>
+              <li>Verify that the OpenStreetMap tile server is accessible.</li>
+              <li>Check the browser's console for detailed error messages.</li>
             </ul>
           </div>
         </div>

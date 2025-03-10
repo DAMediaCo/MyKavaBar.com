@@ -18,14 +18,13 @@
   position: absolute;
   top: 0;
   left: 0;
-  width: 100%;
-  height: 100%;
+  right: 0;
+  bottom: 0;
   display: flex;
-  flex-direction: column;
-  justify-content: center;
   align-items: center;
-  background: rgba(255, 255, 255, 0.8);
-  z-index: 1000;
+  justify-content: center;
+  background-color: rgba(255, 255, 255, 0.7);
+  z-index: 1000; /* From changes, higher z-index for better visibility */
 }
 
 .map-error {
@@ -196,6 +195,8 @@
   width: 100%;
   height: 400px;
   overflow: hidden;
+  min-height: 200px; /* From changes */
+  background-color: #e0e0e0; /* From changes */
 }
 
 .map-popup h3 {
@@ -249,18 +250,6 @@
   z-index: 1;
 }
 
-.map-loading {
-  position: absolute;
-  top: 0;
-  left: 0;
-  right: 0;
-  bottom: 0;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  background-color: rgba(255, 255, 255, 0.7);
-  z-index: 2;
-}
 
 .map-loading-indicator {
   background-color: white;
@@ -387,4 +376,27 @@
 /* Fix for popup z-index issues */
 .leaflet-popup {
   z-index: 1001 !important;
+}
+
+/* From changes - attempting to address z-index issues */
+.leaflet-pane,
+.leaflet-control,
+.leaflet-top,
+.leaflet-bottom {
+  z-index: 10 !important;
+}
+
+.leaflet-marker-icon {
+  filter: drop-shadow(0 1px 2px rgba(0, 0, 0, 0.3));
+}
+
+/* Style popup from changes */
+.leaflet-popup-content-wrapper {
+  border-radius: 4px;
+  padding: 2px;
+}
+
+.popup-content {
+  padding: 0.25rem;
+  min-width: 150px;
 }

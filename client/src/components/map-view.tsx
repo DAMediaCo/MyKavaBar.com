@@ -38,6 +38,8 @@ const MapView: React.FC<MapViewProps> = ({ bars, center, zoom, userLocation }) =
   const mapRef = useRef<HTMLDivElement>(null);
   const leafletMapRef = useRef<L.Map | null>(null);
   const markersRef = useRef<L.Marker[]>([]);
+  const [mapError, setMapError] = React.useState(false);
+
 
   // Initialize map
   useEffect(() => {
@@ -51,10 +53,14 @@ const MapView: React.FC<MapViewProps> = ({ bars, center, zoom, userLocation }) =
     // Create new map
     const map = L.map(mapRef.current).setView([center.lat, center.lng], zoom);
 
-    // Add tile layer
-    L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+    // Add tile layer with error handling
+    const tileLayer = L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
       attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
     }).addTo(map);
+
+    tileLayer.on('error', () => {
+        setMapError(true);
+    });
 
     // Add user location marker if available
     if (userLocation) {
@@ -107,6 +113,10 @@ const MapView: React.FC<MapViewProps> = ({ bars, center, zoom, userLocation }) =
       }
     });
   }, [bars]); // Update markers when bars change
+
+  if (mapError) {
+    return <div>Error loading map</div>;
+  }
 
   return <div ref={mapRef} className="leaflet-container" />;
 };
