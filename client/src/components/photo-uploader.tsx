@@ -2,7 +2,6 @@ import { useState } from "react";
 import { Button } from "@/components/ui/button";
 import { useToast } from "@/hooks/use-toast";
 import { Loader2, Upload } from "lucide-react";
-import { useQueryClient } from "@tanstack/react-query";
 
 interface Props {
   barId: number;
@@ -17,11 +16,8 @@ export function PhotoUploader({ barId, onSuccess }: Props) {
     event: React.ChangeEvent<HTMLInputElement>,
   ) => {
     const file = event.target.files?.[0];
-    if (!file) {
-      console.log("No file selected");
-      return;
-    }
-
+    if (!file) return;
+    console.log("File", file);
     // Check file type
     if (!file.type.startsWith("image/")) {
       toast({
@@ -52,34 +48,35 @@ export function PhotoUploader({ barId, onSuccess }: Props) {
         body: formData,
         credentials: "include",
       });
+      console.log("Sending response to the api");
       if (!response.ok) {
         console.log("Response doesn't seems to be okay");
         throw new Error(await response.text());
       }
 
+      console.log("Reponse was seems to be okay");
+
       // Notify the bar owner about the new photo
 
-      // const notifyResponse = await fetch(`/api/bars/${barId}/notify`, {
-      //   method: "POST",
-      //   headers: {
-      //     "Content-Type": "application/json",
-      //   },
-      //   body: JSON.stringify({
-      //     type: "photo_upload",
-      //     message: "A new photo has been uploaded to your bar",
-      //   }),
-      //   credentials: "include",
-      // });
+      const notifyResponse = await fetch(`/api/bars/${barId}/notify`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          type: "photo_upload",
+          message: "A new photo has been uploaded to your bar",
+        }),
+        credentials: "include",
+      });
 
-      // if (!notifyResponse.ok) {
-      //   console.error(
-      //     "Failed to send notification:",
-      //     await notifyResponse.text(),
-      //   );
-      // }
-      if (onSuccess) {
-        onSuccess();
+      if (!notifyResponse.ok) {
+        console.error(
+          "Failed to send notification:",
+          await notifyResponse.text(),
+        );
       }
+
       toast({
         title: "Success",
         description: "Photo uploaded successfully",
@@ -89,9 +86,9 @@ export function PhotoUploader({ barId, onSuccess }: Props) {
       event.target.value = "";
 
       // Call the success callback
-      // if (onSuccess) {
-      //   await onSuccess();
-      // }
+      if (onSuccess) {
+        await onSuccess();
+      }
     } catch (error: any) {
       toast({
         title: "Upload failed",
@@ -99,7 +96,6 @@ export function PhotoUploader({ barId, onSuccess }: Props) {
         variant: "destructive",
       });
     } finally {
-      console.log("Image upload done");
       setIsUploading(false);
     }
   };

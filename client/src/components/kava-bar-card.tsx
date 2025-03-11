@@ -2,7 +2,7 @@ import { Link } from "wouter";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Star, MapPin } from "lucide-react";
-import type { KavaBar } from "@/hooks/use-kava-bars";
+import type { KavaBar } from "@db/schema";
 import ShareBar from "./share-bar";
 
 interface KavaBarCardProps {

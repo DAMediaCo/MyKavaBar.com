@@ -18,7 +18,7 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 
-const ImageWithFallback = ({
+export const ImageWithFallback = ({
   src,
   alt,
   className,
@@ -31,10 +31,7 @@ const ImageWithFallback = ({
 
   useEffect(() => {
     const img = imgRef.current;
-    console.log("image ", img);
     if (img) {
-      console.log("Yes image exists", img);
-
       // Check if src was moved to data-src
       const dataSrc = img.getAttribute("data-src");
       if (dataSrc && !img.src) {

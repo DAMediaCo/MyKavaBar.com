@@ -1,8 +1,11 @@
+/* Import Leaflet CSS first */
+@import 'leaflet/dist/leaflet.css';
+
 /* Basic map container */
 .leaflet-container {
   width: 100%;
   height: 100%;
-  z-index: 1;
+  background: #ffffff;
 }
 
 /* Map loading state */
@@ -13,50 +16,30 @@
 }
 
 .map-loading {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  justify-content: center;
   position: absolute;
+  top: 0;
+  left: 0;
   width: 100%;
   height: 100%;
-  background-color: rgba(255, 255, 255, 0.8);
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  align-items: center;
+  background: rgba(255, 255, 255, 0.8);
   z-index: 1000;
 }
 
 .map-error {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  background: white;
   padding: 1rem;
-  background-color: #fef2f2;
-  color: #991b1b;
-  border-radius: 0.25rem;
-  margin-bottom: 1rem;
-}
-
-/* User location marker pulse effect */
-.user-location-marker {
-  position: relative;
-}
-
-.pulse {
-  width: 20px;
-  height: 20px;
-  border-radius: 50%;
-  background: rgba(38, 126, 222, 0.7);
-  border: 2px solid #ffffff;
-  box-shadow: 0 0 0 rgba(38, 126, 222, 0.4);
-  animation: pulse 2s infinite;
-}
-
-@keyframes pulse {
-  0% {
-    box-shadow: 0 0 0 0 rgba(38, 126, 222, 0.4);
-  }
-  70% {
-    box-shadow: 0 0 0 10px rgba(38, 126, 222, 0);
-  }
-  100% {
-    box-shadow: 0 0 0 0 rgba(38, 126, 222, 0);
-  }
+  border-radius: 0.5rem;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+  z-index: 1000;
+  max-width: 80%;
 }
 
 /* Custom marker styling */
@@ -78,17 +61,6 @@
   transform: scale(1.2);
 }
 
-/* Custom marker styling */
-.custom-marker-icon {
-  background-color: #ff6b6b;
-  border-radius: 50%;
-  border: 2px solid white;
-  width: 14px !important;
-  height: 14px !important;
-  margin-left: -7px !important;
-  margin-top: -7px !important;
-}
-
 /* Controls */
 .leaflet-control-container {
   position: absolute;
@@ -98,360 +70,32 @@
 .leaflet-top,
 .leaflet-bottom {
   position: absolute;
-  z-index: 400 !important; /* Updated z-index */
+  z-index: 1000;
   pointer-events: none;
 }
 
 .leaflet-control {
   clear: both;
   pointer-events: auto;
-  z-index: 1000 !important; /* Updated z-index */
-  position: relative;
-  z-index: 800;
 }
 
 /* Popup styling */
 .leaflet-popup-content-wrapper {
   background: #ffffff;
   color: #333333;
-  border-radius: 0.5rem;
-  padding: 0.25rem;
-  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.15);
-}
-
-.leaflet-popup-content {
-  margin: 0.5rem 0.75rem;
-  line-height: 1.4;
+  border-radius: 4px;
+  padding: 1rem;
 }
 
 .leaflet-popup-tip {
   background: #ffffff;
-  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.15);
 }
 
 /* Essential panes */
-.leaflet-map-pane {
-  z-index: 2;
-}
-.leaflet-tile-pane {
-  z-index: 2;
-}
-.leaflet-overlay-pane {
-  z-index: 40;
-}
-.leaflet-shadow-pane {
-  z-index: 50;
-}
-.leaflet-marker-pane {
-  z-index: 3;
-}
-.leaflet-tooltip-pane {
-  z-index: 65;
-}
-.leaflet-popup-pane {
-  z-index: 4;
-}
-
-/* Better control styling */
-.leaflet-control-zoom {
-  border: none !important;
-  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.1) !important;
-}
-
-.leaflet-control-zoom a {
-  border-radius: 0.25rem !important;
-  width: 30px !important;
-  height: 30px !important;
-  line-height: 30px !important;
-}
-
-/* Marker and shadow fixes for mobile */
-.leaflet-marker-icon,
-.leaflet-marker-shadow {
-  will-change: transform;
-}
-
-/* Make controls more touch-friendly */
-.leaflet-touch .leaflet-control-zoom a {
-  width: 34px !important;
-  height: 34px !important;
-  line-height: 34px !important;
-}
-
-/* Edited styles for map popups */
-/* Import Leaflet CSS */
-@import 'leaflet/dist/leaflet.css';
-
-.map-container {
-  width: 100%;
-  height: 100%;
-  z-index: 0;
-  position: relative;
-  width: 100%;
-  height: 400px;
-  overflow: hidden;
-  min-height: 200px;
-  background-color: #e0e0e0;
-}
-
-.map-popup h3 {
-  font-weight: bold;
-  margin-bottom: 4px;
-  font-size: 16px;
-}
-
-.map-popup p {
-  margin: 4px 0;
-  font-size: 14px;
-}
-
-.popup-link {
-  display: flex;
-  align-items: center;
-  margin-top: 8px;
-  color: #4B0082;
-  text-decoration: none;
-  font-weight: bold;
-}
-
-.popup-view {
-  margin-right: 4px;
-}
-
-.popup-icon {
-  display: inline-flex;
-  align-items: center;
-}
-
-/* Override Leaflet popup styles */
-.leaflet-popup-content-wrapper {
-  padding: 0;
-  border-radius: 6px;
-  box-shadow: 0 3px 14px rgba(0, 0, 0, 0.2);
-}
-
-.leaflet-popup-content {
-  margin: 12px;
-  line-height: 1.4;
-}
-
-.leaflet-container a {
-  color: #4B0082;
-}
-
-.map-view {
-  width: 100%;
-  height: 100%;
-  z-index: 1;
-}
-
-.map-loading-indicator {
-  background-color: white;
-  padding: 10px 15px;
-  border-radius: 4px;
-  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
-}
-
-.map-popup {
-  padding: 5px;
-}
-
-.map-popup h3 {
-  margin: 0 0 8px 0;
-  font-size: 16px;
-  font-weight: bold;
-}
-
-.map-popup p {
-  margin: 4px 0;
-  font-size: 14px;
-}
-
-.map-popup a {
-  color: #0366d6;
-  text-decoration: none;
-}
-
-.map-popup a:hover {
-  text-decoration: underline;
-}
-
-/* Custom marker styles */
-.marker-icon {
-  width: 25px;
-  height: 25px;
-  background-color: #3388ff;
-  border-radius: 50%;
-  border: 2px solid white;
-  box-shadow: 0 0 4px rgba(0, 0, 0, 0.3);
-}
-
-.marker-icon.selected {
-  background-color: #ff3333;
-  width: 30px;
-  height: 30px;
-  border: 3px solid white;
-  box-shadow: 0 0 8px rgba(0, 0, 0, 0.5);
-}
-
-/* Custom marker styles */
-.custom-marker {
-  display: flex;
-  justify-content: center;
-  align-items: center;
-  width: 30px;
-  height: 30px;
-  background-color: #4a9e5c;
-  color: white;
-  border-radius: 50%;
-  border: 2px solid white;
-  box-shadow: 0 2px 5px rgba(0, 0, 0, 0.3);
-  font-weight: bold;
-  font-size: 12px;
-}
-
-.marker-cluster {
-  background-color: rgba(74, 158, 92, 0.6);
-  border: 2px solid rgba(74, 158, 92, 0.8);
-  color: white;
-  font-weight: bold;
-}
-
-/* Fix for map attribution */
-.leaflet-control-attribution {
-  font-size: 10px;
-}
-
-/* Make sure all Leaflet elements are visible */
-.leaflet-pane,
-.leaflet-tile,
-.leaflet-marker-icon,
-.leaflet-marker-shadow,
-.leaflet-tile-container,
-.leaflet-pane > svg,
-.leaflet-pane > canvas,
-.leaflet-zoom-box,
-.leaflet-image-layer,
-.leaflet-layer {
-  position: absolute;
-  left: 0;
-  top: 0;
-}
-
-/* Markers */
-.marker-pin {
-  z-index: 1000;
-}
-
-/* Fix for tile loading */
-.leaflet-tile {
-  visibility: hidden;
-}
-.leaflet-tile-loaded {
-  visibility: visible;
-}
-
-/* Mobile adjustments */
-@media (max-width: 768px) {
-  .map-container {
-    height: 350px;
-  }
-}
-
-/* Don't let tooltips overflow their containers */
-.leaflet-tooltip {
-  white-space: normal !important;
-  max-width: 200px;
-}
-
-/* Fix for popup z-index issues */
-.leaflet-popup {
-  z-index: 1001 !important;
-}
-
-/* From changes - attempting to address z-index issues */
-.leaflet-pane,
-.leaflet-control,
-.leaflet-top,
-.leaflet-bottom {
-  z-index: 10 !important;
-}
-
-.leaflet-marker-icon {
-  filter: drop-shadow(0 1px 2px rgba(0, 0, 0, 0.3));
-}
-
-/* Style popup from changes */
-.leaflet-popup-content-wrapper {
-  border-radius: 4px;
-  padding: 2px;
-}
-
-.popup-content {
-  padding: 0.25rem;
-  min-width: 150px;
-}
-
-/* Import Leaflet CSS */
-@import 'leaflet/dist/leaflet.css';
-
-/* Map container */
-.map-container {
-  width: 100%;
-  height: 100%;
-  border-radius: 0.5rem;
-  z-index: 1;
-}
-
-/* Make sure popup images don't overflow */
-.leaflet-popup-content img {
-  max-width: 100%;
-  height: auto;
-}
-
-/* User location marker styles */
-.user-location-marker {
-  position: relative;
-}
-
-.user-location-dot {
-  width: 16px;
-  height: 16px;
-  border-radius: 50%;
-  background-color: #4a89f3;
-  border: 2px solid white;
-  box-shadow: 0 0 3px rgba(0, 0, 0, 0.4);
-}
-
-.user-location-pulse {
-  position: absolute;
-  top: -12px;
-  left: -12px;
-  width: 40px;
-  height: 40px;
-  border-radius: 50%;
-  background-color: rgba(74, 137, 243, 0.3);
-  border: 2px solid rgba(74, 137, 243, 0.5);
-  animation: pulse 2s infinite;
-  z-index: -1;
-}
-
-@keyframes pulse {
-  0% {
-    transform: scale(0.5);
-    opacity: 1;
-  }
-  100% {
-    transform: scale(1.5);
-    opacity: 0;
-  }
-}
-
-/* Marker customization */
-.leaflet-marker-icon {
-  transition: transform 0.2s;
-}
-
-.leaflet-marker-icon:hover {
-  transform: scale(1.2);
-}
+.leaflet-map-pane { z-index: 2; }
+.leaflet-tile-pane { z-index: 20; }
+.leaflet-overlay-pane { z-index: 40; }
+.leaflet-shadow-pane { z-index: 50; }
+.leaflet-marker-pane { z-index: 60; }
+.leaflet-tooltip-pane { z-index: 65; }
+.leaflet-popup-pane { z-index: 70; }

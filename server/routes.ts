@@ -1153,27 +1153,27 @@ export function registerRoutes(app: Express, server: Server): void {
     }
   });
 
-  // Photo endpoints with debug logging
-  app.get("/api/bars/:id/photos", async (req, res) => {
-    try {
-      const barId = Number(req.params.id);
-      console.log(`Fetching photos for bar ${barId}`, {
-        authenticated: req.isAuthenticated(),
-        user: req.user ? { id: req.user.id, role: req.user.role } : null,
-      });
+  // // Photo endpoints with debug logging
+  // app.get("/api/bars/:id/photos", async (req, res) => {
+  //   try {
+  //     const barId = Number(req.params.id);
+  //     console.log(`Fetching photos for bar ${barId}`, {
+  //       authenticated: req.isAuthenticated(),
+  //       user: req.user ? { id: req.user.id, role: req.user.role } : null,
+  //     });
 
-      const photos = await db.query.kavaBarPhotos.findMany({
-        where: eq(kavaBarPhotos.barId, barId),
-        orderBy: [desc(kavaBarPhotos.createdAt)],
-      });
+  //     const photos = await db.query.kavaBarPhotos.findMany({
+  //       where: eq(kavaBarPhotos.barId, barId),
+  //       orderBy: [desc(kavaBarPhotos.createdAt)],
+  //     });
 
-      console.log(`Found ${photos.length} photos for bar ${barId}`);
-      res.json(photos);
-    } catch (error: any) {
-      console.error("Error fetching photos:", error);
-      res.status(500).json({ error: "Failed to fetch photos" });
-    }
-  });
+  //     console.log(`Found ${photos.length} photos for bar ${barId}`);
+  //     res.json(photos);
+  //   } catch (error: any) {
+  //     console.error("Error fetching photos:", error);
+  //     res.status(500).json({ error: "Failed to fetch photos" });
+  //   }
+  // });
 
   // Photo deletion endpoint - requires authentication
   app.delete(
@@ -2130,6 +2130,24 @@ export function registerRoutes(app: Express, server: Server): void {
       res.status(201).json(photo);
     } catch (error: any) {
       console.error("Photo upload error:", error);
+      res.status(500).json({ error: error.message });
+    }
+  });
+
+  app.get("/api/bars/:id/photos", async (req, res) => {
+    try {
+      const barId = Number(req.params.id);
+      console.log("Fetching photos for bar:", barId);
+
+      const photos = await db.query.kavaBarPhotos.findMany({
+        where: eq(kavaBarPhotos.barId, barId),
+        orderBy: desc(kavaBarPhotos.createdAt),
+      });
+
+      console.log("Found photos:", photos);
+      res.json(photos);
+    } catch (error: any) {
+      console.error("Error fetching photos:", error);
       res.status(500).json({ error: error.message });
     }
   });
@@ -3388,24 +3406,6 @@ export function registerRoutes(app: Express, server: Server): void {
       });
     }
   });
-
-  // app.get("/api/bars/:id/photos", async (req, res) => {
-  //   try {
-  //     const barId = Number(req.params.id);
-  //     console.log("Fetching photos for bar:", barId);
-
-  //     const photos = await db.query.kavaBarPhotos.findMany({
-  //       where: eq(kavaBarPhotos.barId, barId),
-  //       orderBy: desc(kavaBarPhotos.createdAt),
-  //     });
-
-  //     console.log("Found photos:", photos);
-  //     res.json(photos);
-  //   } catch (error: any) {
-  //     console.error("Error fetching photos:", error);
-  //     res.status(500).json({ error: error.message });
-  //   }
-  // });
 
   app.delete("/api/bars/:barId/photos/:photoId", async (req, res) => {
     try {

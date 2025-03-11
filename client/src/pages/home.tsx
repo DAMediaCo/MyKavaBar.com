@@ -2,7 +2,7 @@ import { useState, useEffect } from "react";
 import { useKavaBars } from "@/hooks/use-kava-bars";
 import { useLocation, calculateDistance } from "@/hooks/use-location";
 import KavaBarCard from "@/components/kava-bar-card";
-import MapProvider from "@/components/map-provider";
+import MapView from "@/components/map-view";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
@@ -19,46 +19,14 @@ export default function Home() {
   const [view, setView] = useState<"list" | "map">("list");
   const [sortBy, setSortBy] = useState<SortOption>("distance");
   const [radius, setRadius] = useState<number>(500);
-  const { coordinates, isLoading: isLoadingLocation, requestLocation, locationError } = useLocation();
+  const { coordinates, isLoading: isLoadingLocation, requestLocation } = useLocation();
   const { toast } = useToast();
 
-  // Auto-request location when component mounts (single time only)
   useEffect(() => {
-    const hasRequestedLocation = sessionStorage.getItem('hasRequestedLocation');
-    
     const handleLocationRequest = async () => {
       try {
-        if (hasRequestedLocation) {
-          console.log("Location already requested in this session - skipping");
-          return;
-        }
-        
-        console.log("Home page: Auto-requesting location on page load");
-        sessionStorage.setItem('hasRequestedLocation', 'true');
-        
-        // Use a small delay to ensure UI is ready
-        setTimeout(() => {
-          navigator.geolocation.getCurrentPosition(
-            (position) => {
-              console.log("Location request succeeded");
-              // Only call requestLocation once after we have permission
-              requestLocation();
-            },
-            (error) => {
-              console.log("Location request error:", error.code);
-              if (error.code === 1) {
-                toast({
-                  title: "Location Access Denied",
-                  description: "Enable location in your browser settings to see nearby kava bars.",
-                  variant: "destructive",
-                });
-              }
-            },
-            { timeout: 10000 }
-          );
-        }, 1000);
+        await requestLocation();
       } catch (error: any) {
-        console.error("Error requesting location:", error);
         toast({
           title: "Location Error",
           description: "Unable to get your location. Some features may be limited.",
@@ -68,18 +36,13 @@ export default function Home() {
     };
 
     handleLocationRequest();
-    
-    // Cleanup function
-    return () => {
-      console.log("Cleaning up location request effect");
-    };
-  }, []); // Remove dependencies to ensure it only runs once
+  }, [requestLocation, toast]);
 
   // Log total number of bars received
   console.log('Total kava bars received:', kavaBars?.length);
 
   // Log Melbourne area bars for debugging
-  const melbourneBars = kavaBars?.filter(bar =>
+  const melbourneBars = kavaBars?.filter(bar => 
     bar.address.toLowerCase().includes('melbourne') ||
     bar.address.toLowerCase().includes('palm bay') ||
     bar.address.toLowerCase().includes('satellite beach') ||
@@ -147,9 +110,8 @@ export default function Home() {
         const distB = b.distance ?? Infinity;
         return distA - distB;
       case "rating":
-        // Handle rating which could be a string or number
-        const ratingA = a.rating ? (typeof a.rating === 'string' ? parseFloat(a.rating) : a.rating) : 0;
-        const ratingB = b.rating ? (typeof b.rating === 'string' ? parseFloat(b.rating) : b.rating) : 0;
+        const ratingA = a.rating ? parseFloat(a.rating) : 0;
+        const ratingB = b.rating ? parseFloat(b.rating) : 0;
         return ratingB - ratingA;
       case "name":
         return a.name.localeCompare(b.name);
@@ -271,11 +233,6 @@ export default function Home() {
               </div>
             )}
           </div>
-          {locationError && (
-            <div className="bg-yellow-50 text-yellow-800 p-2 rounded-md text-sm mb-4">
-              Location error: {locationError}. <Button variant="link" onClick={requestLocation} className="p-0 h-auto">Try again</Button>
-            </div>
-          )}
         </div>
 
         {view === "list" ? (
@@ -292,17 +249,22 @@ export default function Home() {
           </div>
         ) : (
           <div className="h-[600px] rounded-lg overflow-hidden">
-            <MapProvider
-              showAllBars={true}
+            <MapView
+              bars={sortedBars || []}
+              userLocation={coordinates ? {
+                lat: coordinates.latitude,
+                lng: coordinates.longitude
+              } : undefined}
+              center={coordinates ? {
+                lat: coordinates.latitude,
+                lng: coordinates.longitude
+              } : {
+                // Default center to Melbourne, FL
+                lat: 28.0836,
+                lng: -80.6081
+              }}
               zoom={coordinates ? 11 : 10}
-              height="600px"
             />
-            <div className="absolute bottom-4 right-4 bg-white p-2 rounded-md shadow-md z-10 text-xs">
-              <p className="font-semibold">Showing {kavaBars?.length || 0} kava bars</p>
-              {coordinates && (
-                <p className="text-muted-foreground">Your location is being used</p>
-              )}
-            </div>
           </div>
         )}
       </div>

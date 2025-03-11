@@ -7,8 +7,7 @@ import type { KavaBar } from "@db/schema";
 import { PhotoUploader } from "./photo-uploader";
 import { useUser } from "@/hooks/use-user";
 import { useToast } from "@/hooks/use-toast";
-
-import { ImageWithFallBack } from "@/components/ImageWithFallBack";
+import { ImageWithFallback } from "@/pages/profile";
 
 interface Props {
   bar: KavaBar;
@@ -44,7 +43,6 @@ export default function BarPhotoGallery({ bar }: Props) {
         throw new Error("Failed to fetch photos");
       }
       const photos = await response.json();
-
       const processedPhotos = photos.map((photo: Photo) => ({
         ...photo,
         url: photo.url.startsWith("http")
@@ -56,7 +54,7 @@ export default function BarPhotoGallery({ bar }: Props) {
         count: processedPhotos.length,
         isAuthenticated: !!user,
       });
-      console.log("Proccessed photos ", processedPhotos);
+
       return processedPhotos;
     },
   });
@@ -137,10 +135,10 @@ export default function BarPhotoGallery({ bar }: Props) {
           <Card className="relative overflow-hidden">
             <CardContent className="p-0">
               <div className="relative aspect-video">
-                <ImageWithFallBack
+                <ImageWithFallback
                   src={allPhotos[currentPhotoIndex].url}
                   alt={`Photo ${currentPhotoIndex + 1}`}
-                  className="w-full h-full object-cover rotate-90"
+                  className="w-full h-full object-cover"
                 />
                 {allPhotos.length > 1 && (
                   <div className="absolute inset-0 flex items-center justify-between p-4">
@@ -187,10 +185,10 @@ export default function BarPhotoGallery({ bar }: Props) {
                       index === currentPhotoIndex ? "ring-2 ring-primary" : ""
                     }`}
                   >
-                    <ImageWithFallBack
+                    <ImageWithFallback
                       src={photo.url}
                       alt={`Photo ${index + 1}`}
-                      className="w-full h-full rotate-90 object-cover"
+                      className="w-full h-full object-cover"
                     />
                   </button>
                   {user?.isAdmin && photo.id > 0 && (

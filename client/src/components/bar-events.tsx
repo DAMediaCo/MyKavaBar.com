@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Calendar } from "lucide-react";
@@ -21,53 +21,28 @@ import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import * as z from "zod";
 import type { BarEvent } from "@db/schema";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Switch } from "@/components/ui/switch";
-import { Label } from "@/components/ui/label";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 
 interface BarEventsProps {
   barId: number;
   ownerId: number | null;
 }
 
-const eventSchema = z.discriminatedUnion('isRecurring', [
-  // Schema for recurring events
-  z.object({
-    title: z.string().min(1, "Title is required"),
-    description: z.string().optional(),
-    dayOfWeek: z.number().min(0).max(6),
-    startTime: z.string().regex(/^([0-1]?[0-9]|2[0-3]):[0-5][0-9]$/, "Invalid time format"),
-    endTime: z.string().regex(/^([0-1]?[0-9]|2[0-3]):[0-5][0-9]$/, "Invalid time format"),
-    isRecurring: z.literal(true),
-    startDate: z.string().optional(),
-    endDate: z.string().optional(),
-    timezone: z.string().optional(),
-  }),
-  // Schema for one-time events
-  z.object({
-    title: z.string().min(1, "Title is required"),
-    description: z.string().optional(),
-    dayOfWeek: z.number().min(0).max(6),
-    startTime: z.string().regex(/^([0-1]?[0-9]|2[0-3]):[0-5][0-9]$/, "Invalid time format"),
-    endTime: z.string().regex(/^([0-1]?[0-9]|2[0-3]):[0-5][0-9]$/, "Invalid time format"),
-    isRecurring: z.literal(false),
-    startDate: z.string().min(1, "Date is required for one-time events"),
-    endDate: z.string().optional(),
-    timezone: z.string().optional(),
-  })
-]);
+const eventSchema = z.object({
+  title: z.string().min(1, "Title is required"),
+  description: z.string().optional(),
+  dayOfWeek: z.number().min(0).max(6),
+  startTime: z.string().regex(/^([0-1]?[0-9]|2[0-3]):[0-5][0-9]$/, "Invalid time format"),
+  endTime: z.string().regex(/^([0-1]?[0-9]|2[0-3]):[0-5][0-9]$/, "Invalid time format"),
+  isRecurring: z.boolean().default(true),
+  startDate: z.string().optional(),
+  endDate: z.string().optional(),
+});
 
 type EventFormData = z.infer<typeof eventSchema>;
 
 function QuickEventForm({ barId, onSuccess }: { barId: number; onSuccess: () => void }) {
   const { toast } = useToast();
   const queryClient = useQueryClient();
-  const [eventType, setEventType] = useState<'recurring' | 'oneTime'>('recurring');
-  
-  // Display the current timezone for user awareness
-  const clientTimezone = Intl.DateTimeFormat().resolvedOptions().timeZone;
-  
   const form = useForm<EventFormData>({
     resolver: zodResolver(eventSchema),
     defaultValues: {
@@ -77,67 +52,19 @@ function QuickEventForm({ barId, onSuccess }: { barId: number; onSuccess: () => 
       startTime: "18:00",
       endTime: "22:00",
       isRecurring: true,
-      startDate: "",
-      endDate: "",
-      timezone: clientTimezone,
     },
   });
 
-  // Update form values when event type changes
-  useEffect(() => {
-    form.setValue('isRecurring', eventType === 'recurring');
-    
-    // If switching to one-time event, set today's date as default
-    if (eventType === 'oneTime') {
-      // Create a date and format it to YYYY-MM-DD with UTC to avoid timezone shifting
-      const now = new Date();
-      const year = now.getFullYear();
-      const month = String(now.getMonth() + 1).padStart(2, '0');
-      const day = String(now.getDate()).padStart(2, '0');
-      const formattedDate = `${year}-${month}-${day}`; // YYYY-MM-DD format
-      form.setValue('startDate', formattedDate);
-      
-      // Log for debugging
-      console.log('Setting default date for one-time event:', formattedDate);
-    }
-  }, [eventType, form]);
-
   const createEvent = useMutation({
     mutationFn: async (data: EventFormData) => {
-      // Always include timezone information with every event
-      // This helps with rendering and calculations on the server
-      const clientTimezone = Intl.DateTimeFormat().resolvedOptions().timeZone;
-      
-      // Create a copy of the data to avoid modifying the original
-      const submissionData = { 
-        ...data, 
-        timezone: clientTimezone,
-        // Include a human-readable client timezone name for debugging/display
-        timezoneName: clientTimezone
-      };
-      
-      // Handle date format for proper database storage (prevent timezone shifting)
-      // This is critical when storing a date that should be the same regardless of timezone
-      if (!data.isRecurring && data.startDate) {
-        // Log raw data for debugging
-        console.log('Original date before processing:', data.startDate);
-        
-        // No need to change the date format since we're already using YYYY-MM-DD
-        // which is correctly interpreted by the server
-        console.log('Date format confirmed as YYYY-MM-DD:', data.startDate);
-      }
-      
-      console.log('Submitting event data:', submissionData);
-      
       const res = await fetch(`/api/bars/${barId}/events`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(submissionData),
+        body: JSON.stringify(data),
       });
 
       if (!res.ok) {
-        const errorText = await res.text();
-        throw new Error(errorText);
+        throw new Error(await res.text());
       }
 
       return res.json();
@@ -151,7 +78,6 @@ function QuickEventForm({ barId, onSuccess }: { barId: number; onSuccess: () => 
       onSuccess();
     },
     onError: (error: Error) => {
-      console.error('Event creation error:', error);
       toast({
         variant: "destructive",
         title: "Error",
@@ -163,8 +89,6 @@ function QuickEventForm({ barId, onSuccess }: { barId: number; onSuccess: () => 
   const onSubmit = (data: EventFormData) => {
     createEvent.mutate(data);
   };
-
-  const days = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
 
   return (
     <Form {...form}>
@@ -196,60 +120,6 @@ function QuickEventForm({ barId, onSuccess }: { barId: number; onSuccess: () => 
             </FormItem>
           )}
         />
-        
-        <div className="flex items-center space-x-2 py-2">
-          <Label>Event Type:</Label>
-          <Tabs value={eventType} onValueChange={(value) => setEventType(value as 'recurring' | 'oneTime')} className="w-full">
-            <TabsList className="grid w-full grid-cols-2">
-              <TabsTrigger value="recurring">Weekly Recurring</TabsTrigger>
-              <TabsTrigger value="oneTime">One-Time Event</TabsTrigger>
-            </TabsList>
-          </Tabs>
-        </div>
-        
-        {eventType === 'recurring' ? (
-          <FormField
-            control={form.control}
-            name="dayOfWeek"
-            render={({ field }) => (
-              <FormItem>
-                <FormLabel>Day of Week</FormLabel>
-                <Select 
-                  onValueChange={(value) => field.onChange(parseInt(value))}
-                  value={String(field.value)}
-                >
-                  <FormControl>
-                    <SelectTrigger>
-                      <SelectValue placeholder="Select day" />
-                    </SelectTrigger>
-                  </FormControl>
-                  <SelectContent>
-                    {days.map((day, index) => (
-                      <SelectItem key={index} value={String(index)}>
-                        {day}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-                <FormMessage />
-              </FormItem>
-            )}
-          />
-        ) : (
-          <FormField
-            control={form.control}
-            name="startDate"
-            render={({ field }) => (
-              <FormItem>
-                <FormLabel>Event Date</FormLabel>
-                <FormControl>
-                  <Input type="date" {...field} />
-                </FormControl>
-                <FormMessage />
-              </FormItem>
-            )}
-          />
-        )}
 
         <div className="grid grid-cols-2 gap-4">
           <FormField
@@ -280,11 +150,6 @@ function QuickEventForm({ barId, onSuccess }: { barId: number; onSuccess: () => 
             )}
           />
         </div>
-        
-        {/* Show timezone information to user */}
-        <div className="text-xs text-muted-foreground bg-muted px-3 py-2 rounded">
-          All times are in your local timezone: <span className="font-medium">{clientTimezone}</span>
-        </div>
 
         <Button type="submit" className="w-full" disabled={createEvent.isPending}>
           {createEvent.isPending ? "Creating..." : "Create Event"}
@@ -313,37 +178,13 @@ export default function BarEvents({ barId, ownerId }: BarEventsProps) {
   // Function to format date strings without timezone issues
   const formatDateString = (dateStr: string) => {
     try {
-      if (!dateStr) return 'No date';
-      
       // Parse the date string parts directly to avoid timezone shifts
       const [year, month, day] = dateStr.split('-').map(num => parseInt(num));
-      
-      // Create date in UTC to avoid timezone shifts
-      // This is crucial when formatting dates stored in YYYY-MM-DD format
-      const date = new Date(Date.UTC(year, month - 1, day));
-      
-      // Format consistently with UTC date to avoid any timezone shifting
-      // Use a more human-readable format with day of week
-      return format(date, 'EEEE, MMM d, yyyy');
+      const date = new Date(year, month - 1, day);
+      return format(date, 'MMM d, yyyy');
     } catch (error) {
       console.error('Error formatting date:', error, dateStr);
       return dateStr || 'Invalid date';
-    }
-  };
-  
-  // Function to get a local time string that handles timezone correctly
-  const formatTimeString = (timeStr: string) => {
-    try {
-      if (!timeStr) return '';
-      
-      // Create a date object with a fixed date (1970-01-01) and the time from the parameter
-      const date = new Date(`1970-01-01T${timeStr}`);
-      
-      // Return a nicely formatted time in locale format
-      return format(date, 'h:mm a');
-    } catch (error) {
-      console.error('Error formatting time:', error, timeStr);
-      return timeStr || '';
     }
   };
 
@@ -415,7 +256,8 @@ export default function BarEvents({ barId, ownerId }: BarEventsProps) {
                       </Badge>
                     </div>
                     <div className="text-sm text-muted-foreground">
-                      {formatTimeString(event.startTime)} - {formatTimeString(event.endTime)}
+                      {format(new Date(`1970-01-01T${event.startTime}`), 'h:mm a')} - 
+                      {format(new Date(`1970-01-01T${event.endTime}`), 'h:mm a')}
                     </div>
                     {event.description && (
                       <p className="text-sm">{event.description}</p>
@@ -439,7 +281,8 @@ export default function BarEvents({ barId, ownerId }: BarEventsProps) {
                         </Badge>
                       </div>
                       <div className="text-sm text-muted-foreground">
-                        {formatTimeString(event.startTime)} - {formatTimeString(event.endTime)}
+                        {format(new Date(`1970-01-01T${event.startTime}`), 'h:mm a')} - 
+                        {format(new Date(`1970-01-01T${event.endTime}`), 'h:mm a')}
                       </div>
                       {event.description && (
                         <p className="text-sm">{event.description}</p>
