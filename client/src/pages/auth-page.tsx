@@ -2,8 +2,21 @@ import { useState } from "react";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { useUser } from "@/hooks/use-user";
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form";
+import {
+  Card,
+  CardContent,
+  CardDescription,
+  CardHeader,
+  CardTitle,
+} from "@/components/ui/card";
+import {
+  Form,
+  FormControl,
+  FormField,
+  FormItem,
+  FormLabel,
+  FormMessage,
+} from "@/components/ui/form";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
@@ -13,10 +26,8 @@ import { z } from "zod";
 import { useLocation, Link } from "wouter";
 
 const loginSchema = z.object({
-  username: z.string()
-    .min(3, "Username must be at least 3 characters"),
-  password: z.string()
-    .min(8, "Password must be at least 8 characters"),
+  username: z.string().min(3, "Username must be at least 3 characters"),
+  password: z.string().min(8, "Password must be at least 8 characters"),
 });
 
 type LoginFormData = z.infer<typeof loginSchema>;
@@ -78,7 +89,10 @@ export default function AuthPage() {
 
             <TabsContent value="login">
               <Form {...form}>
-                <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
+                <form
+                  onSubmit={form.handleSubmit(onSubmit)}
+                  className="space-y-4"
+                >
                   <FormField
                     control={form.control}
                     name="username"
@@ -86,9 +100,9 @@ export default function AuthPage() {
                       <FormItem>
                         <FormLabel>Username</FormLabel>
                         <FormControl>
-                          <Input 
-                            placeholder="Enter username" 
-                            {...field} 
+                          <Input
+                            placeholder="Enter username"
+                            {...field}
                             autoComplete="username"
                           />
                         </FormControl>
@@ -103,9 +117,9 @@ export default function AuthPage() {
                       <FormItem>
                         <FormLabel>Password</FormLabel>
                         <FormControl>
-                          <Input 
-                            type="password" 
-                            placeholder="Enter password" 
+                          <Input
+                            type="password"
+                            placeholder="Enter password"
                             {...field}
                             autoComplete="current-password"
                           />
@@ -115,9 +129,7 @@ export default function AuthPage() {
                     )}
                   />
                   <div className="flex justify-end">
-                    <Link href="/forgot-password">
-                      <Button variant="link" className="px-0">Forgot Password?</Button>
-                    </Link>
+                    <Link href="/forgot-password">Forgot Password?</Link>
                   </div>
                   <Button type="submit" className="w-full" disabled={isLoading}>
                     {isLoading ? "Logging in..." : "Login"}

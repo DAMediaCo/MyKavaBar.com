@@ -22,13 +22,10 @@ import {
 } from "lucide-react";
 import MapView from "@/components/map-view";
 import { useToast } from "@/hooks/use-toast";
-import BarStaff from "@/components/bar-staff";
 import KavatenderCheckin from "@/components/kavatender-checkin";
 import BarOwnershipControls from "@/components/admin/bar-ownership-controls";
 import { useQuery } from "@tanstack/react-query";
 import CheckInCarousel from "@/components/check-in-carousal";
-import { format, parseISO } from "date-fns"; // Updated import
-
 interface Hours {
   weekday_text: string[];
   open_now: boolean;
@@ -199,7 +196,7 @@ export default function BarDetails() {
                 <KavatenderCheckin barId={bar.id} />
               </div>
             )}
-
+          
           {checkIns && checkIns.length > 0 && (
             <CheckInCarousel checkIns={checkIns} />
           )}

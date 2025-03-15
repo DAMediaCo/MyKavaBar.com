@@ -6,6 +6,7 @@ import { isAuthenticated } from "./middleware/auth";
 import { Client } from "@googlemaps/google-maps-services-js";
 import { db } from "@db";
 import { executeWithRetry } from "@db/connection";
+import moment from "moment-timezone";
 import {
   kavaBars,
   verificationRequests,
@@ -142,7 +143,7 @@ const upload = multer({
     fileSize: 25 * 1024 * 1024, // 25MB limit
   },
 });
-
+let wss: any;
 export function registerRoutes(app: Express, server: Server): void {
   // Set up authentication first
   setupAuth(app);
@@ -158,7 +159,7 @@ export function registerRoutes(app: Express, server: Server): void {
 
   // Set up WebSocket server with error handling
   try {
-    const wss = setupWebSocket(app, server);
+    wss = setupWebSocket(app, server);
     console.log("WebSocket server initialized successfully");
   } catch (error) {
     console.error("Error setting up WebSocket server:", error);
@@ -1660,7 +1661,7 @@ export function registerRoutes(app: Express, server: Server): void {
         return res.status(400).json({ error: "Invalid request ID" });
       }
 
-      // First get the verification request
+      // Get the verification request
       const [request] = await db
         .select()
         .from(verificationRequests)
@@ -1673,80 +1674,74 @@ export function registerRoutes(app: Express, server: Server): void {
           .json({ error: "Verification request not found" });
       }
 
-      console.log("Found verification request:", request);
-
       if (!request.requesterId) {
         return res
           .status(400)
           .json({ error: "Request is missing requesterId" });
       }
 
-      // Start a transaction to update both tables
-      await db.transaction(async (tx) => {
-        // Update the verification request status
-        await tx
-          .update(verificationRequests)
-          .set({
-            status: "approved",
-            updatedAt: new Date(),
-          })
-          .where(eq(verificationRequests.id, requestId));
+      // Update verification request status
+      await db
+        .update(verificationRequests)
+        .set({
+          status: "approved",
+          updatedAt: new Date(),
+        })
+        .where(eq(verificationRequests.id, requestId));
 
-        console.log("Updating bar ownership:", {
+      // Update bar ownership
+      const [updatedBar] = await db
+        .update(kavaBars)
+        .set({
+          ownerId: request.requesterId,
+          verificationStatus: "verified",
+          lastVerified: new Date(),
+        })
+        .where(eq(kavaBars.id, request.barId))
+        .returning();
+
+      if (!updatedBar) {
+        throw new Error("Failed to update bar ownership");
+      }
+
+      // Update user role
+      await db
+        .update(users)
+        .set({
+          role: "bar_owner",
+          updatedAt: new Date(),
+        })
+        .where(eq(users.id, request.requesterId));
+
+      // Generate a verification code
+      const code = `VERIFY-${request.barId}-${Math.random().toString(36).substring(2, 8).toUpperCase()}`;
+      const expiresAt = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000);
+
+      // Create verification code
+      const [verificationCode] = await db
+        .insert(verificationCodes)
+        .values({
           barId: request.barId,
-          newOwnerId: request.requesterId,
-        });
+          code,
+          expiresAt,
+        })
+        .returning();
 
-        // Update the bar ownership and user role in a single transaction
-        const [updatedBar] = await tx
-          .update(kavaBars)
-          .set({
-            ownerId: request.requesterId,
-            verificationStatus: "verified",
-            lastVerified: new Date(),
-          })
-          .where(eq(kavaBars.id, request.barId))
-          .returning();
+      if (!verificationCode) {
+        throw new Error("Failed to create verification code");
+      }
 
-        // Update user role
-        await tx
-          .update(users)
-          .set({
-            role: "bar_owner",
-            updatedAt: new Date(),
-          })
-          .where(eq(users.id, request.requesterId));
-
-        console.log("Bar ownership and user role updated:", updatedBar);
-
-        // Generate a verification code
-        const code = `VERIFY-${request.barId}-${Math.random().toString(36).substring(2, 8).toUpperCase()}`;
-        const expiresAt = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000); // 7 days from now
-
-        // Create a verification code for the bar
-        const [verificationCode] = await tx
-          .insert(verificationCodes)
-          .values({
-            barId: request.barId,
-            code,
-            expiresAt,
-          })
-          .returning();
-
-        // Log the role change
-        await tx.insert(userActivityLogs).values({
-          userId: request.requesterId,
-          activityType: "role_change",
-          details: {
-            from: "regular_user",
-            to: "bar_owner",
-            reason: "Verification request approved",
-          },
-          ipAddress: req.ip,
-          userAgent: req.get("user-agent"),
-        });
-
-        console.log("Created verification code:", verificationCode);
+      // Log user activity
+      await db.insert(userActivityLogs).values({
+        userId: request.requesterId,
+        activityType: "role_change",
+        details: {
+          from: "regular_user",
+          to: "bar_owner",
+          reason: "Verification request approved",
+        },
+        ipAddress: req.ip,
+        userAgent: req.get("user-agent"),
       });
 
       res.json({
@@ -1762,7 +1757,6 @@ export function registerRoutes(app: Express, server: Server): void {
     }
   });
 
-  // Add this new endpoint after the existing bar routes
   app.post("/api/admin/bars/:id/remove-owner", async (req, res) => {
     if (!req.isAuthenticated()) {
       return res.status(401).send("Not authenticated");
@@ -1781,7 +1775,7 @@ export function registerRoutes(app: Express, server: Server): void {
         .from(kavaBars)
         .where(eq(kavaBars.id, barId))
         .limit(1);
-
+      console.log("Bar found ", bar);
       if (!bar) {
         return res.status(404).send("Bar not found");
       }
@@ -1790,48 +1784,63 @@ export function registerRoutes(app: Express, server: Server): void {
         return res.status(400).send("Bar has no owner");
       }
 
+      if (bar.ownerId == req.user.id)
+        return res.status(400).send("You cannot remove your own owner");
+
       const previousOwnerId = bar.ownerId;
 
-      // Start a transaction to update both the bar and the user
-      await db.transaction(async (tx) => {
-        // Remove bar ownership
-        await tx
-          .update(kavaBars)
-          .set({
-            ownerId: null,
-            updatedAt: new Date(),
-          })
-          .where(eq(kavaBars.id, barId));
+      // Step 1: Remove bar ownership
+      const [updatedBar] = await db
+        .update(kavaBars)
+        .set({
+          ownerId: null,
+          updatedAt: new Date(),
+        })
+        .where(eq(kavaBars.id, barId))
+        .returning();
 
-        // Update user role back to regular user
-        await tx
-          .update(users)
-          .set({
-            role: "user",
-            updatedAt: new Date(),
-          })
-          .where(eq(users.id, previousOwnerId));
+      if (!updatedBar) {
+        throw new Error("Failed to remove bar owner");
+      }
 
-        // Log the ownership removal
-        await tx.insert(userActivityLogs).values({
-          userId: previousOwnerId,
-          activityType: "role_change",
-          details: {
-            from: "bar_owner",
-            to: "user",
-            reason: "Admin removed bar ownership",
-            adminId: req.user.id,
-            barId: barId,
-          },
-          ipAddress: req.ip,
-          userAgent: req.get("user-agent"),
-        });
+      // Step 2: Update user role back to regular user
+      const [updatedUser] = await db
+        .update(users)
+        .set({
+          role: "user",
+          updatedAt: new Date(),
+        })
+        .where(eq(users.id, previousOwnerId))
+        .returning();
+
+      if (!updatedUser) {
+        throw new Error("Failed to update user role");
+      }
+
+      // Step 3: Log the ownership removal
+      await db.insert(userActivityLogs).values({
+        userId: previousOwnerId,
+        activityType: "role_change",
+        details: {
+          from: "bar_owner",
+          to: "user",
+          reason: "Admin removed bar ownership",
+          adminId: req.user.id,
+          barId: barId,
+        },
+        ipAddress: req.ip,
+        userAgent: req.get("user-agent"),
       });
 
-      res.json({ success: true });
+      res.json({
+        success: true,
+        message: "Bar ownership removed successfully",
+      });
     } catch (error: any) {
       console.error("Error removing bar owner:", error);
-      res.status(500).json({ error: error.message });
+      res
+        .status(500)
+        .json({ error: "Failed to remove bar owner", details: error.message });
     }
   });
 
@@ -2921,7 +2930,8 @@ export function registerRoutes(app: Express, server: Server): void {
     try {
       const barId = Number(req.params.id);
       const now = new Date();
-
+      console.log(`Bar Id : ${barId}`);
+      console.log(`Now time: ${now}`);
       // Step 1: Get all bar staff for the given bar with proper field selection
       const staff = await db
         .select()
@@ -2946,7 +2956,7 @@ export function registerRoutes(app: Express, server: Server): void {
             gt(checkIns.endTime, now),
           ),
         );
-
+      console.log(`activeCheckIns: `, activeCheckIns);
       if (!activeCheckIns.length) {
         return res.json([]); // No active check-ins
       }
@@ -3019,14 +3029,16 @@ export function registerRoutes(app: Express, server: Server): void {
     const { endTime } = req.body;
     try {
       // Create Date objects
-      const endTimeLocal = new Date(endTime);
       const currentTimeUTC = new Date();
 
-      const endTimeUTC = new Date(endTimeLocal.getTime() + 5 * 60 * 60 * 1000);
+      const endTimeUTC = moment
+        .tz(endTime, "YYYY-MM-DDTHH:mm", "America/New_York")
+        .utc()
+        .toDate();
 
       console.log({
         receivedEndTime: endTime,
-        endTimeLocal: endTimeLocal.toISOString(),
+        endTimeLocal: moment.tz(endTime, "America/New_York").format(),
         endTimeUTC: endTimeUTC.toISOString(),
         currentTimeUTC: currentTimeUTC.toISOString(),
       });
@@ -3048,9 +3060,12 @@ export function registerRoutes(app: Express, server: Server): void {
           .select()
           .from(kavaBars)
           .where(eq(kavaBars.ownerId, req.user.id));
+        console.log(`Bar staff user `, barStaffUser);
         if (!isBarOwner) {
+          console.log("User is not a bar owner ", req.user.id);
           return res.status(404).json({ error: "Bar staff not found" });
         }
+        console.log("Creating bar staff user ", req.user.id);
         [barStaffUser] = await db
           .insert(barStaff)
           .values({

@@ -15,13 +15,15 @@ const RETRY_DELAY = 5000; // 5 seconds
 export function useLocation() {
   const [coordinates, setCoordinates] = useState<Coordinates | null>(() => {
     // Load cached location on initialization
-    const saved = localStorage.getItem('lastKnownLocation');
+    const saved = localStorage.getItem("lastKnownLocation");
     return saved ? JSON.parse(saved) : null;
   });
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [permissionStatus, setPermissionStatus] = useState<PermissionState | null>(null);
+  const [permissionStatus, setPermissionStatus] =
+    useState<PermissionState | null>(null);
   const { toast } = useToast();
+  const hasShownErrorToast = useRef(false);
 
   // Refs to manage state
   const retryCount = useRef(0);
@@ -79,7 +81,7 @@ export function useLocation() {
         }
       }
     } catch (error) {
-      console.error('Error checking permissions:', error);
+      console.error("Error checking permissions:", error);
     }
   };
 
@@ -100,7 +102,7 @@ export function useLocation() {
             timeout: 5000,
             maximumAge: 300000, // Cache for 5 minutes
           });
-        }
+        },
       );
 
       const newCoordinates = {
@@ -110,13 +112,17 @@ export function useLocation() {
       };
 
       // Only update if coordinates have changed significantly or are not set
-      const hasSignificantChange = !coordinates || 
+      const hasSignificantChange =
+        !coordinates ||
         Math.abs(coordinates.latitude - newCoordinates.latitude) > 0.0001 ||
         Math.abs(coordinates.longitude - newCoordinates.longitude) > 0.0001;
 
       if (hasSignificantChange) {
         setCoordinates(newCoordinates);
-        localStorage.setItem('lastKnownLocation', JSON.stringify(newCoordinates));
+        localStorage.setItem(
+          "lastKnownLocation",
+          JSON.stringify(newCoordinates),
+        );
 
         // Show success toast only on first successful location fetch
         if (!hasShownInitialToast.current) {
@@ -130,7 +136,6 @@ export function useLocation() {
 
       setError(null);
       retryCount.current = 0;
-
     } catch (error) {
       handleLocationError(error);
     } finally {
@@ -139,12 +144,15 @@ export function useLocation() {
     }
   };
 
+
   const handleLocationError = (error: any) => {
     console.error("Location error:", error);
-    let message = "Unable to retrieve your location. Distance-based features will be limited.";
+    let message =
+      "Unable to retrieve your location. Distance-based features will be limited.";
 
     if (error.code === 1) {
-      message = "Location access was denied. Please enable it in your browser settings.";
+      message =
+        "Location access was denied. Please enable it in your browser settings.";
     } else if (error.code === 2) {
       message = "Location unavailable. Please try again.";
     } else if (error.code === 3) {
@@ -152,11 +160,16 @@ export function useLocation() {
     }
 
     setError(message);
-    toast({
-      variant: "destructive",
-      title: "Location Error",
-      description: message,
-    });
+
+    // Show error toast only once per session
+    if (!hasShownErrorToast.current) {
+      toast({
+        variant: "destructive",
+        title: "Location Error",
+        description: message,
+      });
+      hasShownErrorToast.current = true;
+    }
   };
 
   return { coordinates, isLoading, error, permissionStatus, requestLocation };
@@ -166,7 +179,7 @@ export function calculateDistance(
   lat1: number,
   lon1: number,
   lat2: number,
-  lon2: number
+  lon2: number,
 ): number {
   const R = 6371; // Earth's radius in kilometers
   const dLat = toRad(lat2 - lat1);
