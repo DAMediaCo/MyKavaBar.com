@@ -32,7 +32,7 @@ async function backupDatabaseFull() {
 }
 
 // Use ES modules pattern for main module check
-if (import.meta.url === url.pathToFileURL(process.argv[1])?.href) {
+if (import.meta.url === pathToFileURL(process.argv[1])?.href) {
   backupDatabaseFull()
     .then(() => process.exit(0))
     .catch(error => {
