@@ -2,9 +2,12 @@
 import { exec } from 'child_process';
 import { promisify } from 'util';
 import path from 'path';
+import { fileURLToPath } from 'url';
 import fs from 'fs/promises';
 
 const execAsync = promisify(exec);
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
 
 async function backupDatabaseFull() {
   if (!process.env.DATABASE_URL) {
@@ -28,7 +31,8 @@ async function backupDatabaseFull() {
   }
 }
 
-if (require.main === module) {
+// Use ES modules pattern for main module check
+if (import.meta.url === url.pathToFileURL(process.argv[1])?.href) {
   backupDatabaseFull()
     .then(() => process.exit(0))
     .catch(error => {
