@@ -152,4 +152,4 @@ async function fetchKavaBarsByCoordinates(lat: number, lng: number) {
     }
 }
 
-export { fetchKavaBarsByCoordinates };
+export { fetchKavaBarsByCoordinates }; };
