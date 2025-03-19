@@ -2,7 +2,7 @@ import { Client } from "@googlemaps/google-maps-services-js";
 import { db } from "@db";
 import { kavaBars } from "@db/schema";
 import { eq, inArray } from "drizzle-orm";
-import { backupDatabase } from "@utils/backup";
+import { backupDatabase } from "../utils/backup-database"; // Corrected import path
 
 const client = new Client({});
 
