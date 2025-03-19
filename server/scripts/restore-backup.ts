@@ -24,8 +24,7 @@ async function restoreBackup() {
       // Clean up the data for insertion
       const barData = {
         ...bar,
-        id: undefined, // Let the database assign new IDs
-        bar_id: bar.id,
+        id: bar.id,
         createdAt: bar.createdAt ? new Date(bar.createdAt) : new Date(),
         updatedAt: bar.updatedAt ? new Date(bar.updatedAt) : null,
         lastVerified: bar.lastVerified ? new Date(bar.lastVerified) : null,

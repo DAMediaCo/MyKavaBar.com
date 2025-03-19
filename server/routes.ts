@@ -9,6 +9,7 @@ import { executeWithRetry } from "@db/connection";
 import moment from "moment-timezone";
 import {
   kavaBars,
+  userFavorites,
   verificationRequests,
   users,
   userActivityLogs,
@@ -210,6 +211,7 @@ export function registerRoutes(app: Express, server: Server): void {
   app.get("/api/kava-bars", async (req: Request, res: Response) => {
     try {
       console.log("Fetching all kava bars with connection management...");
+      const userId = req.user?.id || null;
 
       // Define a fallback dataset in case database is unavailable
       const fallbackBars = [
@@ -439,6 +441,129 @@ export function registerRoutes(app: Express, server: Server): void {
       res.json(emergencyFallbackBars);
     }
   });
+  app.get("/api/favorite-kava-bars", async (req: Request, res: Response) => {
+    try {
+      console.log("Fetching favorite kava bars...");
+
+      // Check if user is authenticated
+      if (!req.isAuthenticated()) {
+        console.log("User not authenticated. Returning empty list.");
+        return res.json([]);
+      }
+
+      const userId = Number(req.user.id); // Assuming user object has an 'id'
+      console.log(`User id : ${userId}`);
+      const favoriteBars = await executeWithRetry(
+        async () => {
+          return await db.execute<{
+            id: number;
+            name: string;
+            address: string;
+            location: string;
+            rating: number | null;
+            verification_status: string;
+            owner_id: number | null;
+            is_sponsored: boolean;
+            hours: string | null;
+            hours_json?: string;
+            is_favourite: boolean;
+          }>(sql`
+            SELECT 
+              k.*, 
+              k.hours::text as hours_json,
+              COALESCE(k.rating, 
+                CASE 
+                  WHEN k.place_id IS NOT NULL THEN CAST(k.rating AS DECIMAL)
+                  WHEN k.verification_status = 'verified_kava_bar' THEN 4.0
+                  ELSE 3.5 
+                END
+              ) as rating,
+              TRUE AS is_favourite
+            FROM kava_bars k
+            INNER JOIN favourite_bars f ON k.id = f.bar_id
+            WHERE f.user_id = ${userId} -- Filter by authenticated user's ID
+            AND k.verification_status != 'not_kava_bar'
+            AND k.verification_status IS NOT NULL
+            ORDER BY k.is_sponsored DESC, k.rating DESC
+          `);
+        },
+        {
+          timeout: 3000,
+          maxRetries: 1,
+          priority: "high",
+        },
+      );
+
+      console.log(
+        `Found ${favoriteBars.rows.length} favorite kava bars for user ${userId}`,
+      );
+
+      const validFavoriteBars = favoriteBars.rows.map((bar) => {
+        try {
+          let parsedLocation = bar.location;
+          if (typeof bar.location === "string") {
+            parsedLocation = JSON.parse(bar.location);
+          }
+
+          let parsedHours = null;
+          if (bar.hours_json) {
+            try {
+              const hoursData = JSON.parse(bar.hours_json);
+              parsedHours = {
+                weekday_text: hoursData.weekday_text || [],
+                open_now: hoursData.open_now || false,
+                periods: hoursData.periods || [],
+                hours_available: true,
+              };
+            } catch (e) {
+              console.log(`Error parsing hours for ${bar.name}:`, e);
+              parsedHours = {
+                weekday_text: [],
+                open_now: false,
+                periods: [],
+                hours_available: false,
+              };
+            }
+          } else {
+            parsedHours = {
+              weekday_text: [],
+              open_now: false,
+              periods: [],
+              hours_available: false,
+            };
+          }
+
+          return {
+            ...bar,
+            location: parsedLocation,
+            hours: parsedHours,
+            hours_json: undefined,
+            rating: Number(bar.rating) || 0,
+            isFavourite: true,
+          };
+        } catch (err) {
+          console.error(`Error parsing data for bar ${bar.name}:`, err);
+          return {
+            ...bar,
+            location: { lat: 28.0836, lng: -80.6081 },
+            hours: {
+              weekday_text: [],
+              open_now: false,
+              periods: [],
+              hours_available: false,
+            },
+            rating: Number(bar.rating) || 0,
+            isFavourite: true,
+          };
+        }
+      });
+      console.log(validFavoriteBars);
+      res.json(validFavoriteBars);
+    } catch (error) {
+      console.error("Error fetching favorite kava bars:", error);
+      res.status(500).json({ error: "Internal Server Error" });
+    }
+  });
 
   // Testing endpoint that always returns fallback data (for testing fallback system)
   app.get(
@@ -615,12 +740,7 @@ export function registerRoutes(app: Express, server: Server): void {
         owner_id: number | null;
         is_sponsored: boolean;
         placeId: string | null;
-        hours: {
-          weekday_text: string[];
-          open_now: boolean;
-          periods: any[];
-          hours_available: boolean;
-        };
+        hours: any;
         [key: string]: any; // Allow any additional properties
       }
 
@@ -753,12 +873,13 @@ export function registerRoutes(app: Express, server: Server): void {
         }
 
         const bar = result.rows[0];
-
+        console.log("Bar results: ", bar);
         // Prepare basic bar data that's publicly accessible
         const publicBarData = {
           id: bar.id,
           name: bar.name,
           address: bar.address,
+          hours: bar.hours,
           phone: bar.phone,
           businessStatus: bar.business_status,
           rating: Number(bar.rating) || 0,
@@ -771,27 +892,27 @@ export function registerRoutes(app: Express, server: Server): void {
 
         // Parse hours data with enhanced error handling and logging
         let parsedHours = null;
-        if (bar.hours_json) {
-          try {
-            console.log("Raw hours data:", bar.hours_json);
-            const hoursData = JSON.parse(bar.hours_json);
-            parsedHours = {
-              weekday_text: hoursData.weekday_text || [],
-              open_now: hoursData.open_now || false,
-              periods: hoursData.periods || [],
-              hours_available: true,
-            };
-            console.log("Parsed hours:", parsedHours);
-          } catch (error) {
-            console.error("Error parsing hours:", error);
-            parsedHours = {
-              weekday_text: [],
-              open_now: false,
-              periods: [],
-              hours_available: false,
-            };
-          }
-        }
+        // if (bar.hours_json) {
+        //   try {
+        //     console.log("Raw hours data:", bar.hours_json);
+        //     const hoursData = JSON.parse(bar.hours_json);
+        //     parsedHours = {
+        //       weekday_text: hoursData.weekday_text || [],
+        //       open_now: hoursData.open_now || false,
+        //       periods: hoursData.periods || [],
+        //       hours_available: true,
+        //     };
+        //     console.log("Parsed hours:", parsedHours);
+        //   } catch (error) {
+        //     console.error("Error parsing hours:", error);
+        //     parsedHours = {
+        //       weekday_text: [],
+        //       open_now: false,
+        //       periods: [],
+        //       hours_available: false,
+        //     };
+        //   }
+        // }
 
         // Parse location with error handling
         let parsedLocation = bar.location;
@@ -807,7 +928,7 @@ export function registerRoutes(app: Express, server: Server): void {
         const fullBarData = {
           ...publicBarData,
           ownerId: bar.owner_id,
-          hours: parsedHours,
+          hours: bar.hours,
           location: parsedLocation,
           createdAt: bar.created_at,
           updatedAt: bar.updated_at,
@@ -3030,11 +3151,7 @@ export function registerRoutes(app: Express, server: Server): void {
     try {
       // Create Date objects
       const currentTimeUTC = new Date();
-
-      const endTimeUTC = moment
-        .tz(endTime, "YYYY-MM-DDTHH:mm", "America/New_York")
-        .utc()
-        .toDate();
+      const endTimeUTC = moment.tz(endTime, "America/New_York").utc().toDate();
 
       console.log({
         receivedEndTime: endTime,
@@ -4025,6 +4142,95 @@ export function registerRoutes(app: Express, server: Server): void {
     } catch (error: any) {
       console.error("Error deleting photo:", error);
       res.status(500).json({ error: error.message });
+    }
+  });
+  // ✅ Check if a bar is favorited
+  app.get("/api/favorites/:barId", async (req, res) => {
+    if (!req.isAuthenticated()) {
+      return res.status(403).json({ error: "Unauthorized" });
+    }
+
+    try {
+      const { barId } = req.params;
+      const userId = req.user.id;
+
+      const favorite = await db
+        .select()
+        .from(userFavorites)
+        .where(
+          and(
+            eq(userFavorites.barId, Number(barId)),
+            eq(userFavorites.userId, userId),
+          ),
+        );
+
+      return res.status(200).json({ isFavorite: favorite.length > 0 });
+    } catch (error: any) {
+      console.error("Error checking favorite status:", error);
+      return res.status(500).json({ error: error.message });
+    }
+  });
+
+  // ✅ Add a bar to favorites
+  app.post("/api/favorites/:barId", async (req, res) => {
+    if (!req.isAuthenticated()) {
+      return res.status(403).json({ error: "Unauthorized" });
+    }
+
+    try {
+      const { barId } = req.params;
+      const userId = req.user.id;
+
+      // Check if the bar is already favorited
+      const existingFavorite = await db
+        .select()
+        .from(userFavorites)
+        .where(
+          and(
+            eq(userFavorites.barId, Number(barId)),
+            eq(userFavorites.userId, userId),
+          ),
+        );
+
+      if (existingFavorite.length > 0) {
+        return res.status(400).json({ error: "Already favorited" });
+      }
+
+      await db.insert(userFavorites).values({
+        userId,
+        barId: Number(barId),
+      });
+
+      return res.status(201).json({ message: "Bar added to favorites" });
+    } catch (error: any) {
+      console.error("Error adding favorite:", error);
+      return res.status(500).json({ error: error.message });
+    }
+  });
+
+  // ✅ Remove a bar from favorites
+  app.delete("/api/favorites/:barId", async (req, res) => {
+    if (!req.isAuthenticated()) {
+      return res.status(403).json({ error: "Unauthorized" });
+    }
+
+    try {
+      const { barId } = req.params;
+      const userId = req.user.id;
+
+      await db
+        .delete(userFavorites)
+        .where(
+          and(
+            eq(userFavorites.barId, Number(barId)),
+            eq(userFavorites.userId, userId),
+          ),
+        );
+
+      return res.status(200).json({ message: "Bar removed from favorites" });
+    } catch (error: any) {
+      console.error("Error removing favorite:", error);
+      return res.status(500).json({ error: error.message });
     }
   });
 

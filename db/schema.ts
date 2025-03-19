@@ -137,7 +137,7 @@ export const kavaBars = pgTable("kava_bars", {
 });
 
 // New table for user favorites
-export const userFavorites = pgTable("user_favorites", {
+export const userFavorites = pgTable("favourite_bars", {
   id: serial("id").primaryKey(),
   userId: integer("user_id")
     .references(() => users.id, { onDelete: "cascade" })
@@ -148,17 +148,17 @@ export const userFavorites = pgTable("user_favorites", {
   createdAt: timestamp("created_at").defaultNow().notNull(),
 });
 
-// New table for FCM tokens
-export const fcmTokens = pgTable("fcm_tokens", {
-  id: serial("id").primaryKey(),
-  userId: integer("user_id")
-    .references(() => users.id, { onDelete: "cascade" })
-    .notNull(),
-  token: text("token").notNull(),
-  device: text("device"),
-  createdAt: timestamp("created_at").defaultNow().notNull(),
-  updatedAt: timestamp("updated_at"),
-});
+// // New table for FCM tokens
+// export const fcmTokens = pgTable("fcm_tokens", {
+//   id: serial("id").primaryKey(),
+//   userId: integer("user_id")
+//     .references(() => users.id, { onDelete: "cascade" })
+//     .notNull(),
+//   token: text("token").notNull(),
+//   device: text("device"),
+//   createdAt: timestamp("created_at").defaultNow().notNull(),
+//   updatedAt: timestamp("updated_at"),
+// });
 
 export const verificationRequests = pgTable("verification_requests", {
   id: serial("id").primaryKey(),
@@ -377,7 +377,6 @@ export const userRelations = relations(users, ({ many }) => ({
   notifications: many(notifications),
   notificationPreferences: many(barOwnerNotificationPreferences),
   favorites: many(userFavorites),
-  fcmTokens: many(fcmTokens),
 }));
 
 export const userFavoritesRelations = relations(userFavorites, ({ one }) => ({
@@ -391,12 +390,12 @@ export const userFavoritesRelations = relations(userFavorites, ({ one }) => ({
   }),
 }));
 
-export const fcmTokensRelations = relations(fcmTokens, ({ one }) => ({
-  user: one(users, {
-    fields: [fcmTokens.userId],
-    references: [users.id],
-  }),
-}));
+// export const fcmTokensRelations = relations(fcmTokens, ({ one }) => ({
+//   user: one(users, {
+//     fields: [fcmTokens.userId],
+//     references: [users.id],
+//   }),
+// }));
 
 export const kavaBarRelations = relations(kavaBars, ({ many, one }) => ({
   reviews: many(reviews),

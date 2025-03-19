@@ -18,6 +18,7 @@ function logHoursData(bar: any) {
 
 // Utility function to parse hours
 function parseBarHours(hours: any) {
+  console.log("Debug: hours", hours);
   if (!hours) return null;
 
   try {

@@ -10,7 +10,6 @@ const CheckInCarousel = ({ checkIns }: { checkIns: any[] }) => {
                 {checkIns.length == 1 ? "Kavatender" : "Kavatenders"}{" "}
                 {checkIns.length === 1 ? "is" : "are"} working
             </h1>
-            {JSON.stringify(checkIns)}
             <div className="flex items-center gap-2">
                 {checkIns.map((checkIn: any) => (
                     <>

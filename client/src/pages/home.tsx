@@ -5,6 +5,8 @@ import KavaBarCard from "@/components/kava-bar-card";
 import MapView from "@/components/map-view";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
+import { useQuery } from "@tanstack/react-query";
+
 import {
   Select,
   SelectContent,
@@ -16,8 +18,9 @@ import { Slider } from "@/components/ui/slider";
 import { Search, MapPin, List, Crosshair } from "lucide-react";
 import SpinningWheel from "@/components/spinning-wheel";
 import { useToast } from "@/hooks/use-toast";
+import { useUser } from "@/hooks/use-user";
 
-type SortOption = "rating" | "distance" | "name";
+type SortOption = "favorite" | "rating" | "distance" | "name";
 
 export default function Home() {
   const [search, setSearch] = useState("");
@@ -25,6 +28,7 @@ export default function Home() {
   const [view, setView] = useState<"list" | "map">("list");
   const [sortBy, setSortBy] = useState<SortOption>("distance");
   const [radius, setRadius] = useState<number>(500);
+  const { user } = useUser();
   const {
     coordinates,
     isLoading: isLoadingLocation,
@@ -51,6 +55,18 @@ export default function Home() {
 
   // Log total number of bars received
   console.log("Total kava bars received:", kavaBars?.length);
+  // Fetch favorite bars only when sortBy is "favorite"
+  const { data: favoriteBars, isLoading: isLoadingFavorites } = useQuery({
+    queryKey: ["favoriteBars"],
+    queryFn: async () => {
+      const res = await fetch(`/api/favorite-kava-bars`, {
+        credentials: "include",
+      });
+      if (!res.ok) throw new Error("Failed to fetch favorite bars");
+      return res.json(); // Expecting an array of favorite bars
+    },
+    enabled: sortBy === "favorite", // Only run when sorting by favorite
+  });
 
   // Log Melbourne area bars for debugging
   const melbourneBars = kavaBars?.filter(
@@ -102,7 +118,7 @@ export default function Home() {
   // Log filtered results
   console.log("Filtered bars count:", filteredBars?.length);
 
-  const sortedBars = filteredBars
+  let sortedBars = filteredBars
     ?.map((bar) => {
       let distance: number | undefined;
 
@@ -117,23 +133,23 @@ export default function Home() {
 
       return { ...bar, distance };
     })
+
     .sort((a, b) => {
       switch (sortBy) {
         case "distance":
-          const distA = a.distance ?? Infinity;
-          const distB = b.distance ?? Infinity;
-          return distA - distB;
+          return (a.distance ?? Infinity) - (b.distance ?? Infinity);
         case "rating":
-          const ratingA = a.rating ? parseFloat(a.rating) : 0;
-          const ratingB = b.rating ? parseFloat(b.rating) : 0;
-          return ratingB - ratingA;
+          return (b.rating ?? 0) - (a.rating ?? 0);
         case "name":
           return a.name.localeCompare(b.name);
         default:
           return 0;
       }
     });
-
+  // If sorting by favorite, use favoriteBars instead
+  if (sortBy === "favorite" && favoriteBars) {
+    sortedBars = favoriteBars;
+  }
   // Log sorted results and map markers
   console.log("Sorted bars count:", sortedBars?.length);
   if (view === "map") {
@@ -202,6 +218,7 @@ export default function Home() {
                   <SelectValue placeholder="Sort by..." />
                 </SelectTrigger>
                 <SelectContent>
+                  {user && <SelectItem value="favorite">Favorites</SelectItem>}
                   <SelectItem value="rating">Rating</SelectItem>
                   <SelectItem value="distance" disabled={isLoadingLocation}>
                     Distance{" "}

@@ -173,6 +173,7 @@ export function useKavaBars() {
   return useQuery<KavaBar[]>({
     queryKey: ["/api/kava-bars"],
     queryFn: async () => {
+      
       try {
         console.log("Fetching kava bars from API...");
         const data = await fetchApi<KavaBar[]>("/api/kava-bars");

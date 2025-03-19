@@ -11,6 +11,7 @@ import ReviewForm from "@/components/reviews/review-form";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import { FaRegHeart } from "react-icons/fa";
 import {
   MapPin,
   Phone,
@@ -26,6 +27,10 @@ import KavatenderCheckin from "@/components/kavatender-checkin";
 import BarOwnershipControls from "@/components/admin/bar-ownership-controls";
 import { useQuery } from "@tanstack/react-query";
 import CheckInCarousel from "@/components/check-in-carousal";
+import {
+  FavoriteBarDesktop,
+  FavoriteBarMobile,
+} from "@/components/favorite-bar";
 interface Hours {
   weekday_text: string[];
   open_now: boolean;
@@ -35,8 +40,6 @@ interface Hours {
   }>;
   hours_available: boolean;
 }
-
-// Update the HoursDisplay component to handle all edge cases
 const HoursDisplay = ({
   hours,
   businessStatus,
@@ -44,14 +47,9 @@ const HoursDisplay = ({
   hours: Hours | null;
   businessStatus?: string;
 }) => {
-  // Add debug logging
-  console.log("Hours Display:", {
-    hours,
-    businessStatus,
-    hasWeekdayText: hours?.weekday_text?.length > 0,
-  });
+  // Debug log to check actual received data
+  console.log("HoursDisplay Props:", { hours, businessStatus });
 
-  // If business is permanently closed, show that first
   if (businessStatus === "PERMANENTLY_CLOSED") {
     return (
       <div className="flex items-start gap-2">
@@ -63,8 +61,13 @@ const HoursDisplay = ({
     );
   }
 
-  // If hours is null or not available, show not available message
-  if (!hours || !hours.weekday_text || hours.weekday_text.length === 0) {
+  // Ensure hours.weekday_text exists and is an array
+  if (
+    !hours ||
+    !Array.isArray(hours.weekday_text) ||
+    hours.weekday_text.length === 0
+  ) {
+    console.warn("Hours data is missing or incorrect format:", hours);
     return (
       <div className="flex items-start gap-2">
         <Clock className="h-4 w-4 mt-1 shrink-0" />
@@ -187,6 +190,7 @@ export default function BarDetails() {
             {bar.businessStatus === "PERMANENTLY_CLOSED" && (
               <Badge variant="destructive">Permanently Closed</Badge>
             )}
+            <FavoriteBarDesktop barId={Number(id)} />
           </h1>
           {user &&
             (user.role === "kavatender" ||
@@ -196,7 +200,7 @@ export default function BarDetails() {
                 <KavatenderCheckin barId={bar.id} />
               </div>
             )}
-          
+
           {checkIns && checkIns.length > 0 && (
             <CheckInCarousel checkIns={checkIns} />
           )}
@@ -204,6 +208,15 @@ export default function BarDetails() {
 
         <div className="flex gap-2">
           <ShareBar bar={bar} />
+          <FavoriteBarMobile barId={Number(id)} />
+          {/* <Button
+            variant="outline"
+            className="hidden flex items-center justify-center md:hidden"
+            size="icon"
+          >
+            <FaHeart className="h-4 w-4 " />
+          </Button> */}
+
           {canClaim && (
             <ClaimBarDialog
               bar={bar}

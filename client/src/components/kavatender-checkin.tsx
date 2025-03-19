@@ -5,6 +5,7 @@ import { Input } from "@/components/ui/input";
 import { useToast } from "@/hooks/use-toast";
 import { format } from "date-fns";
 import { useUser } from "@/hooks/use-user";
+import moment from "moment-timezone";
 
 type CheckIn = {
   id: number;
@@ -76,7 +77,11 @@ export default function KavatenderCheckin({ barId }: { barId: number }) {
       <div className="bg-secondary p-4 rounded-lg">
         <p className="font-medium">Currently checked in</p>
         <p className="text-sm text-muted-foreground">
-          Until {format(new Date(currentCheckIn.endTime), "h:mm a")}
+          Until{" "}
+          {format(
+            moment.tz(currentCheckIn.endTime, "America/New_York").toDate(),
+            "h:mm a",
+          )}
         </p>
       </div>
     );
