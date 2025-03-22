@@ -4,7 +4,6 @@ import { Button } from "@/components/ui/button";
 import KavatendersTable from "@/components/kavatenders-table";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Loader2, Plus, Trash2 } from "lucide-react";
-import type { KavaBar, BarEvent } from "@db/schema";
 import { useToast } from "@/hooks/use-toast";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
@@ -57,8 +56,16 @@ export default function ManageBar() {
   const { id } = useParams<{ id: string }>();
   const { toast } = useToast();
   const queryClient = useQueryClient();
-  const [isLoadingBar, setIsLoadingBar] = useState(true);
-
+  const form = useForm<HoursFormValues>({
+    resolver: zodResolver(hoursFormSchema),
+    defaultValues: {
+      hours: daysOfWeek.map((day) => ({
+        day,
+        open: "09:00",
+        close: "22:00",
+      })),
+    },
+  });
   // Update the error handling in the fetch query
   const {
     data: bar,
@@ -67,55 +74,152 @@ export default function ManageBar() {
   } = useQuery({
     queryKey: [`/api/kava-bars/${id}`],
     queryFn: async () => {
-      console.log('Fetching bar details:', id);
+      console.log("Fetching bar details:", id);
       const response = await fetch(`/api/kava-bars/${id}`, {
-        credentials: 'include',
+        credentials: "include",
         headers: {
-          'Accept': 'application/json',
-          'Cache-Control': 'no-cache'
-        }
+          Accept: "application/json",
+          "Cache-Control": "no-cache",
+        },
       });
 
-      console.log('Response status:', response.status);
+      console.log("Response status:", response.status);
 
       if (!response.ok) {
         const errorData = await response.json();
-        console.error('Bar details error response:', errorData);
-        throw new Error(errorData.error || errorData.details || 'Failed to fetch bar details');
+        console.error("Bar details error response:", errorData);
+        throw new Error(
+          errorData.error || errorData.details || "Failed to fetch bar details",
+        );
       }
 
       const data = await response.json();
-      console.log('Successfully fetched bar details:', {
+      if (data?.hours) {
+        console.log("data hours exist:", data);
+
+        const convertedHours = data.hours
+          .map((entry: string, index: number) => {
+            if (!entry.includes(":")) {
+              console.error(`Skipping invalid entry at index ${index}:`, entry);
+              return null;
+            }
+
+            const [day, timeRange] = entry.split(": ");
+
+            if (!timeRange) {
+              console.error(`Invalid time range at index ${index}:`, entry);
+              return null;
+            }
+            console.log(`Day: ${day}, Time: ${timeRange}`);
+
+            // Normalize different dash types and remove potential hidden characters
+            const cleanTimeRange = timeRange
+              .replace(/\s*[\u2013\u2014–-]\s*/g, " - ")
+              .trim();
+            console.log(`Cleaned time range: ${cleanTimeRange}`);
+
+            let [openTime, closeTime] = cleanTimeRange
+              .split(" - ")
+              .map((t) => t.trim());
+            console.log(`Open time: ${openTime}, Close time: ${closeTime}`);
+
+            if (!openTime || !closeTime) {
+              console.error(
+                `Missing open or close time at index ${index}:`,
+                entry,
+              );
+              return null;
+            }
+
+            const to24HourFormat = (time: string) => {
+              if (!time) {
+                console.error(`Invalid time passed to conversion:`, time);
+                return null;
+              }
+
+              // Ensure clean extraction of time
+              const match = time.match(/(\d{1,2}):?(\d{2})?\s*(AM|PM)?/i);
+              if (!match) {
+                console.error(`Invalid time format:`, time);
+                return null;
+              }
+
+              let [, hour, minute = "00", period] = match;
+              hour = parseInt(hour, 10);
+              minute = parseInt(minute, 10);
+
+              console.log(
+                `Extracted - Hour: ${hour}, Minute: ${minute}, Period: ${period}`,
+              );
+
+              if (isNaN(hour) || isNaN(minute)) {
+                console.error(`Invalid hour/minute format:`, time);
+                return null;
+              }
+
+              // Convert AM/PM format to 24-hour format
+              if (period) {
+                period = period.toUpperCase();
+                if (period === "PM" && hour !== 12) hour += 12;
+                if (period === "AM" && hour === 12) hour = 0;
+              }
+
+              // Ensure formatted output
+              const formattedHour = hour.toString().padStart(2, "0");
+              const formattedMinute = minute.toString().padStart(2, "0");
+
+              const formattedTime = `${formattedHour}:${formattedMinute}`;
+              console.log(`Formatted time: ${formattedTime}`);
+              return formattedTime;
+            };
+
+            return {
+              day,
+              open: to24HourFormat(openTime),
+              close: to24HourFormat(closeTime),
+            };
+          })
+          .filter(Boolean); // Remove null values
+
+        // Reset form with new values
+        form.reset({ hours: convertedHours });
+      }
+
+      console.log("Successfully fetched bar details:", {
         id: data.id,
         name: data.name,
         owner_id: data.owner_id,
         hasHours: !!data.hours,
-        hasLocation: !!data.location
+        hasLocation: !!data.location,
       });
       return data;
     },
     retry: 1,
     retryDelay: 1000,
     onError: (error: any) => {
-      console.error('Query error:', error);
+      console.error("Query error:", error);
       toast({
         title: "Error Loading Bar",
-        description: error.message || "Please check your permissions and try again.",
+        description:
+          error.message || "Please check your permissions and try again.",
         variant: "destructive",
       });
-    }
+    },
+    onSuccess: (data: any) => {
+      console.log("Data was fetched successfully", data);
+    },
   });
 
   const { data: events = [], isLoading: isLoadingEvents } = useQuery({
     queryKey: [`/api/bars/${id}/events`],
     queryFn: async () => {
       const response = await fetch(`/api/bars/${id}/events`, {
-        credentials: 'include',
+        credentials: "include",
       });
 
       if (!response.ok) {
         const errorData = await response.json().catch(() => ({}));
-        throw new Error(errorData.message || 'Failed to fetch events');
+        throw new Error(errorData.message || "Failed to fetch events");
       }
 
       return response.json();
@@ -127,28 +231,17 @@ export default function ManageBar() {
     queryKey: [`/api/kavatenders/${id}`],
     queryFn: async () => {
       const response = await fetch(`/api/kavatenders/${id}`, {
-        credentials: 'include',
+        credentials: "include",
       });
 
       if (!response.ok) {
         const errorData = await response.json().catch(() => ({}));
-        throw new Error(errorData.message || 'Failed to fetch kavatenders');
+        throw new Error(errorData.message || "Failed to fetch kavatenders");
       }
 
       return response.json();
     },
     enabled: !!bar,
-  });
-
-  const form = useForm<HoursFormValues>({
-    resolver: zodResolver(hoursFormSchema),
-    defaultValues: {
-      hours: daysOfWeek.map((day) => ({
-        day,
-        open: "09:00",
-        close: "22:00",
-      })),
-    },
   });
 
   const updateHoursMutation = useMutation({
@@ -164,7 +257,7 @@ export default function ManageBar() {
 
       if (!response.ok) {
         const errorData = await response.json().catch(() => ({}));
-        throw new Error(errorData.message || 'Failed to update hours');
+        throw new Error(errorData.message || "Failed to update hours");
       }
 
       return response.json();
@@ -197,7 +290,7 @@ export default function ManageBar() {
 
       if (!response.ok) {
         const errorData = await response.json().catch(() => ({}));
-        throw new Error(errorData.message || 'Failed to create event');
+        throw new Error(errorData.message || "Failed to create event");
       }
 
       return response.json();
@@ -227,7 +320,7 @@ export default function ManageBar() {
 
       if (!response.ok) {
         const errorData = await response.json().catch(() => ({}));
-        throw new Error(errorData.message || 'Failed to delete event');
+        throw new Error(errorData.message || "Failed to delete event");
       }
 
       return response.json();
@@ -262,7 +355,7 @@ export default function ManageBar() {
 
       if (!response.ok) {
         const errorData = await response.json().catch(() => ({}));
-        throw new Error(errorData.message || 'Failed to verify kavatender');
+        throw new Error(errorData.message || "Failed to verify kavatender");
       }
       return response.json();
     },
@@ -293,7 +386,7 @@ export default function ManageBar() {
 
       if (!response.ok) {
         const errorData = await response.json().catch(() => ({}));
-        throw new Error(errorData.message || 'Failed to remove kavatender');
+        throw new Error(errorData.message || "Failed to remove kavatender");
       }
       return response.json();
     },
@@ -330,7 +423,8 @@ export default function ManageBar() {
     createEventMutation.mutate(data);
   }
 
-  const isLoading = isLoadingBarQuery || isLoadingEvents || isLoadingKavatenders;
+  const isLoading =
+    isLoadingBarQuery || isLoadingEvents || isLoadingKavatenders;
 
   if (isLoading) {
     return (
@@ -348,16 +442,24 @@ export default function ManageBar() {
       <div className="container mx-auto px-4 py-8">
         <Card>
           <CardHeader>
-            <CardTitle className="text-red-600">Error Loading Bar Details</CardTitle>
+            <CardTitle className="text-red-600">
+              Error Loading Bar Details
+            </CardTitle>
           </CardHeader>
           <CardContent className="pt-6">
             <p className="text-center text-muted-foreground mb-4">
-              {barError instanceof Error ? barError.message : "Failed to load bar details"}
+              {barError instanceof Error
+                ? barError.message
+                : "Failed to load bar details"}
             </p>
             <div className="flex justify-center">
-              <Button 
+              <Button
                 className="mt-4"
-                onClick={() => queryClient.invalidateQueries({ queryKey: [`/api/kava-bars/${id}`] })}
+                onClick={() =>
+                  queryClient.invalidateQueries({
+                    queryKey: [`/api/kava-bars/${id}`],
+                  })
+                }
               >
                 Retry Loading
               </Button>

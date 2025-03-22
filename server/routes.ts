@@ -53,6 +53,7 @@ import sharp from "sharp";
 import { randomUUID } from "crypto";
 import express from "express";
 import { uploadImageToStorage } from "./upload-to-storage";
+import { parseHours } from "./utils/parse-hours";
 
 // Handle the user type
 declare global {
@@ -1421,15 +1422,16 @@ export function registerRoutes(app: Express, server: Server): void {
       return res.status(404).send("Bar not found");
     }
 
-    if (bar.ownerId !== req.user.id) {
+    if (bar.ownerId !== req.user.id && !req.user.isAdmin) {
       return res.status(403).send("Not authorized to update this bar's hours");
     }
-
+    console.log("Hours ", req.body.hours);
+    console.log("Parsed Hours: ", parseHours(req.body.hours));
     try {
       const [updatedBar] = await db
         .update(kavaBars)
         .set({
-          hours: req.body.hours, // Using the correct field name from schema
+          hours: parseHours(req.body.hours), // Using the correct field name from schema
         })
         .where(eq(kavaBars.id, barId))
         .returning();

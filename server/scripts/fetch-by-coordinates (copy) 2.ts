@@ -14,7 +14,7 @@ async function fetchKavaBarsByCoordinates(lat: number, lng: number) {
     try {
         await backupDatabase("pre-operation");
 
-        const keyword = "kava bar -smoke -restaurant -grocery"; // Exclude unwanted terms
+        const keyword = "kava bar"; // More specific than just "kava"
         const location = { lat, lng };
 
         console.log("Searching location: ", location);
@@ -24,7 +24,7 @@ async function fetchKavaBarsByCoordinates(lat: number, lng: number) {
                 location,
                 radius: 40000,
                 keyword,
-                type: "bar", // Prefer bars
+                type: "bar", // Restrict to bars
                 key: process.env.GOOGLE_MAPS_API_KEY || "",
             },
         });
@@ -43,31 +43,12 @@ async function fetchKavaBarsByCoordinates(lat: number, lng: number) {
             const types = place.types || [];
             const name = (place.name || "").toLowerCase();
 
-            // Must have "kava" in the name
-            if (!name.includes("kava")) {
-                console.log(`Excluding ${place.name} (no "kava" in name)`);
-                return false;
-            }
+            // Exclude obvious non-kava bars
+            const isRestaurant = types.includes("restaurant") || types.includes("meal_takeaway");
+            const isStore = types.includes("store") || name.includes("smoke") || name.includes("vape");
+            const isKavaRelated = name.includes("kava") || types.includes("bar");
 
-            // Exclude unwanted types and names
-            const unwantedTypes = [
-                "restaurant",
-                "meal_takeaway",
-                "store",
-                "grocery_or_supermarket",
-                "liquor_store",
-            ];
-            const unwantedNameTerms = ["smoke", "vape", "tobacco", "grocery", "market", "liquor", "restaurant"];
-
-            const hasUnwantedType = unwantedTypes.some((type) => types.includes(type));
-            const hasUnwantedName = unwantedNameTerms.some((term) => name.includes(term));
-
-            if (hasUnwantedType || hasUnwantedName) {
-                console.log(`Excluding ${place.name} (unwanted type or name)`);
-                return false;
-            }
-
-            return true;
+            return isKavaRelated && !isRestaurant && !isStore;
         });
 
         console.log(`Filtered to ${filteredPlaces.length} potential kava bars`);
@@ -119,19 +100,10 @@ async function fetchKavaBarsByCoordinates(lat: number, lng: number) {
             const name = (details.name || place.name || "").toLowerCase();
 
             // Double-check with details
-            const unwantedTypes = [
-                "restaurant",
-                "meal_takeaway",
-                "store",
-                "grocery_or_supermarket",
-                "liquor_store",
-            ];
-            const unwantedNameTerms = ["smoke", "vape", "tobacco", "grocery", "market", "liquor", "restaurant"];
-            const hasUnwantedType = unwantedTypes.some((type) => types.includes(type));
-            const hasUnwantedName = unwantedNameTerms.some((term) => name.includes(term));
-
-            if (hasUnwantedType || hasUnwantedName || !name.includes("kava")) {
-                console.log(`Skipping ${place.name} (detailed check failed)`);
+            const isRestaurant = types.includes("restaurant") || types.includes("meal_takeaway");
+            const isStore = types.includes("store") || name.includes("smoke") || name.includes("vape");
+            if (isRestaurant || isStore) {
+                console.log(`Skipping ${place.name} (likely not a kava bar)`);
                 continue;
             }
 
@@ -171,13 +143,6 @@ async function fetchKavaBarsByCoordinates(lat: number, lng: number) {
             const formatted_phone = details.formatted_phone_number || null;
             const opening_hours = details.opening_hours || null;
 
-            // Debug logging
-            console.log(`Debug ${place.name}: Existing phone: ${existingData?.phone}, New phone: ${formatted_phone}`);
-            console.log(`Debug ${place.name}: Existing hours: ${JSON.stringify(existingData?.hours)}, New hours: ${JSON.stringify(opening_hours)}`);
-
-            const isPhoneMissing = !existingData?.phone || existingData.phone === ""; // Check null, undefined, or empty
-            const isHoursMissing = !existingData?.hours || (Array.isArray(existingData.hours) && existingData.hours.length === 0); // Check null, undefined, or empty array
-
             try {
                 await db
                     .update(kavaBars)
@@ -191,15 +156,15 @@ async function fetchKavaBarsByCoordinates(lat: number, lng: number) {
                         rating: place.rating || 0,
                         businessStatus: place.business_status || "OPERATIONAL",
                         lastVerified: now,
-                        phone: isPhoneMissing ? formatted_phone : existingData.phone,
-                        hours: isHoursMissing ? opening_hours : existingData.hours,
+                        phone: existingData?.phone == null ? formatted_phone : existingData.phone,
+                        hours: existingData?.hours == null ? opening_hours : existingData.hours,
                     })
                     .where(eq(kavaBars.placeId, place.place_id));
 
-                if (isPhoneMissing || isHoursMissing) {
+                if (existingData?.phone == null || existingData?.hours == null) {
                     console.log(`✓ Updated ${place.name} with missing data`);
                 } else {
-                    console.log(`✓ Updated ${place.name} (no missing data)`);
+                    console.log(`✓ Updated ${place.name}`);
                 }
             } catch (updateError) {
                 console.error(`Error updating ${place.name}:`, updateError.message);
