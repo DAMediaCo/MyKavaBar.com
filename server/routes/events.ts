@@ -1,5 +1,5 @@
 import { Express, Request, Response } from "express";
-import { and, asc, eq, gte, lte } from "drizzle-orm";
+import { and, or, asc, eq, gte, lte, sql } from "drizzle-orm";
 import { db } from "@db";
 import { barEvents, kavaBars } from "@db/schema";
 import { isAuthenticated } from "../middleware/auth";
@@ -16,20 +16,44 @@ const daysOfWeek = [
 ];
 
 export function registerEventRoutes(app: Express) {
-  // Route for fetching bar events
   app.get("/api/bars/:id/events", async (req: Request, res: Response) => {
     try {
-      const currentDate = new Date(); // Get the current date
+      const id = parseInt(req.params.id, 10);
+      if (isNaN(id)) {
+        return res.status(400).json({ error: "Invalid bar ID" });
+      }
 
-      const events = await db.query.barEvents.findMany({
-        where: and(
-          gte(barEvents.startDate, currentDate), // currentDate >= startDate
-          lte(barEvents.endDate, currentDate), // currentDate <= endDate
-        ),
-        orderBy: [asc(barEvents.dayOfWeek), asc(barEvents.startTime)],
+      const newYorkTime = new Date().toLocaleString("en-US", {
+        timeZone: "America/New_York",
       });
-      console.log("Events: ", events);
-      res.json(events);
+      const currentDateNY = new Date(newYorkTime).toISOString().split("T")[0]; // Get YYYY-MM-DD
+      const currentDayOfWeekNY = new Date(newYorkTime).getDay(); // 0 = Sunday, 6 = Saturday
+
+      console.log("Current Date:", currentDateNY);
+      console.log("Current Day of Week:", currentDayOfWeekNY);
+
+      const nonRecurringEvents = await db.query.barEvents.findMany({
+        where: and(
+          eq(barEvents.barId, id),
+          eq(barEvents.isRecurring, false),
+          gte(barEvents.endDate, `${currentDateNY}T00:00:00.000Z`), // Show events until they end
+        ),
+      });
+
+      console.log("Non-Recurring Events:", nonRecurringEvents);
+
+      const recurringEvents = await db.query.barEvents.findMany({
+        where: and(eq(barEvents.barId, id), eq(barEvents.isRecurring, true)),
+        orderBy: [asc(barEvents.dayOfWeek)], // Sorting by `dayOfWeek` in ascending order
+      });
+
+      console.log("Recurring Events:", recurringEvents);
+
+      // Merge both arrays
+      const allEvents = [...nonRecurringEvents, ...recurringEvents];
+
+      console.log("Final Merged Events:", allEvents);
+      res.json(allEvents);
     } catch (error: any) {
       console.error("Error fetching bar events:", error);
       res.status(500).json({ error: error.message });
@@ -75,8 +99,7 @@ export function registerEventRoutes(app: Express) {
         }
 
         // Get client timezone or use UTC as fallback
-        const clientTimezone =
-          timezone || Intl.DateTimeFormat().resolvedOptions().timeZone || "UTC";
+        const clientTimezone = "America/New_York";
 
         // Debug logging - improved logging to show raw and parsed dates
         console.log("Creating event - Raw incoming dates:", {
@@ -252,56 +275,80 @@ export function registerEventRoutes(app: Express) {
           endDate,
         } = req.body;
 
-        // Process dates without timezone shifts for non-recurring events
-        let processedStartDate = null;
-        let processedEndDate = null;
+        // Debug logging - incoming date values
+        console.log("Updating event - Raw incoming dates:", {
+          startDate,
+          endDate,
+          startTime,
+          endTime,
+        });
 
-        if (!isRecurring && startDate) {
-          try {
-            const [year, month, day] = startDate
-              .split("-")
-              .map((num: string) => parseInt(num));
-            processedStartDate = new Date(
-              Date.UTC(year, month - 1, day, 12, 0, 0),
-            );
+        // Handle timezone consistency for dates
+        let parsedStartDate = null;
+        let parsedEndDate = null;
 
-            if (endDate) {
-              const [endYear, endMonth, endDay] = endDate
+        try {
+          if (startDate) {
+            if (!isRecurring) {
+              const [year, month, day] = startDate
                 .split("-")
                 .map((num: string) => parseInt(num));
-              processedEndDate = new Date(
-                Date.UTC(endYear, endMonth - 1, endDay, 12, 0, 0),
+              parsedStartDate = new Date(
+                Date.UTC(year, month - 1, day, 12, 0, 0),
               );
+
+              console.log(
+                `Parsed start date "${startDate}" to UTC noon:`,
+                parsedStartDate.toISOString(),
+              );
+            } else {
+              parsedStartDate = new Date(startDate);
             }
-          } catch (error) {
-            console.error("Error processing dates:", error);
-            return res.status(400).json({ error: "Invalid date format" });
           }
+
+          if (endDate) {
+            if (!isRecurring) {
+              const [year, month, day] = endDate
+                .split("-")
+                .map((num: string) => parseInt(num));
+              parsedEndDate = new Date(
+                Date.UTC(year, month - 1, day, 12, 0, 0),
+              );
+
+              console.log(
+                `Parsed end date "${endDate}" to UTC noon:`,
+                parsedEndDate.toISOString(),
+              );
+            } else {
+              parsedEndDate = new Date(endDate);
+            }
+          }
+        } catch (dateParseError) {
+          console.error("Error parsing dates:", dateParseError);
+          return res.status(400).json({ error: "Invalid date format" });
         }
 
-        // For PostgreSQL, we need to format as YYYY-MM-DD strings for date type columns
+        // Format dates for PostgreSQL storage
         const formatDateForPostgres = (date: Date | null): string | null => {
           if (!date) return null;
-          // Format as YYYY-MM-DD
           return date.toISOString().split("T")[0];
         };
 
-        const formattedStartDate = formatDateForPostgres(processedStartDate);
-        const formattedEndDate = formatDateForPostgres(processedEndDate);
+        const formattedStartDate = formatDateForPostgres(parsedStartDate);
+        const formattedEndDate = formatDateForPostgres(parsedEndDate);
 
-        console.log("Updating event with formatted dates:", {
+        console.log("Formatted dates for storage:", {
           originalStartDate: startDate,
           originalEndDate: endDate,
-          processedStartDate: processedStartDate?.toISOString(),
-          processedEndDate: processedEndDate?.toISOString(),
+          parsedStartDate: parsedStartDate?.toISOString(),
+          parsedEndDate: parsedEndDate?.toISOString(),
           formattedStartDate,
           formattedEndDate,
         });
 
-        // Calculate effective day of week for non-recurring events
+        // Ensure valid `dayOfWeek` for non-recurring events
         let effectiveDayOfWeek = dayOfWeek;
 
-        // For non-recurring events, try to calculate the day of week from the start date
         if (!isRecurring && startDate) {
           try {
             const [year, month, day] = startDate
@@ -309,12 +356,10 @@ export function registerEventRoutes(app: Express) {
               .map((num: string) => parseInt(num));
             const dateObj = new Date(Date.UTC(year, month - 1, day));
             effectiveDayOfWeek = dateObj.getDay();
-            console.log(
-              `Calculated day of week for update from start date: ${effectiveDayOfWeek}`,
-            );
+            console.log(`Calculated day of week: ${effectiveDayOfWeek}`);
           } catch (error) {
             console.warn(
-              "Failed to calculate day of week for update, using provided value:",
+              "Failed to calculate day of week, using provided value:",
               error,
             );
           }
@@ -329,7 +374,7 @@ export function registerEventRoutes(app: Express) {
             startTime,
             endTime,
             isRecurring,
-            dayOfWeek: effectiveDayOfWeek, // Always use a valid day of week
+            dayOfWeek: effectiveDayOfWeek, // Always ensure a valid day of week
             startDate: formattedStartDate,
             endDate: formattedEndDate,
             updatedAt: new Date(),
@@ -346,10 +391,13 @@ export function registerEventRoutes(app: Express) {
           return res.status(404).json({ error: "Event not found" });
         }
 
-        res.json(updatedEvent);
+        res.json({
+          message: "Event updated successfully",
+          event: updatedEvent,
+        });
       } catch (error: any) {
         console.error("Error updating event:", error);
-        res.status(500).json({ error: error.message });
+        res.status(500).json({ error: "Failed to update event" });
       }
     },
   );

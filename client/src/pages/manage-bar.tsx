@@ -3,7 +3,7 @@ import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { Button } from "@/components/ui/button";
 import KavatendersTable from "@/components/kavatenders-table";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Loader2, Plus, Trash2 } from "lucide-react";
+import { Edit, Loader2, Plus, Trash2 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
@@ -56,6 +56,21 @@ export default function ManageBar() {
   const { id } = useParams<{ id: string }>();
   const { toast } = useToast();
   const queryClient = useQueryClient();
+  const [isModalOpen, setIsModalOpen] = useState(false);
+  const [selectedEvent, setSelectedEvent] = useState<EventFormValues | null>(
+    null,
+  );
+
+  const handleEdit = (event: EventFormValues) => {
+    setSelectedEvent(event); // Store event data
+    setIsModalOpen(true); // Open modal
+  };
+
+  const handleCloseModal = () => {
+    setIsModalOpen(false);
+    setSelectedEvent(null);
+  };
+  const [open, setOpen] = useState(false);
   const form = useForm<HoursFormValues>({
     resolver: zodResolver(hoursFormSchema),
     defaultValues: {
@@ -226,7 +241,7 @@ export default function ManageBar() {
     },
     enabled: !!bar, // Only fetch events if bar data is available
   });
-
+  console.log("Events ", events);
   const { data: kavaTenders = [], isLoading: isLoadingKavatenders } = useQuery({
     queryKey: [`/api/kavatenders/${id}`],
     queryFn: async () => {
@@ -309,6 +324,43 @@ export default function ManageBar() {
         description: error.message,
       });
     },
+  });
+  const updateEventMutation = useMutation({
+    mutationFn: async ({
+      barId,
+      ...data
+    }: EventFormValues & { barId: number }) => {
+      const response = await fetch(`/api/bars/${id}/events/${barId}`, {
+        method: "PUT", // Ensure this matches your backend method
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify(data),
+        credentials: "include",
+      });
+
+      if (!response.ok) {
+        const errorData = await response.json().catch(() => ({}));
+        throw new Error(errorData.message || "Failed to update event");
+      }
+
+      return response.json();
+    },
+    onSuccess: () => {
+      toast({
+        title: "Success",
+        description: "Event updated successfully",
+      });
+      queryClient.invalidateQueries([`/api/bars/${id}/events`]);
+    },
+    onError: (error: Error) => {
+      toast({
+        variant: "destructive",
+        title: "Error",
+        description: error.message,
+      });
+    },
+    enabled: !!selectedEvent,
   });
 
   const deleteEventMutation = useMutation({
@@ -420,7 +472,11 @@ export default function ManageBar() {
   }
 
   function handleCreateEvent(data: EventFormValues) {
-    createEventMutation.mutate(data);
+    createEventMutation.mutate(data, {
+      onSuccess: () => {
+        setOpen(false); // Close the dialog on successful creation
+      },
+    });
   }
 
   const isLoading =
@@ -637,9 +693,9 @@ export default function ManageBar() {
           <Card>
             <CardHeader className="flex flex-row items-center justify-between">
               <CardTitle>Event Schedule</CardTitle>
-              <Dialog>
+              <Dialog open={open} onOpenChange={setOpen}>
                 <DialogTrigger asChild>
-                  <Button>
+                  <Button onClick={() => setOpen(true)}>
                     <Plus className="h-4 w-4 mr-2" />
                     Add Event
                   </Button>
@@ -666,7 +722,7 @@ export default function ManageBar() {
                 </p>
               ) : (
                 <div className="space-y-4">
-                  {events.map((event) => (
+                  {events.map((event: any) => (
                     <Card key={event.id}>
                       <CardContent className="pt-6">
                         <div className="flex justify-between items-start">
@@ -683,18 +739,50 @@ export default function ManageBar() {
                               {event.endTime.slice(0, 5)}
                             </p>
                           </div>
-                          <Button
-                            variant="ghost"
-                            size="icon"
-                            onClick={() => deleteEventMutation.mutate(event.id)}
-                            disabled={deleteEventMutation.isPending}
-                          >
-                            <Trash2 className="h-4 w-4" />
-                          </Button>
+                          <div className="flex gap-2">
+                            <Button
+                              variant="ghost"
+                              size="icon"
+                              onClick={() => handleEdit(event)}
+                            >
+                              <Edit className="h-4 w-4" />
+                            </Button>
+                            <Button
+                              variant="ghost"
+                              size="icon"
+                              onClick={() =>
+                                deleteEventMutation.mutate(event.id)
+                              }
+                              disabled={deleteEventMutation.isPending}
+                            >
+                              <Trash2 className="h-4 w-4" />
+                            </Button>
+                          </div>
                         </div>
                       </CardContent>
                     </Card>
                   ))}
+
+                  {/* Edit Event Modal */}
+                  <Dialog open={isModalOpen} onOpenChange={setIsModalOpen}>
+                    <DialogContent>
+                      <DialogHeader>
+                        <DialogTitle>Edit Event</DialogTitle>
+                      </DialogHeader>
+                      <EventForm
+                        onSubmit={(data) => {
+                          console.log("Event update data ", data);
+                          updateEventMutation.mutate({
+                            barId: selectedEvent.id,
+                            ...data,
+                          }); // Use form data, not selectedEvent
+                          handleCloseModal();
+                        }}
+                        defaultValues={selectedEvent}
+                        isSubmitting={updateEventMutation.isPending}
+                      />
+                    </DialogContent>
+                  </Dialog>
                 </div>
               )}
             </CardContent>

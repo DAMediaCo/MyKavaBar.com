@@ -11,7 +11,6 @@ import ReviewForm from "@/components/reviews/review-form";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { FaRegHeart } from "react-icons/fa";
 import {
   MapPin,
   Phone,

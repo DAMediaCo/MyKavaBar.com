@@ -12,7 +12,14 @@ import {
   DialogTitle,
   DialogTrigger,
 } from "@/components/ui/dialog";
-import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form";
+import {
+  Form,
+  FormControl,
+  FormField,
+  FormItem,
+  FormLabel,
+  FormMessage,
+} from "@/components/ui/form";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { useToast } from "@/hooks/use-toast";
@@ -21,6 +28,7 @@ import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import * as z from "zod";
 import type { BarEvent } from "@db/schema";
+import { EventForm, EventFormValues } from "./event-form";
 
 interface BarEventsProps {
   barId: number;
@@ -31,8 +39,12 @@ const eventSchema = z.object({
   title: z.string().min(1, "Title is required"),
   description: z.string().optional(),
   dayOfWeek: z.number().min(0).max(6),
-  startTime: z.string().regex(/^([0-1]?[0-9]|2[0-3]):[0-5][0-9]$/, "Invalid time format"),
-  endTime: z.string().regex(/^([0-1]?[0-9]|2[0-3]):[0-5][0-9]$/, "Invalid time format"),
+  startTime: z
+    .string()
+    .regex(/^([0-1]?[0-9]|2[0-3]):[0-5][0-9]$/, "Invalid time format"),
+  endTime: z
+    .string()
+    .regex(/^([0-1]?[0-9]|2[0-3]):[0-5][0-9]$/, "Invalid time format"),
   isRecurring: z.boolean().default(true),
   startDate: z.string().optional(),
   endDate: z.string().optional(),
@@ -40,7 +52,13 @@ const eventSchema = z.object({
 
 type EventFormData = z.infer<typeof eventSchema>;
 
-function QuickEventForm({ barId, onSuccess }: { barId: number; onSuccess: () => void }) {
+function QuickEventForm({
+  barId,
+  onSuccess,
+}: {
+  barId: number;
+  onSuccess: () => void;
+}) {
   const { toast } = useToast();
   const queryClient = useQueryClient();
   const form = useForm<EventFormData>({
@@ -70,7 +88,9 @@ function QuickEventForm({ barId, onSuccess }: { barId: number; onSuccess: () => 
       return res.json();
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: [`/api/bars/${barId}/events`] });
+      queryClient.invalidateQueries({
+        queryKey: [`/api/bars/${barId}/events`],
+      });
       toast({
         title: "Event Created",
         description: "Your event has been successfully created.",
@@ -151,7 +171,11 @@ function QuickEventForm({ barId, onSuccess }: { barId: number; onSuccess: () => 
           />
         </div>
 
-        <Button type="submit" className="w-full" disabled={createEvent.isPending}>
+        <Button
+          type="submit"
+          className="w-full"
+          disabled={createEvent.isPending}
+        >
           {createEvent.isPending ? "Creating..." : "Create Event"}
         </Button>
       </form>
@@ -161,30 +185,71 @@ function QuickEventForm({ barId, onSuccess }: { barId: number; onSuccess: () => 
 
 export default function BarEvents({ barId, ownerId }: BarEventsProps) {
   const { user } = useUser();
+  const id = barId;
   const { toast } = useToast();
   const isOwner = user?.id === ownerId;
   const [isAddEventOpen, setIsAddEventOpen] = useState(false);
+  const queryClient = useQueryClient();
 
   const { data: events, isLoading } = useQuery<BarEvent[]>({
     queryKey: [`/api/bars/${barId}/events`],
   });
+  const createEventMutation = useMutation({
+    mutationFn: async (data: EventFormValues) => {
+      const response = await fetch(`/api/bars/${id}/events`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(data),
+        credentials: "include",
+      });
 
+      if (!response.ok) {
+        const errorData = await response.json().catch(() => ({}));
+        throw new Error(errorData.message || "Failed to create event");
+      }
+
+      return response.json();
+    },
+    onSuccess: () => {
+      toast({
+        title: "Success",
+        description: "Event created successfully",
+      });
+      queryClient.invalidateQueries([`/api/bars/${id}/events`]);
+      setIsAddEventOpen(false); // ✅ Close the dialog on success
+    },
+    onError: (error: Error) => {
+      toast({
+        variant: "destructive",
+        title: "Error",
+        description: error.message,
+      });
+    },
+  });
   // Function to format the day key
   const formatDay = (dayOfWeek: number) => {
-    const days = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
-    return days[dayOfWeek] || '';
+    const days = [
+      "Sunday",
+      "Monday",
+      "Tuesday",
+      "Wednesday",
+      "Thursday",
+      "Friday",
+      "Saturday",
+    ];
+    return days[dayOfWeek] || "";
   };
-  
+
   // Function to format date strings without timezone issues
   const formatDateString = (dateStr: string) => {
     try {
       // Parse the date string parts directly to avoid timezone shifts
-      const [year, month, day] = dateStr.split('-').map(num => parseInt(num));
+      const [year, month, day] = dateStr.split("-").map((num) => parseInt(num));
       const date = new Date(year, month - 1, day);
-      return format(date, 'MMM d, yyyy');
+      return format(date, "MMM d, yyyy");
     } catch (error) {
-      console.error('Error formatting date:', error, dateStr);
-      return dateStr || 'Invalid date';
+      console.error("Error formatting date:", error, dateStr);
+      return dateStr || "Invalid date";
     }
   };
 
@@ -208,8 +273,16 @@ export default function BarEvents({ barId, ownerId }: BarEventsProps) {
     );
   }
 
-  const recurringEvents = events?.filter(event => event.isRecurring) || [];
-  const oneTimeEvents = events?.filter(event => !event.isRecurring) || [];
+  function handleCreateEvent(data: EventFormValues) {
+    createEventMutation.mutate(data, {
+      onSuccess: () => {
+        setIsAddEventOpen(false); // Close the dialog on successful creation
+      },
+    });
+  }
+
+  const recurringEvents = events?.filter((event) => event.isRecurring) || [];
+  const oneTimeEvents = events?.filter((event) => !event.isRecurring) || [];
 
   return (
     <Card>
@@ -222,7 +295,11 @@ export default function BarEvents({ barId, ownerId }: BarEventsProps) {
           {isOwner && (
             <Dialog open={isAddEventOpen} onOpenChange={setIsAddEventOpen}>
               <DialogTrigger asChild>
-                <Button variant="outline" size="sm">
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => setIsAddEventOpen(true)}
+                >
                   Add Event
                 </Button>
               </DialogTrigger>
@@ -230,9 +307,9 @@ export default function BarEvents({ barId, ownerId }: BarEventsProps) {
                 <DialogHeader>
                   <DialogTitle>Create New Event</DialogTitle>
                 </DialogHeader>
-                <QuickEventForm 
-                  barId={barId} 
-                  onSuccess={() => setIsAddEventOpen(false)} 
+                <EventForm
+                  onSubmit={handleCreateEvent}
+                  isSubmitting={createEventMutation.isPending}
                 />
               </DialogContent>
             </Dialog>
@@ -247,7 +324,7 @@ export default function BarEvents({ barId, ownerId }: BarEventsProps) {
             {recurringEvents.length > 0 && (
               <div className="space-y-4">
                 <h3 className="font-semibold">Weekly Events</h3>
-                {recurringEvents.map(event => (
+                {recurringEvents.map((event) => (
                   <div key={event.id} className="flex flex-col gap-1">
                     <div className="flex items-center justify-between">
                       <h4 className="font-medium">{event.title}</h4>
@@ -256,8 +333,15 @@ export default function BarEvents({ barId, ownerId }: BarEventsProps) {
                       </Badge>
                     </div>
                     <div className="text-sm text-muted-foreground">
-                      {format(new Date(`1970-01-01T${event.startTime}`), 'h:mm a')} - 
-                      {format(new Date(`1970-01-01T${event.endTime}`), 'h:mm a')}
+                      {format(
+                        new Date(`1970-01-01T${event.startTime}`),
+                        "h:mm a",
+                      )}{" "}
+                      -{" "}
+                      {format(
+                        new Date(`1970-01-01T${event.endTime}`),
+                        "h:mm a",
+                      )}
                     </div>
                     {event.description && (
                       <p className="text-sm">{event.description}</p>
@@ -270,19 +354,28 @@ export default function BarEvents({ barId, ownerId }: BarEventsProps) {
             {oneTimeEvents.length > 0 && (
               <div className="space-y-4">
                 <h3 className="font-semibold">Special Events</h3>
-                {oneTimeEvents.map(event => {
+                {oneTimeEvents.map((event) => {
                   //This change directly uses the date string to avoid timezone issues.
                   return (
                     <div key={event.id} className="flex flex-col gap-1">
                       <div className="flex items-center justify-between">
                         <h4 className="font-medium">{event.title}</h4>
                         <Badge variant="secondary">
-                          {event.startDate ? formatDateString(event.startDate) : 'No date'}
+                          {event.startDate
+                            ? formatDateString(event.startDate)
+                            : "No date"}
                         </Badge>
                       </div>
                       <div className="text-sm text-muted-foreground">
-                        {format(new Date(`1970-01-01T${event.startTime}`), 'h:mm a')} - 
-                        {format(new Date(`1970-01-01T${event.endTime}`), 'h:mm a')}
+                        {format(
+                          new Date(`1970-01-01T${event.startTime}`),
+                          "h:mm a",
+                        )}{" "}
+                        -{" "}
+                        {format(
+                          new Date(`1970-01-01T${event.endTime}`),
+                          "h:mm a",
+                        )}
                       </div>
                       {event.description && (
                         <p className="text-sm">{event.description}</p>

@@ -45,10 +45,15 @@ const daysOfWeek = [
   "Saturday",
 ];
 
-export function EventForm({ onSubmit, isSubmitting, defaultValues }: EventFormProps) {
+export function EventForm({
+  onSubmit,
+  isSubmitting,
+  defaultValues,
+}: EventFormProps) {
   const form = useForm<EventFormValues>({
     resolver: zodResolver(eventFormSchema),
     defaultValues: {
+      dayOfWeek: defaultValues?.dayOfWeek ?? 0, // Ensure default is 0 (Sunday)
       isRecurring: true,
       ...defaultValues,
     },
@@ -59,25 +64,24 @@ export function EventForm({ onSubmit, isSubmitting, defaultValues }: EventFormPr
     const formData = { ...data };
 
     // Log the exact dates as they are in the form
-    console.log('Form date values before submission:', {
+    console.log("Form date values before submission:", {
       startDate: formData.startDate,
       endDate: formData.endDate,
       startTime: formData.startTime,
       endTime: formData.endTime,
-      isRecurring: formData.isRecurring
+      isRecurring: formData.isRecurring,
     });
 
     // For non-recurring events, ensure dates are preserved exactly as entered
     if (!formData.isRecurring) {
       // Make sure we're working with the raw string values from the date inputs
       // to avoid any automatic timezone conversions
-      console.log('Non-recurring event - preserving exact date strings');
+      console.log("Non-recurring event - preserving exact date strings");
     }
 
     // Submit the data without any date manipulation
     onSubmit(formData);
   };
-
 
   return (
     <Form {...form}>
@@ -190,16 +194,19 @@ export function EventForm({ onSubmit, isSubmitting, defaultValues }: EventFormPr
                 <FormItem>
                   <FormLabel>Start Date</FormLabel>
                   <FormControl>
-                    <Input 
-                      type="date" 
-                      {...field} 
-                      value={field.value || ''}
+                    <Input
+                      type="date"
+                      {...field}
+                      value={field.value || ""}
                       onChange={(e) => {
                         // Store the raw date string from the input without any manipulation
                         const rawDateString = e.target.value;
                         field.onChange(rawDateString);
-                        console.log('Start date selected (raw value):', rawDateString);
-                      }} 
+                        console.log(
+                          "Start date selected (raw value):",
+                          rawDateString,
+                        );
+                      }}
                     />
                   </FormControl>
                   <FormMessage />
@@ -214,16 +221,19 @@ export function EventForm({ onSubmit, isSubmitting, defaultValues }: EventFormPr
                 <FormItem>
                   <FormLabel>End Date</FormLabel>
                   <FormControl>
-                    <Input 
-                      type="date" 
-                      {...field} 
-                      value={field.value || ''}
+                    <Input
+                      type="date"
+                      {...field}
+                      value={field.value || ""}
                       onChange={(e) => {
                         // Store the raw date string from the input without any manipulation
                         const rawDateString = e.target.value;
                         field.onChange(rawDateString);
-                        console.log('End date selected (raw value):', rawDateString);
-                      }} 
+                        console.log(
+                          "End date selected (raw value):",
+                          rawDateString,
+                        );
+                      }}
                     />
                   </FormControl>
                   <FormMessage />
@@ -233,7 +243,12 @@ export function EventForm({ onSubmit, isSubmitting, defaultValues }: EventFormPr
           </div>
         )}
 
-        <Button type="submit" disabled={isSubmitting} className="w-full" onClick={form.handleSubmit(handleSubmit)}>
+        <Button
+          type="submit"
+          disabled={isSubmitting}
+          className="w-full"
+          onClick={form.handleSubmit(handleSubmit)}
+        >
           {isSubmitting ? (
             <>
               <Loader2 className="mr-2 h-4 w-4 animate-spin" />
