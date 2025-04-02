@@ -14,18 +14,24 @@ import {
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Checkbox } from "@/components/ui/checkbox";
+import { useEffect } from "react";
 
-const eventFormSchema = z.object({
-  title: z.string().min(1, "Title is required"),
-  description: z.string().optional(),
-  dayOfWeek: z.number().min(0).max(6),
-  startTime: z.string(),
-  endTime: z.string(),
-  isRecurring: z.boolean().default(true),
-  // For non-recurring events, we need the exact date strings
-  startDate: z.string().optional(),
-  endDate: z.string().optional(),
-});
+const eventFormSchema = z
+  .object({
+    title: z.string().min(1, "Title is required"),
+    description: z.string().optional(),
+    dayOfWeek: z.number().min(0).max(6),
+    startTime: z.string(),
+    endTime: z.string(),
+    isRecurring: z.boolean().default(true),
+    startDate: z.string().nullable().optional(), // Allow null if needed
+    endDate: z.string().nullable().optional(),
+  })
+  .refine((data) => data.isRecurring || (data.startDate && data.endDate), {
+    message:
+      "Start Date and End Date are required when the event is not recurring.",
+    path: ["startDate"], // Attach the error to startDate (or use `["endDate"]` for endDate)
+  });
 
 export type EventFormValues = z.infer<typeof eventFormSchema>;
 
@@ -54,10 +60,14 @@ export function EventForm({
     resolver: zodResolver(eventFormSchema),
     defaultValues: {
       dayOfWeek: defaultValues?.dayOfWeek ?? 0, // Ensure default is 0 (Sunday)
-      isRecurring: true,
+      isRecurring: defaultValues?.isRecurring ?? true,
       ...defaultValues,
     },
   });
+
+  useEffect(() => {
+    console.log("Form error: ", form.formState.errors);
+  }, [form.formState.errors]);
 
   const handleSubmit = (data: EventFormValues) => {
     // Create a fixed copy of the data to prevent unexpected mutations
