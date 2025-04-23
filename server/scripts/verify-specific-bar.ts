@@ -26,3 +26,12 @@ async function verifyBars() {
 }
 
 verifyBars();
+import { verifyKavaBarType } from "../services/bar-verification";
+
+// Verify Chiyo's House Tea & Kava
+async function verifyChiyos() {
+  const result = await verifyKavaBarType("FW45+F6");
+  console.log("Verification result:", result);
+}
+
+verifyChiyos();
