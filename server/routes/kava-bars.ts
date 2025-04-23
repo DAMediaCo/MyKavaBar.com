@@ -418,6 +418,20 @@ app.post("/api/kava-bars", async (req, res) => {
       businessStatus: "OPERATIONAL",
       dataCompletenessScore: 0.5,
       isVerifiedKavaBar: false,
+      hours: {
+        weekday_text: [
+          "Monday: 12:00 PM – 1:00 AM",
+          "Tuesday: 12:00 PM – 1:00 AM",
+          "Wednesday: 12:00 PM – 1:00 AM",
+          "Thursday: 12:00 PM – 1:00 AM",
+          "Friday: 12:00 PM – 1:00 AM",
+          "Saturday: 12:00 PM – 1:00 AM",
+          "Sunday: 12:00 PM – 1:00 AM"
+        ],
+        hours_available: true,
+        open_now: true,
+        periods: []
+      },
       createdAt: new Date(),
       updatedAt: new Date()
     };
