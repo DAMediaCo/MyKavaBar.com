@@ -2,7 +2,6 @@ import { useState, useEffect, useRef } from 'react';
 import { MapContainer, TileLayer, Marker, Popup, useMap } from 'react-leaflet';
 import type { KavaBar } from '@/hooks/use-kava-bars';
 import { Loader2 } from 'lucide-react';
-import 'leaflet/dist/leaflet.css';
 import './map-styles.css';
 import L from 'leaflet';
 

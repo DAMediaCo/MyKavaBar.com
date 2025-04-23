@@ -192,6 +192,7 @@ export default function BarDetails() {
             <FavoriteBarDesktop barId={Number(id)} />
           </h1>
           {user &&
+            bar.isBarStaff &&
             (user.role === "kavatender" ||
               user.role === "admin" ||
               user.role === "bar_owner") && (

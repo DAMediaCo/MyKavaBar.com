@@ -714,6 +714,7 @@ export function registerRoutes(app: Express, server: Server): void {
 
   // Update the bar details endpoint to properly format hours and provide fallbacks
   app.get("/api/kava-bars/:id", async (req, res) => {
+    const { id } = req.params;
     try {
       console.log("Bar details request:", {
         barId: req.params.id,
@@ -925,7 +926,22 @@ export function registerRoutes(app: Express, server: Server): void {
           console.error("Error parsing location:", error);
           parsedLocation = null;
         }
+        let isBarStaff = false;
+        if (req.user && req.user.id) {
+          const result = await db
+            .select()
+            .from(barStaff)
+            .where(
+              and(
+                eq(barStaff.userId, req.user.id),
+                eq(barStaff.barId, Number(id)),
+              ),
+            );
 
+          if (result.length > 0) {
+            isBarStaff = true;
+          }
+        }
         const fullBarData = {
           ...publicBarData,
           ownerId: bar.owner_id,
@@ -937,11 +953,12 @@ export function registerRoutes(app: Express, server: Server): void {
           dataCompletenessScore: bar.data_completeness_score,
           googlePlaceId: bar.google_place_id,
           isVerifiedKavaBar: bar.is_verified_kava_bar,
+          isBarStaff,
           verificationNotes: req.user?.isAdmin
             ? bar.verification_notes
             : undefined,
         };
-
+        console.log("Full bar data: ", fullBarData);
         console.log("Sending bar details response:", {
           id: fullBarData.id,
           name: fullBarData.name,
@@ -2484,7 +2501,7 @@ export function registerRoutes(app: Express, server: Server): void {
         return res.status(404).json({ error: "Kava bar not found" });
       }
 
-      if (bar.ownerId !== userId) {
+      if (bar.ownerId !== userId && !req.user.isAdmin) {
         console.log("User is not the owner of the kava bar");
         return res.status(403).json({
           error: "You are not authorized to view this bar's kavatenders",
@@ -2540,7 +2557,7 @@ export function registerRoutes(app: Express, server: Server): void {
         return res.status(404).json({ error: "Kava bar not found" });
       }
 
-      if (bar.ownerId !== ownerId) {
+      if (bar.ownerId !== ownerId && !req.user.isAdmin) {
         return res.status(403).json({
           error: "You are not authorized to remove kavatenders from this bar",
         });
@@ -2586,19 +2603,6 @@ export function registerRoutes(app: Express, server: Server): void {
           .status(401)
           .json({ error: "Authentication required. Please log in." });
       }
-
-      if (!req.session?.passport?.user) {
-        console.log("Session invalid:", req.session);
-        return res
-          .status(401)
-          .json({ error: "Invalid session. Please log in again." });
-      }
-
-      if (!req.user) {
-        console.log("Authentication failed - no user object");
-        return res.status(401).json({ error: "User session invalid" });
-      }
-
       const { phoneNumber, barId } = req.body;
 
       if (!phoneNumber || !barId) {
@@ -2619,15 +2623,10 @@ export function registerRoutes(app: Express, server: Server): void {
       const [bar] = await db
         .select()
         .from(kavaBars)
-        .where(
-          and(
-            eq(kavaBars.id, Number(barId)),
-            eq(kavaBars.ownerId, req.user.id),
-          ),
-        )
+        .where(and(eq(kavaBars.id, Number(barId))))
         .limit(1);
-
-      if (!bar) {
+      console.log("Bar found:", bar);
+      if (bar.ownerId !== req.user.id && !req.user.isAdmin) {
         return res
           .status(403)
           .json({ error: "Not authorized to verify kavatenders for this bar" });
@@ -3053,22 +3052,55 @@ export function registerRoutes(app: Express, server: Server): void {
     try {
       const barId = Number(req.params.id);
       const now = new Date();
-      console.log(`Bar Id : ${barId}`);
-      console.log(`Now time: ${now}`);
-      // Step 1: Get all bar staff for the given bar with proper field selection
+
+      // Step 1: Get all bar staff for the given bar
       const staff = await db
         .select()
         .from(barStaff)
         .where(eq(barStaff.barId, barId));
 
-      if (!staff.length) {
-        console.log("No staff found");
+      const staffIds = staff.map((s) => s.id);
+      console.log("Bar staff ", staffIds);
+      // Step 2: Check if bar owner exists
+      const [bar] = await db
+        .select()
+        .from(kavaBars)
+        .where(eq(kavaBars.id, barId));
+
+      let barOwnerStaffId: number | null = null;
+      console.log("Bar ", bar);
+      if (bar && bar.ownerId) {
+        // Try to find if the owner is in barStaff (maybe already checked in before)
+        let [ownerStaff] = await db
+          .select()
+          .from(barStaff)
+          .where(
+            and(eq(barStaff.barId, barId), eq(barStaff.userId, bar.ownerId)),
+          );
+
+        console.log("Owner staff ", ownerStaff);
+
+        if (ownerStaff) {
+          barOwnerStaffId = ownerStaff.id;
+          staffIds.push(ownerStaff.id); // ensure owner is included
+        } else if (req.user && req.user.id === bar.ownerId) {
+          [ownerStaff] = await db
+            .insert(barStaff)
+            .values({
+              barId,
+              userId: bar.ownerId,
+              position: "bar_owner", // or whatever field makes sense
+            })
+            .returning();
+        }
+        console.log("New staff ids ", staffIds);
+      }
+
+      if (!staffIds.length) {
         return res.json([]); // Return empty array if no staff found
       }
 
-      const staffIds = staff.map((s) => s.id);
-
-      // Step 2: Get active check-ins where current time is between start and end time
+      // Step 3: Get active check-ins for any valid staff ID
       const activeCheckIns = await db
         .select()
         .from(checkIns)
@@ -3079,14 +3111,14 @@ export function registerRoutes(app: Express, server: Server): void {
             gt(checkIns.endTime, now),
           ),
         );
-      console.log(`activeCheckIns: `, activeCheckIns);
+      console.log("Active checkins ", activeCheckIns);
       if (!activeCheckIns.length) {
         return res.json([]); // No active check-ins
       }
 
       const activeStaffIds = activeCheckIns.map((c) => c.barStaffId);
 
-      // Step 3: Fetch user details using a JOIN
+      // Step 4: Fetch user details using a JOIN
       const activeUsers = await db
         .select({
           firstName: users.firstName,
@@ -3096,7 +3128,7 @@ export function registerRoutes(app: Express, server: Server): void {
         .from(users)
         .innerJoin(barStaff, eq(users.id, barStaff.userId))
         .where(inArray(barStaff.id, activeStaffIds));
-      console.log("Active users:", activeUsers);
+      console.log("Active users ", activeUsers);
       res.json(activeUsers);
     } catch (error: any) {
       console.error("Error fetching check-ins:", error);
@@ -3108,12 +3140,15 @@ export function registerRoutes(app: Express, server: Server): void {
     if (!req.isAuthenticated()) {
       return res.status(401).json({ error: "Not authenticated" });
     }
+    const { id } = req.params;
     try {
       // Find the barstaff id
       const [barStaffUser] = await db
         .select()
         .from(barStaff)
-        .where(eq(barStaff.userId, req.user.id));
+        .where(
+          and(eq(barStaff.userId, req.user.id), eq(barStaff.barId, Number(id))),
+        );
       if (!barStaffUser) {
         return res.status(404).json({ error: "Bar staff not found" });
       }
@@ -3123,7 +3158,7 @@ export function registerRoutes(app: Express, server: Server): void {
         .where(eq(checkIns.barStaffId, barStaffUser.id))
         .orderBy(desc(checkIns.createdAt))
         .limit(1);
-
+      console.log("Check in ", checkIn);
       if (!checkIn) {
         return res.status(404).json({ error: "Check in not found" });
       }
@@ -3138,6 +3173,7 @@ export function registerRoutes(app: Express, server: Server): void {
         isActive,
         endTime: endTimeUTC.toISOString(),
       };
+      console.log("Check in data ", checkInData);
       res.json(checkInData);
     } catch (error: any) {
       console.error("Error checking in:", error);

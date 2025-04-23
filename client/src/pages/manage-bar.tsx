@@ -5,7 +5,7 @@ import KavatendersTable from "@/components/kavatenders-table";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Edit, Loader2, Plus, Trash2 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
-import { useForm } from "react-hook-form";
+import { useForm, useWatch } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
 import {
@@ -21,6 +21,13 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Separator } from "@/components/ui/separator";
 import { EventForm, type EventFormValues } from "@/components/event-form";
 import {
+  Select,
+  SelectTrigger,
+  SelectValue,
+  SelectContent,
+  SelectItem,
+} from "@/components/ui/select";
+import {
   Dialog,
   DialogContent,
   DialogHeader,
@@ -31,13 +38,13 @@ import { useState } from "react";
 import { Label } from "@/components/ui/label";
 
 const daysOfWeek = [
-  "Sunday",
   "Monday",
   "Tuesday",
   "Wednesday",
   "Thursday",
   "Friday",
   "Saturday",
+  "Sunday",
 ] as const;
 
 const hoursFormSchema = z.object({
@@ -51,6 +58,30 @@ const hoursFormSchema = z.object({
 });
 
 type HoursFormValues = z.infer<typeof hoursFormSchema>;
+
+// Function to convert 24-hour time to 12-hour format with AM/PM
+const to12HourFormat = (time: string | undefined) => {
+  if (!time) {
+    return { hour: "", minute: "", period: "" }; // Return empty values if time is undefined
+  }
+
+  const [hour, minute] = time.split(":").map(Number);
+  const period = hour >= 12 ? "PM" : "AM";
+  const adjustedHour = hour % 12 || 12; // Convert 0 to 12 for midnight
+  return {
+    hour: adjustedHour.toString().padStart(2, "0"),
+    minute: minute.toString().padStart(2, "0"),
+    period,
+  };
+};
+
+// Function to convert 12-hour time back to 24-hour format
+const to24HourFormat = (hour: string, minute: string, period: string) => {
+  let adjustedHour = parseInt(hour, 10);
+  if (period === "PM" && adjustedHour !== 12) adjustedHour += 12;
+  if (period === "AM" && adjustedHour === 12) adjustedHour = 0;
+  return `${adjustedHour.toString().padStart(2, "0")}:${minute}`;
+};
 
 export default function ManageBar() {
   const { id } = useParams<{ id: string }>();
@@ -81,6 +112,13 @@ export default function ManageBar() {
       })),
     },
   });
+
+  // Use the watch function to monitor changes
+  const watchedHours = useWatch({
+    control: form.control,
+    name: "hours",
+  });
+
   // Update the error handling in the fetch query
   const {
     data: bar,
@@ -126,6 +164,15 @@ export default function ManageBar() {
               return null;
             }
             console.log(`Day: ${day}, Time: ${timeRange}`);
+
+            // Check if the bar is closed
+            if (timeRange.toLowerCase() === "closed") {
+              return {
+                day,
+                open: "",
+                close: "",
+              };
+            }
 
             // Normalize different dash types and remove potential hidden characters
             const cleanTimeRange = timeRange
@@ -625,50 +672,180 @@ export default function ManageBar() {
                   onSubmit={form.handleSubmit(onSubmit)}
                   className="space-y-6"
                 >
-                  {daysOfWeek.map((day, index) => (
-                    <div key={day}>
-                      <div className="flex items-center gap-4">
-                        <p className="w-24 font-medium">{day}</p>
-                        <FormField
-                          control={form.control}
-                          name={`hours.${index}.open`}
-                          render={({ field }) => (
-                            <FormItem>
-                              <FormLabel>Open</FormLabel>
-                              <FormControl>
-                                <Input
-                                  type="time"
-                                  {...field}
-                                  className="w-32"
-                                />
-                              </FormControl>
-                              <FormMessage />
-                            </FormItem>
-                          )}
-                        />
-                        <FormField
-                          control={form.control}
-                          name={`hours.${index}.close`}
-                          render={({ field }) => (
-                            <FormItem>
-                              <FormLabel>Close</FormLabel>
-                              <FormControl>
-                                <Input
-                                  type="time"
-                                  {...field}
-                                  className="w-32"
-                                />
-                              </FormControl>
-                              <FormMessage />
-                            </FormItem>
-                          )}
-                        />
+                  {daysOfWeek.map((day, index) => {
+                    const openTime = to12HourFormat(watchedHours[index]?.open);
+                    const closeTime = to12HourFormat(
+                      watchedHours[index]?.close,
+                    );
+
+                    return (
+                      <div key={day}>
+                        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-start gap-6 sm:gap-4 flex-wrap">
+                          <p className="w-full sm:w-24 font-medium text-center sm:text-left">
+                            {day}
+                          </p>
+
+                          {/* Open Field */}
+                          <FormField
+                            control={form.control}
+                            name={`hours.${index}.open`}
+                            render={({ field }) => (
+                              <FormItem className="flex flex-col items-center sm:items-start justify-center gap-1 min-w-[220px]">
+                                <FormLabel className="text-sm font-semibold">
+                                  Open
+                                </FormLabel>
+                                <FormControl>
+                                  <div className="flex items-center justify-center gap-2">
+                                    <Input
+                                      type="number"
+                                      min="1"
+                                      max="12"
+                                      value={openTime.hour}
+                                      onChange={(e) => {
+                                        const newHour = e.target.value.padStart(
+                                          2,
+                                          "0",
+                                        );
+                                        field.onChange(
+                                          to24HourFormat(
+                                            newHour,
+                                            openTime.minute,
+                                            openTime.period,
+                                          ),
+                                        );
+                                      }}
+                                      className="w-16 text-center"
+                                    />
+                                    <span>:</span>
+                                    <Input
+                                      type="number"
+                                      min="0"
+                                      max="59"
+                                      value={openTime.minute}
+                                      onChange={(e) => {
+                                        const newMinute =
+                                          e.target.value.padStart(2, "0");
+                                        field.onChange(
+                                          to24HourFormat(
+                                            openTime.hour,
+                                            newMinute,
+                                            openTime.period,
+                                          ),
+                                        );
+                                      }}
+                                      className="w-16 text-center"
+                                    />
+                                    <Select
+                                      value={openTime.period}
+                                      onValueChange={(value) => {
+                                        field.onChange(
+                                          to24HourFormat(
+                                            openTime.hour,
+                                            openTime.minute,
+                                            value,
+                                          ),
+                                        );
+                                      }}
+                                    >
+                                      <SelectTrigger className="w-[90px]">
+                                        <SelectValue placeholder="AM/PM" />
+                                      </SelectTrigger>
+                                      <SelectContent>
+                                        <SelectItem value="AM">AM</SelectItem>
+                                        <SelectItem value="PM">PM</SelectItem>
+                                      </SelectContent>
+                                    </Select>
+                                  </div>
+                                </FormControl>
+                                <FormMessage />
+                              </FormItem>
+                            )}
+                          />
+
+                          {/* Close Field */}
+                          <FormField
+                            control={form.control}
+                            name={`hours.${index}.close`}
+                            render={({ field }) => (
+                              <FormItem className="flex flex-col items-center sm:items-start justify-center gap-1 min-w-[220px]">
+                                <FormLabel className="text-sm font-semibold">
+                                  Close
+                                </FormLabel>
+                                <FormControl>
+                                  <div className="flex items-center justify-center gap-2">
+                                    <Input
+                                      type="number"
+                                      min="1"
+                                      max="12"
+                                      value={closeTime.hour}
+                                      onChange={(e) => {
+                                        const newHour = e.target.value.padStart(
+                                          2,
+                                          "0",
+                                        );
+                                        field.onChange(
+                                          to24HourFormat(
+                                            newHour,
+                                            closeTime.minute,
+                                            closeTime.period,
+                                          ),
+                                        );
+                                      }}
+                                      className="w-16 text-center"
+                                    />
+                                    <span>:</span>
+                                    <Input
+                                      type="number"
+                                      min="0"
+                                      max="59"
+                                      value={closeTime.minute}
+                                      onChange={(e) => {
+                                        const newMinute =
+                                          e.target.value.padStart(2, "0");
+                                        field.onChange(
+                                          to24HourFormat(
+                                            closeTime.hour,
+                                            newMinute,
+                                            closeTime.period,
+                                          ),
+                                        );
+                                      }}
+                                      className="w-16 text-center"
+                                    />
+                                    <Select
+                                      value={closeTime.period}
+                                      onValueChange={(value) => {
+                                        field.onChange(
+                                          to24HourFormat(
+                                            closeTime.hour,
+                                            closeTime.minute,
+                                            value,
+                                          ),
+                                        );
+                                      }}
+                                    >
+                                      <SelectTrigger className="w-[90px]">
+                                        <SelectValue placeholder="AM/PM" />
+                                      </SelectTrigger>
+                                      <SelectContent>
+                                        <SelectItem value="AM">AM</SelectItem>
+                                        <SelectItem value="PM">PM</SelectItem>
+                                      </SelectContent>
+                                    </Select>
+                                  </div>
+                                </FormControl>
+                                <FormMessage />
+                              </FormItem>
+                            )}
+                          />
+                        </div>
+
+                        {index < daysOfWeek.length - 1 && (
+                          <Separator className="my-4" />
+                        )}
                       </div>
-                      {index < daysOfWeek.length - 1 && (
-                        <Separator className="my-4" />
-                      )}
-                    </div>
-                  ))}
+                    );
+                  })}
                   <Button
                     type="submit"
                     disabled={updateHoursMutation.isPending}
