@@ -400,3 +400,32 @@ export async function getKavaBars(req: Request, res: Response) {
     return res.json(fallbackParsedBars);
   }
 }
+
+// Add new kava bar
+app.post("/api/kava-bars", async (req, res) => {
+  try {
+    const bar = {
+      name: "Chiyo's House Tea & Kava",
+      address: "1878 Dr. Andres Way Suite 56, Delray Beach, FL 33445",
+      phone: "561-908-2522",
+      placeId: "FW45+F6",
+      rating: 5.0,
+      location: JSON.stringify({
+        lat: 26.4562,
+        lng: -80.0919
+      }),
+      verificationStatus: "pending",
+      businessStatus: "OPERATIONAL",
+      dataCompletenessScore: 0.5,
+      isVerifiedKavaBar: false,
+      createdAt: new Date(),
+      updatedAt: new Date()
+    };
+
+    const result = await db.insert(kavaBars).values(bar).returning();
+    res.status(201).json(result[0]);
+  } catch (error) {
+    console.error("Error adding kava bar:", error);
+    res.status(500).json({ error: error.message });
+  }
+});
