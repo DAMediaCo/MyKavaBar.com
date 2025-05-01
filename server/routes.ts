@@ -3051,8 +3051,8 @@ export function registerRoutes(app: Express, server: Server): void {
   app.get("/api/bars/:id/check-ins", async (req, res) => {
     try {
       const barId = Number(req.params.id);
-      const now = new Date();
-
+      const currentTime = new Date();
+      const now = moment.tz(currentTime, "America/New_York").utc().toDate();
       // Step 1: Get all bar staff for the given bar
       const staff = await db
         .select()

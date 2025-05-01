@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { useUser } from "@/hooks/use-user";
 import { useToast } from "@/hooks/use-toast";
+import { FaRegSave } from "react-icons/fa";
 import {
   Card,
   CardContent,
@@ -288,7 +289,7 @@ export default function ManageBars() {
   });
   return (
     <div className="container mx-auto px-4 py-8">
-      <div className="flex justify-between items-center mb-6">
+      <div className="flex justify-between flex-col md:flex-row  items-center mb-6">
         <div className="flex items-center gap-4">
           <h1 className="text-3xl font-bold">Manage Kava Bars</h1>
           <select
@@ -321,6 +322,7 @@ export default function ManageBars() {
               onChange={(e) => setLongitude(e.target.value)}
               className="w-32"
             />
+
             <Button
               variant="outline"
               className="gap-2"
@@ -387,6 +389,26 @@ export default function ManageBars() {
                         <FormLabel>Phone</FormLabel>
                         <FormControl>
                           <Input {...field} />
+                        </FormControl>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+                  <FormField
+                    control={form.control}
+                    name="rating"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>Rating</FormLabel>
+                        <FormControl>
+                          <Input
+                            {...field}
+                            type="number"
+                            step="0.1"
+                            min="0"
+                            max="5"
+                            placeholder="e.g. 4.5"
+                          />
                         </FormControl>
                         <FormMessage />
                       </FormItem>
@@ -697,8 +719,8 @@ export default function ManageBars() {
       <div className="grid gap-4">
         {filteredBars.map((bar: KavaBar) => (
           <Card key={bar.id}>
-            <CardContent className="flex items-center justify-between p-6">
-              <div>
+            <CardContent className="flex flex-col sm:flex-row sm:items-center sm:justify-between p-4 sm:p-6 gap-4 sm:gap-0">
+              <div className="flex-1">
                 <h3 className="font-semibold">{bar.name}</h3>
                 <p className="text-sm text-muted-foreground">{bar.address}</p>
                 {bar.phone && (
@@ -711,13 +733,15 @@ export default function ManageBars() {
                   </p>
                 )}
               </div>
-              <div className="flex flex-col gap-2">
-                <div className="flex gap-2">
+
+              <div className="flex flex-col sm:items-end gap-2 w-full sm:w-auto">
+                <div className="flex gap-2 justify-start sm:justify-end">
                   <Button
                     variant="outline"
                     size="icon"
                     onClick={() => handleEdit(bar)}
                     title="Edit bar"
+                    className="h-8 w-8"
                   >
                     <Pencil className="h-4 w-4" />
                   </Button>
@@ -726,30 +750,32 @@ export default function ManageBars() {
                     size="icon"
                     onClick={() => handleDelete(bar.id)}
                     title="Delete bar"
+                    className="h-8 w-8"
                   >
                     <Trash className="h-4 w-4" />
                   </Button>
                 </div>
 
-                <div className="flex items-center gap-1 mt-1">
+                <div className="flex flex-wrap items-center gap-2">
                   <Input
                     type="text"
                     placeholder="Lat"
-                    className="w-24 h-7 text-xs"
+                    className="w-24 h-8 text-xs"
                     id={`lat-${bar.id}`}
                     defaultValue={bar.location?.lat.toString() || ""}
                   />
                   <Input
                     type="text"
                     placeholder="Lng"
-                    className="w-24 h-7 text-xs"
+                    className="w-24 h-8 text-xs"
                     id={`lng-${bar.id}`}
                     defaultValue={bar.location?.lng.toString() || ""}
                   />
+
                   <Button
                     variant="outline"
                     size="icon"
-                    className="h-7 w-7"
+                    className="h-8 w-8"
                     title="Update coordinates"
                     onClick={() => {
                       const latInput = document.getElementById(
@@ -764,11 +790,9 @@ export default function ManageBars() {
                         const lng = parseFloat(lngInput.value);
 
                         if (!isNaN(lat) && !isNaN(lng)) {
-                          // Set the latitude and longitude fields
                           setLatitude(lat.toString());
                           setLongitude(lng.toString());
 
-                          // Update with the specific bar ID
                           updateGoogleMapsMutation.mutate();
                         } else {
                           toast({
@@ -781,7 +805,7 @@ export default function ManageBars() {
                       }
                     }}
                   >
-                    <MapPin className="h-3 w-3" />
+                    <MapPin className="h-4 w-4" />
                   </Button>
                 </div>
               </div>
