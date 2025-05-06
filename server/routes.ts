@@ -4354,6 +4354,42 @@ export function registerRoutes(app: Express, server: Server): void {
       res.status(500).json({ error: error.message });
     }
   });
+
+  app.put("/api/admin/update-coords/:id", async (req, res) => {
+    try {
+      if (!req.isAuthenticated() || !req.user.isAdmin) {
+        return res.status(403).json({ error: "Admin access required" });
+      }
+      console.log("\n\nRequest received\n\n");
+      const { id } = req.params;
+      console.log("Body : ", req.body);
+      const { lat, lng } = req.body;
+
+      const latNum = parseFloat(lat);
+      const lngNum = parseFloat(lng);
+
+      if (isNaN(latNum) || isNaN(lngNum)) {
+        return res.status(400).json({ error: "Invalid coordinates" });
+      }
+
+      await db
+        .update(kavaBars)
+        .set({
+          location: { lat: latNum, lng: lngNum },
+        })
+        .where(eq(kavaBars.id, parseInt(id)));
+
+      res.status(200).json({ success: true, lat: latNum, lng: lngNum });
+    } catch (error: any) {
+      console.error("BAR COORD UPDATE ERROR", error.message);
+      res.status(500).json({
+        error: "Failed to update coordinates",
+        details:
+          process.env.NODE_ENV === "development" ? error.message : undefined,
+      });
+    }
+  });
+
   app.post("/api/admin/verification-requests/:id/deny", async (req, res) => {
     if (!req.isAuthenticated() || !req.user.isAdmin) {
       return res.status(403).json({ error: "Admin access required" });

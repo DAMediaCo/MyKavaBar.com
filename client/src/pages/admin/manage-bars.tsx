@@ -55,8 +55,14 @@ const barFormSchema = z.object({
   rating: z.string().optional(),
   location: z
     .object({
-      lat: z.number(),
-      lng: z.number(),
+      lat: z.coerce
+        .number()
+        .min(-90)
+        .max(90, "Latitude must be between -90 and 90"),
+      lng: z.coerce
+        .number()
+        .min(-180)
+        .max(180, "Longitude must be between -180 and 180"),
     })
     .optional(),
 });
@@ -71,7 +77,7 @@ export default function ManageBars() {
   const [isAddDialogOpen, setIsAddDialogOpen] = useState(false);
   const [isEditDialogOpen, setIsEditDialogOpen] = useState(false);
   const [sortBy, setSortBy] = useState<"name" | "state" | "city">("name");
-
+  const [barId, setBarId] = useState<number | null>(null);
   const form = useForm<BarFormValues>({
     resolver: zodResolver(barFormSchema),
     defaultValues: {
@@ -135,6 +141,43 @@ export default function ManageBars() {
         variant: "destructive",
         title: "Error",
         description: error.message || "Failed to update Google Maps data",
+      });
+    },
+  });
+
+  const updateCoordsMutation = useMutation({
+    mutationFn: async () => {
+      if (!barId) return;
+      if (barId && isNaN(barId)) return;
+      // Parse to numbers or use null if invalid
+      const lat = latitude ? parseFloat(latitude) : null;
+      const lng = longitude ? parseFloat(longitude) : null;
+      const response = await fetch(`/api/admin/update-coords/${barId}`, {
+        method: "PUT",
+        credentials: "include",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          lat,
+          lng,
+        }),
+      });
+      if (!response.ok) throw new Error(await response.text());
+      return response.json();
+    },
+    onSuccess: (data) => {
+      toast({
+        title: "Success",
+        description: "Bar coordinates updated successfully",
+      });
+      // Reset input fields after successful update
+      setLatitude("");
+      setLongitude("");
+    },
+    onError: (error: Error) => {
+      toast({
+        variant: "destructive",
+        title: "Error",
+        description: error.message || "Failed to update coordinates",
       });
     },
   });
@@ -305,9 +348,9 @@ export default function ManageBars() {
           </select>
         </div>
 
-        <div className="flex items-center gap-2">
+        <div className="flex items-center flex-col md:flex-row gap-2">
           {/* Google Maps Update Section with Latitude and Longitude inputs */}
-          <div className="flex items-center gap-2">
+          <div className="flex items-center flex-col md:flex-row gap-2">
             <Input
               type="text"
               placeholder="Latitude"
@@ -414,6 +457,45 @@ export default function ManageBars() {
                       </FormItem>
                     )}
                   />
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-2">
+                    <FormField
+                      control={form.control}
+                      name="location.lat"
+                      render={({ field }) => (
+                        <FormItem>
+                          <FormLabel>Latitude</FormLabel>
+                          <FormControl>
+                            <Input
+                              {...field}
+                              placeholder="e.g. 27.4177272"
+                              type="number"
+                              step="0.000001"
+                            />
+                          </FormControl>
+                          <FormMessage />
+                        </FormItem>
+                      )}
+                    />
+                    <FormField
+                      control={form.control}
+                      name="location.lng"
+                      render={({ field }) => (
+                        <FormItem>
+                          <FormLabel>Longitude</FormLabel>
+                          <FormControl>
+                            <Input
+                              {...field}
+                              placeholder="e.g. -82.5511247"
+                              type="number"
+                              step="0.000001"
+                            />
+                          </FormControl>
+                          <FormMessage />
+                        </FormItem>
+                      )}
+                    />
+                  </div>
+
                   <Button type="submit" className="w-full">
                     {addBarMutation.isPending ? (
                       <Loader2 className="h-4 w-4 animate-spin" />
@@ -771,6 +853,41 @@ export default function ManageBars() {
                     id={`lng-${bar.id}`}
                     defaultValue={bar.location?.lng.toString() || ""}
                   />
+
+                  <Button
+                    variant="outline"
+                    size="icon"
+                    className="h-8 w-8"
+                    onClick={() => {
+                      const latInput = document.getElementById(
+                        `lat-${bar.id}`,
+                      ) as HTMLInputElement;
+                      const lngInput = document.getElementById(
+                        `lng-${bar.id}`,
+                      ) as HTMLInputElement;
+
+                      if (latInput && lngInput) {
+                        const lat = parseFloat(latInput.value);
+                        const lng = parseFloat(lngInput.value);
+
+                        if (!isNaN(lat) && !isNaN(lng)) {
+                          setLatitude(lat.toString());
+                          setLongitude(lng.toString());
+                          setBarId(bar.id);
+                          updateCoordsMutation.mutate();
+                        } else {
+                          toast({
+                            variant: "destructive",
+                            title: "Invalid coordinates",
+                            description:
+                              "Please enter valid latitude and longitude values",
+                          });
+                        }
+                      }
+                    }}
+                  >
+                    <FaRegSave className="h-4 w-4" />
+                  </Button>
 
                   <Button
                     variant="outline"
