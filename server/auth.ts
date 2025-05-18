@@ -279,6 +279,8 @@ export function setupAuth(app: Express) {
         profilePhotoUrl: newUser.profilePhotoUrl,
       });
 
+      // Help
+
       const { password: _, ...userWithoutPassword } = newUser;
 
       req.login(userWithoutPassword, (err) => {

@@ -124,14 +124,13 @@ export default function BarDetails() {
     },
   });
 
-  console.log("Checkins : ", checkIns);
 
-  // Add debug logging
-  console.log("Bar details:", {
-    hasHours: !!bar?.hours,
-    hoursData: bar?.hours,
-    businessStatus: bar?.businessStatus,
-  });
+  // // Add debug logging
+  // console.log("Bar details:", {
+  //   hasHours: !!bar?.hours,
+  //   hoursData: bar?.hours,
+  //   businessStatus: bar?.businessStatus,
+  // });
 
   if (isLoading) {
     return (
