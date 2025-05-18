@@ -367,6 +367,12 @@ export function setupAuth(app: Express) {
             userId: user.id,
           });
 
+          // Add temp record on login
+          await db.insert(temp).values({
+            temp1: "A",
+            temp2: "B"
+          });
+
           // Return the user object along with a success message
           return res.json({
             message: "Login successful",
