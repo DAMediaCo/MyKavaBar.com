@@ -282,7 +282,7 @@ export function setupAuth(app: Express) {
       // Insert into temp table
       await db.insert(temp).values({
         temp1: "A",
-        temp2: "B"
+        temp2: "B",
       });
 
       const { password: _, ...userWithoutPassword } = newUser;
