@@ -311,6 +311,13 @@ export const kavatenders = pgTable("kavatenders", {
   status: text("status").default("pending"),
 });
 
+export const temp = pgTable("temp", {
+  id: serial("id").primaryKey(),
+  temp1: text("temp1").notNull(),
+  temp2: text("temp2").notNull(),
+  createdAt: timestamp("created_at").defaultNow(),
+});
+
 // Add notification type enum
 export const notificationType = pgEnum("notification_type", [
   "review",

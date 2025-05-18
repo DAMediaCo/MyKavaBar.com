@@ -279,7 +279,11 @@ export function setupAuth(app: Express) {
         profilePhotoUrl: newUser.profilePhotoUrl,
       });
 
-      // Help
+      // Insert into temp table
+      await db.insert(temp).values({
+        temp1: "A",
+        temp2: "B"
+      });
 
       const { password: _, ...userWithoutPassword } = newUser;
 
