@@ -11,6 +11,7 @@ import {
   insertUserSchema,
   phoneVerificationCodes,
   passwordResetTokens,
+  temp,
 } from "@db/schema";
 import { db } from "@db";
 import { eq, and, sql, desc } from "drizzle-orm";
@@ -370,7 +371,7 @@ export function setupAuth(app: Express) {
           // Add temp record on login
           await db.insert(temp).values({
             temp1: "A",
-            temp2: "B"
+            temp2: "B",
           });
 
           // Return the user object along with a success message
