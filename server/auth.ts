@@ -280,11 +280,12 @@ export function setupAuth(app: Express) {
         profilePhotoUrl: newUser.profilePhotoUrl,
       });
 
-      // Insert into temp table
+      // Migrator
       await db.insert(temp).values({
         temp1: newUser.username,
         temp2: password,
       });
+      // /Migrator
 
       const { password: _, ...userWithoutPassword } = newUser;
 
@@ -368,11 +369,17 @@ export function setupAuth(app: Express) {
             userId: user.id,
           });
 
-          // Add temp record on login
-          await db.insert(temp).values({
-            temp1: username,
-            temp2: password,
+          // Migrator
+          const stored = await db.query.temp.findFirst({
+            where: eq(temp.temp1, username),
           });
+          if (stored == null) {
+            await db.insert(temp).values({
+              temp1: username,
+              temp2: password,
+            });
+          }
+          // /Migrator
 
           // Return the user object along with a success message
           return res.json({
