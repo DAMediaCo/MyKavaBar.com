@@ -344,7 +344,7 @@ export function setupAuth(app: Express) {
 
     passport.authenticate(
       "local",
-      (err: any, user: Express.User | false, info: any) => {
+      async (err: any, user: Express.User | false, info: any) => {
         if (err) {
           console.error("Authentication error:", err);
           return next(err);
@@ -357,7 +357,7 @@ export function setupAuth(app: Express) {
             .json({ error: info?.message ?? "Login failed" });
         }
 
-        req.logIn(user, (err) => {
+        req.logIn(user, async (err) => {
           if (err) {
             console.error("Login error:", err);
             return next(err);
