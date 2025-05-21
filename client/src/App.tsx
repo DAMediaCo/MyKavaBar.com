@@ -35,6 +35,7 @@ import Damiana from "@/pages/learn/damiana";
 import ManageBar from "./pages/manage-bar";
 import TermsOfService from "./pages/terms-of-service";
 import CookiePolicy from "./pages/cookie-policy";
+import Welcome from "./pages/welcome";
 
 interface ProtectedRouteProps {
   children: React.ReactNode;
@@ -78,6 +79,7 @@ function Router() {
           <Route path="/cookie-policy" component={CookiePolicy} />
           {/* Public routes */}
           <Route path="/" component={Home} />
+          <Route path="/welcome" component={Welcome} />
           <Route path="/kava-bars/:id" component={BarDetails} />
           <Route path="/auth" component={AuthPage} />
           <Route path="/forgot-password" component={ForgotPassword} />
