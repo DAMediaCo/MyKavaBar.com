@@ -1,0 +1,33 @@
+.slider-container {
+  margin: 0 -8px;
+}
+
+.slider-container .slick-dots li button:before {
+  font-size: 12px;
+}
+
+.slider-container .slick-prev, 
+.slider-container .slick-next {
+  z-index: 1;
+}
+
+.slider-container .slick-prev {
+  left: 10px;
+}
+
+.slider-container .slick-next {
+  right: 10px;
+}
+
+.slider-container .slick-slide {
+  padding: 0 8px;
+}
+
+.slider-container .slick-list {
+  margin: 0 -8px;
+}
+
+.slider-container .slick-track {
+  display: flex;
+  gap: 10px;
+}

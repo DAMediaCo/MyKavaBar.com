@@ -3,36 +3,9 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import Slider from "react-slick";
 import "slick-carousel/slick/slick.css";
 import "slick-carousel/slick/slick-theme.css";
+import "../styles/slider.css";
 
 export default function Welcome() {
-  // Slider settings for the first gallery
-  const firstGallerySettings = {
-    dots: true,
-    infinite: true,
-    speed: 500,
-    slidesToShow: 3,
-    slidesToScroll: 1,
-    autoplay: true,
-    autoplaySpeed: 3000,
-    responsive: [
-      {
-        breakpoint: 1024,
-        settings: {
-          slidesToShow: 2,
-          slidesToScroll: 1,
-        }
-      },
-      {
-        breakpoint: 640,
-        settings: {
-          slidesToShow: 1,
-          slidesToScroll: 1
-        }
-      }
-    ]
-  };
-
-  // Slider settings for the second gallery
   const secondGallerySettings = {
     dots: true,
     infinite: true,
@@ -46,27 +19,19 @@ export default function Welcome() {
         breakpoint: 768,
         settings: {
           slidesToShow: 1,
-          slidesToScroll: 1
-        }
-      }
-    ]
+          slidesToScroll: 1,
+        },
+      },
+    ],
   };
 
-  // Images for the first slider gallery
-  const firstGalleryImages = [
-    { src: "/images/zenc.jpg", alt: "Kava Experience 1" },
-    { src: "/images/tf.jpg", alt: "Kava Experience 2" },
-    { src: "/images/IMG_9330.jpg", alt: "Kava Experience 3" },
-    { src: "/images/IMG_9332.jpg", alt: "Kava Experience 4" }
-  ];
-
-  // Images for the second slider gallery
   const secondGalleryImages = [
     { src: "/images/chiyo.png", alt: "Kava Bar 1" },
     { src: "/images/islandvibes.png", alt: "Kava Bar 2" },
     { src: "/images/twinfalme.png", alt: "Kava Bar 3" },
     { src: "/images/kp.png", alt: "Kava Bar 4" },
-    { src: "/images/Untitled_design.png", alt: "Kava Bar 5" }
+    { src: "/images/Untitled_design.png", alt: "Kava Bar 5" },
+    { src: "/images/image.jpg", alt: "Kava Bar 6" },
   ];
 
   return (
@@ -130,20 +95,22 @@ export default function Welcome() {
         </div>
       </div>
 
-      {/* First Image Gallery - after about section */}
       <div className="py-8">
-        <h2 className="text-2xl font-bold mb-6 text-center">Experience the Kava Culture</h2>
+        <h2 className="text-2xl font-bold mb-6 text-center">
+          Partner Kava Bars Across South Florida
+        </h2>
         <div className="slider-container">
-          <Slider {...firstGallerySettings}>
-            {firstGalleryImages.map((image, index) => (
+          <Slider {...secondGallerySettings}>
+            {secondGalleryImages.map((image, index) => (
               <div key={index} className="px-2">
-                <div className="rounded-lg overflow-hidden shadow-md h-64">
-                  <img 
-                    src={image.src} 
-                    alt={image.alt} 
+                <div className="rounded-lg overflow-hidden shadow-md h-80">
+                  <img
+                    src={image.src}
+                    alt={image.alt}
                     className="w-full h-full object-cover"
                     onError={(e) => {
-                      e.currentTarget.src = "https://images.unsplash.com/photo-1534962409829-ada5163e4dae?q=80&w=800&auto=format&fit=crop";
+                      e.currentTarget.src =
+                        "https://images.unsplash.com/photo-1551632436-cbf8dd35adfa?q=80&w=800&auto=format&fit=crop";
                     }}
                   />
                 </div>
@@ -245,29 +212,6 @@ export default function Welcome() {
         </div>
       </div>
 
-      {/* Second Image Gallery - after roadmap section */}
-      <div className="py-8">
-        <h2 className="text-2xl font-bold mb-6 text-center">Discover Kava Bars Across the Country</h2>
-        <div className="slider-container">
-          <Slider {...secondGallerySettings}>
-            {secondGalleryImages.map((image, index) => (
-              <div key={index} className="px-2">
-                <div className="rounded-lg overflow-hidden shadow-md h-80">
-                  <img 
-                    src={image.src} 
-                    alt={image.alt} 
-                    className="w-full h-full object-cover"
-                    onError={(e) => {
-                      e.currentTarget.src = "https://images.unsplash.com/photo-1551632436-cbf8dd35adfa?q=80&w=800&auto=format&fit=crop";
-                    }}
-                  />
-                </div>
-              </div>
-            ))}
-          </Slider>
-        </div>
-      </div>
-
       {/* Call to Action */}
       <div className="text-center py-8">
         <h2 className="text-3xl font-bold mb-4">Join Our Community Today</h2>
@@ -283,25 +227,7 @@ export default function Welcome() {
         </a>
       </div>
 
-      {/* Custom CSS for sliders */}
-      <style jsx>{`
-        .slider-container {
-          margin: 0 -8px;
-        }
-        .slider-container .slick-dots li button:before {
-          font-size: 12px;
-        }
-        .slider-container .slick-prev, 
-        .slider-container .slick-next {
-          z-index: 1;
-        }
-        .slider-container .slick-prev {
-          left: 10px;
-        }
-        .slider-container .slick-next {
-          right: 10px;
-        }
-      `}</style>
+
     </div>
   );
 }
