@@ -41,8 +41,8 @@ export default function Welcome() {
         <h1 className="text-4xl font-bold tracking-tight text-[#12e0d4]">
           Welcome to MyKavaBar
         </h1>
-        <p className="text-xl text-muted-foreground max-w-3xl mx-auto text-[#f8119f]">
-          Kava Near Me? We know!
+        <p className="text-2xl font-bold text-muted-foreground max-w-3xl mx-auto text-[#f8119f]">
+          KAVA NEAR ME? WE KNOW
         </p>
       </div>
 
@@ -61,7 +61,7 @@ export default function Welcome() {
             problem — a basic directory to track where to sip next.{" "}
           </p>
           <br></br>
-          <p>
+          <p className="text-lg">
             Not long after, I met Jason Krabs at a local kava bar. We connected
             instantly over a shared love of the scene and the potential to do
             something bigger. Jason brought in his friend Christian Wilson, and
@@ -71,9 +71,9 @@ export default function Welcome() {
             our backend. Christian brings the frontend to life with a passion
             for intuitive design and user-first experiences. I focus on
             outreach, marketing, and helping the business grow.{" "}
-          </p>{" "}
+          </p>
           <br></br>
-          <p>
+          <p className="text-lg">
             Together, we launched version two — a faster, smarter, more powerful
             platform — with plenty more on the way. But this isn’t just about
             tech. It’s about impact. We’re helping small businesses thrive,
