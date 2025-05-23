@@ -9,7 +9,15 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
-import { User, LogOut, Building2, Shield, ListPlus, BookOpen, Users } from "lucide-react";
+import {
+  User,
+  LogOut,
+  Building2,
+  Shield,
+  ListPlus,
+  BookOpen,
+  Users,
+} from "lucide-react";
 import { Link, useLocation } from "wouter";
 import AdminNotifications from "@/components/admin-notifications";
 import { ThemeToggle } from "@/components/theme-toggle";
@@ -60,7 +68,7 @@ export default function NavBar() {
                     Edit Profile
                   </DropdownMenuItem>
                 </Link>
-                {user.role === 'bar_owner' && (
+                {user.role === "bar_owner" && (
                   <Link href="/owner-dashboard">
                     <DropdownMenuItem className="cursor-pointer">
                       <Building2 className="h-4 w-4 mr-2" />
@@ -103,6 +111,11 @@ export default function NavBar() {
               <Button variant="ghost" className="flex items-center gap-2">
                 <BookOpen className="h-4 w-4" />
                 Learn
+              </Button>
+            </Link>
+            <Link href="/welcome">
+              <Button variant="ghost" className="flex items-center gap-2">
+                About
               </Button>
             </Link>
             <ThemeToggle />
