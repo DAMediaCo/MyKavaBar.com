@@ -1,4 +1,4 @@
-import { sendPasswordResetEmail } from "./email";
+import { sendNotificationEmail, sendPasswordResetEmail } from "./email";
 import type { Express, Request, Response } from "express";
 import { createServer, type Server } from "http";
 import fetch from "node-fetch";
@@ -213,6 +213,7 @@ export function registerRoutes(app: Express, server: Server): void {
     try {
       console.log("Fetching all kava bars with connection management...");
       const userId = req.user?.id || null;
+      // await sendNotificationEmail("david@mykavabar.com");
 
       // Define a fallback dataset in case database is unavailable
       const fallbackBars = [
@@ -1623,6 +1624,7 @@ export function registerRoutes(app: Express, server: Server): void {
 
       console.log("Sending WebSocket notification:", notificationPayload);
       notifyAdmins(wss, notificationPayload);
+      // Send email about the bar added
 
       res.json(request);
     } catch (error: any) {

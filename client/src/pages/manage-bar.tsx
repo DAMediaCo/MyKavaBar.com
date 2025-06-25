@@ -38,13 +38,13 @@ import { useState } from "react";
 import { Label } from "@/components/ui/label";
 
 const daysOfWeek = [
+  "Sunday",
   "Monday",
   "Tuesday",
   "Wednesday",
   "Thursday",
   "Friday",
   "Saturday",
-  "Sunday",
 ] as const;
 
 const hoursFormSchema = z.object({

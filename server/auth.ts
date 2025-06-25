@@ -14,6 +14,9 @@ import {
   temp,
 } from "@db/schema";
 import { db } from "@db";
+import { RedisStore } from "connect-redis";
+import { createClient } from "redis";
+
 import { eq, and, sql, desc } from "drizzle-orm";
 import { crypto } from "./utils/crypto";
 import { sendVerificationCode, verifyCode } from "./utils/prelude";
@@ -45,6 +48,13 @@ const upload = multer({
   },
 });
 
+// Initialize client.
+let redisClient = createClient({ url: process.env.REDIS_URL! });
+redisClient.connect().catch(console.error);
+let redisStore = new RedisStore({
+  client: redisClient,
+  prefix: "kava-auth:",
+});
 // User type definitions
 interface BaseUser {
   id: number;
@@ -61,11 +71,6 @@ interface BaseUser {
   role: string;
   status: string;
   profilePhotoUrl: string | null;
-}
-
-// Actual User type definition
-interface User extends BaseUser {
-  // Add any additional user fields here
 }
 
 // Extend Express.User interface without circular reference
@@ -85,22 +90,19 @@ function checkEnvironment() {
 checkEnvironment();
 
 export function setupAuth(app: Express) {
-  const MemoryStore = createMemoryStore(session);
+
   const sessionSettings: session.SessionOptions = {
     secret: process.env.REPL_ID || "mykavabar-secret",
     resave: false,
     saveUninitialized: false,
     cookie: {
       secure: false,
-      maxAge: 7 * 24 * 60 * 60 * 1000, // One week
+      maxAge: 90 * 24 * 60 * 60 * 1000, 
       httpOnly: true,
       sameSite: "lax",
       path: "/",
     },
-    store: new MemoryStore({
-      checkPeriod: 86400000, // 24 hours
-      stale: false,
-    }),
+    store: redisStore,
     name: "mykavabar.sid",
   };
 
