@@ -124,3 +124,12 @@
     height: 80px;
   }
 }
+
+/* styles/globals.css or inside your global CSS file */
+html.dark [name="termly-terms"] {
+  color: white;
+}
+
+html.dark [name="termly-terms"] * {
+  color: white !important;
+}
