@@ -278,7 +278,7 @@ export default function BarDetails() {
           </Card>
 
           {/* Events section - visible to all users */}
-          <BarEvents barId={bar.id} ownerId={bar.ownerId} />
+          <BarEvents barId={bar.id} ownerId={bar.ownerId} address={bar.address} />
 
           {/* Reviews section - visible to all users */}
           <Card>

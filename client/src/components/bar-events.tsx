@@ -3,7 +3,7 @@ import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Calendar } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
-import { format } from "date-fns";
+import { format, addDays, isWithinInterval, parseISO } from "date-fns";
 import { Button } from "@/components/ui/button";
 import {
   Dialog,
@@ -33,6 +33,7 @@ import { EventForm, EventFormValues } from "./event-form";
 interface BarEventsProps {
   barId: number;
   ownerId: number | null;
+  address: string;
 }
 
 const eventSchema = z.object({
@@ -183,7 +184,7 @@ function QuickEventForm({
   );
 }
 
-export default function BarEvents({ barId, ownerId }: BarEventsProps) {
+export default function BarEvents({ barId, ownerId, address }: BarEventsProps) {
   const { user } = useUser();
   const id = barId;
   const { toast } = useToast();
@@ -194,6 +195,7 @@ export default function BarEvents({ barId, ownerId }: BarEventsProps) {
   const { data: events, isLoading } = useQuery<BarEvent[]>({
     queryKey: [`/api/bars/${barId}/events`],
   });
+
   const createEventMutation = useMutation({
     mutationFn: async (data: EventFormValues) => {
       const response = await fetch(`/api/bars/${id}/events`, {
@@ -216,7 +218,7 @@ export default function BarEvents({ barId, ownerId }: BarEventsProps) {
         description: "Event created successfully",
       });
       queryClient.invalidateQueries([`/api/bars/${id}/events`]);
-      setIsAddEventOpen(false); // ✅ Close the dialog on success
+      setIsAddEventOpen(false);
     },
     onError: (error: Error) => {
       toast({
@@ -226,6 +228,7 @@ export default function BarEvents({ barId, ownerId }: BarEventsProps) {
       });
     },
   });
+
   // Function to format the day key
   const formatDay = (dayOfWeek: number) => {
     const days = [
@@ -243,7 +246,6 @@ export default function BarEvents({ barId, ownerId }: BarEventsProps) {
   // Function to format date strings without timezone issues
   const formatDateString = (dateStr: string) => {
     try {
-      // Parse the date string parts directly to avoid timezone shifts
       const [year, month, day] = dateStr.split("-").map((num) => parseInt(num));
       const date = new Date(year, month - 1, day);
       return format(date, "MMM d, yyyy");
@@ -251,6 +253,137 @@ export default function BarEvents({ barId, ownerId }: BarEventsProps) {
       console.error("Error formatting date:", error, dateStr);
       return dateStr || "Invalid date";
     }
+  };
+
+  // Get event date display for the square
+  const getEventDateDisplay = (event: BarEvent) => {
+    if (event.isRecurring) {
+      return formatDay(event.dayOfWeek).slice(0, 3).toUpperCase();
+    } else {
+      if (event.startDate) {
+        const [year, month, day] = event.startDate
+          .split("-")
+          .map((num) => parseInt(num));
+        const date = new Date(year, month - 1, day);
+        return format(date, "dd MMM").toUpperCase();
+      }
+      return "NO DATE";
+    }
+  };
+
+  // Calculate next event date for calendar
+  const getNextEventDate = (event: BarEvent): Date => {
+    const today = new Date();
+
+    if (event.isRecurring) {
+      const targetDay = event.dayOfWeek;
+      const todayDay = today.getDay();
+
+      let daysToAdd = targetDay - todayDay;
+      if (daysToAdd <= 0) {
+        daysToAdd += 7;
+      }
+
+      return addDays(today, daysToAdd);
+    } else {
+      // For non-recurring events, find the next occurrence of dayOfWeek within the date range
+      if (event.startDate && event.endDate) {
+        const startDate = parseISO(event.startDate);
+        const endDate = parseISO(event.endDate);
+        const targetDay = event.dayOfWeek;
+
+        // If today is within the range and matches the day of week, return today
+        if (
+          isWithinInterval(today, { start: startDate, end: endDate }) &&
+          today.getDay() === targetDay
+        ) {
+          return today;
+        }
+
+        // Find the next occurrence of the target day within the range
+        let currentDate = today > startDate ? today : startDate;
+
+        // Look for the target day within the date range
+        while (currentDate <= endDate) {
+          if (currentDate.getDay() === targetDay && currentDate >= today) {
+            return currentDate;
+          }
+          currentDate = addDays(currentDate, 1);
+        }
+
+        // If no matching day found in future, find the first occurrence from start date
+        currentDate = startDate;
+        while (currentDate <= endDate) {
+          if (currentDate.getDay() === targetDay) {
+            return currentDate;
+          }
+          currentDate = addDays(currentDate, 1);
+        }
+
+        // Fallback to start date if no matching day found
+        return startDate;
+      }
+
+      return today;
+    }
+  };
+
+  // Handle add to calendar
+  const handleAddToCalendar = (event: BarEvent) => {
+    const eventDate = getNextEventDate(event);
+    const [hours, minutes] = event.startTime.split(":").map(Number);
+    const eventDateTime = new Date(eventDate);
+    eventDateTime.setHours(hours, minutes, 0, 0);
+
+    const [endHours, endMinutes] = event.endTime.split(":").map(Number);
+    const endDateTime = new Date(eventDate);
+    endDateTime.setHours(endHours, endMinutes, 0, 0);
+
+    if (endDateTime <= eventDateTime) {
+      endDateTime.setDate(endDateTime.getDate() + 1);
+    }
+
+    const formatGoogleDate = (date: Date): string => {
+      return date
+        .toISOString()
+        .replace(/[-:]/g, "")
+        .replace(/\.\d{3}/, "");
+    };
+
+    const startDateFormatted = formatGoogleDate(eventDateTime);
+    const endDateFormatted = formatGoogleDate(endDateTime);
+
+    const googleCalendarUrl = new URL("https://www.google.com/calendar/event");
+    googleCalendarUrl.searchParams.set("action", "TEMPLATE");
+    googleCalendarUrl.searchParams.set("text", event.title);
+    googleCalendarUrl.searchParams.set(
+      "dates",
+      `${startDateFormatted}/${endDateFormatted}`,
+    );
+    googleCalendarUrl.searchParams.set("details", event.description || "");
+    googleCalendarUrl.searchParams.set("location", address);
+
+    window.open(googleCalendarUrl.toString(), "_blank");
+
+    toast({
+      title: "Opening Google Calendar",
+      description: `${event.title} scheduled for ${format(eventDateTime, "PPP 'at' p")}`,
+    });
+  };
+
+  // Get event color
+  const getEventColor = (event: BarEvent, index: number) => {
+    const colors = [
+      "bg-gradient-to-br from-blue-400 to-blue-500",
+      "bg-gradient-to-br from-emerald-400 to-emerald-500",
+      "bg-gradient-to-br from-purple-400 to-purple-500",
+      "bg-gradient-to-br from-amber-400 to-amber-500",
+      "bg-gradient-to-br from-rose-400 to-rose-500",
+      "bg-gradient-to-br from-indigo-400 to-indigo-500",
+      "bg-gradient-to-br from-teal-400 to-teal-500",
+      "bg-gradient-to-br from-orange-400 to-orange-500",
+    ];
+    return colors[index % colors.length];
   };
 
   if (isLoading) {
@@ -276,13 +409,14 @@ export default function BarEvents({ barId, ownerId }: BarEventsProps) {
   function handleCreateEvent(data: EventFormValues) {
     createEventMutation.mutate(data, {
       onSuccess: () => {
-        setIsAddEventOpen(false); // Close the dialog on successful creation
+        setIsAddEventOpen(false);
       },
     });
   }
 
   const recurringEvents = events?.filter((event) => event.isRecurring) || [];
   const oneTimeEvents = events?.filter((event) => !event.isRecurring) || [];
+  const allEvents = [...recurringEvents, ...oneTimeEvents];
 
   return (
     <Card>
@@ -317,74 +451,63 @@ export default function BarEvents({ barId, ownerId }: BarEventsProps) {
         </div>
       </CardHeader>
       <CardContent>
-        {recurringEvents.length === 0 && oneTimeEvents.length === 0 ? (
+        {allEvents.length === 0 ? (
           <p className="text-sm text-muted-foreground">No events scheduled</p>
         ) : (
-          <div className="space-y-6">
-            {recurringEvents.length > 0 && (
-              <div className="space-y-4">
-                <h3 className="font-semibold">Weekly Events</h3>
-                {recurringEvents.map((event) => (
-                  <div key={event.id} className="flex flex-col gap-1">
-                    <div className="flex items-center justify-between">
-                      <h4 className="font-medium">{event.title}</h4>
-                      <Badge variant="secondary">
-                        {formatDay(event.dayOfWeek)}
-                      </Badge>
-                    </div>
-                    <div className="text-sm text-muted-foreground">
-                      {format(
-                        new Date(`1970-01-01T${event.startTime}`),
-                        "h:mm a",
-                      )}{" "}
-                      -{" "}
-                      {format(
-                        new Date(`1970-01-01T${event.endTime}`),
-                        "h:mm a",
-                      )}
-                    </div>
-                    {event.description && (
-                      <p className="text-sm">{event.description}</p>
+          <div className="space-y-4">
+            {allEvents.map((event, index) => (
+              <div
+                key={event.id}
+                className="flex items-start gap-4 p-4 border rounded-lg"
+              >
+                {/* Date/Time Square */}
+                <div
+                  className={`flex-shrink-0 w-20 h-20 ${getEventColor(event, index)} rounded-lg flex flex-col items-center justify-center text-center shadow-lg`}
+                >
+                  <div className="text-xs font-semibold text-white">
+                    {getEventDateDisplay(event)}
+                  </div>
+                  <div className="text-xs text-white/90 mt-1">
+                    {format(
+                      new Date(`1970-01-01T${event.startTime}`),
+                      "h:mm a",
                     )}
                   </div>
-                ))}
-              </div>
-            )}
+                  <div className="text-xs text-white/90">
+                    {format(new Date(`1970-01-01T${event.endTime}`), "h:mm a")}
+                  </div>
+                </div>
 
-            {oneTimeEvents.length > 0 && (
-              <div className="space-y-4">
-                <h3 className="font-semibold">Special Events</h3>
-                {oneTimeEvents.map((event) => {
-                  //This change directly uses the date string to avoid timezone issues.
-                  return (
-                    <div key={event.id} className="flex flex-col gap-1">
-                      <div className="flex items-center justify-between">
-                        <h4 className="font-medium">{event.title}</h4>
-                        <Badge variant="secondary">
-                          {event.startDate
-                            ? formatDateString(event.startDate)
-                            : "No date"}
-                        </Badge>
-                      </div>
-                      <div className="text-sm text-muted-foreground">
-                        {format(
-                          new Date(`1970-01-01T${event.startTime}`),
-                          "h:mm a",
-                        )}{" "}
-                        -{" "}
-                        {format(
-                          new Date(`1970-01-01T${event.endTime}`),
-                          "h:mm a",
-                        )}
-                      </div>
+                {/* Event Details */}
+                <div className="flex-1 min-w-0">
+                  <div className="flex items-start justify-between gap-2">
+                    <div>
+                      <h4 className="font-semibold text-foreground">
+                        {event.title}
+                      </h4>
                       {event.description && (
-                        <p className="text-sm">{event.description}</p>
+                        <p className="text-sm text-muted-foreground mt-1">
+                          {event.description}
+                        </p>
                       )}
+                      <p className="text-xs text-muted-foreground mt-1">
+                        {event.isRecurring
+                          ? `Every ${formatDay(event.dayOfWeek)}`
+                          : `${formatDateString(event.startDate || "")} to ${formatDateString(event.endDate || "")}`}
+                      </p>
                     </div>
-                  );
-                })}
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={() => handleAddToCalendar(event)}
+                      className="flex-shrink-0"
+                    >
+                      Add to Calendar
+                    </Button>
+                  </div>
+                </div>
               </div>
-            )}
+            ))}
           </div>
         )}
       </CardContent>
