@@ -372,7 +372,7 @@ export default function BarEvents({ barId, ownerId, address }: BarEventsProps) {
   };
 
   // Get event color
-  const getEventColor = (event: BarEvent, index: number) => {
+  const getEventColor = (index: number) => {
     const colors = [
       "bg-gradient-to-br from-blue-400 to-blue-500",
       "bg-gradient-to-br from-emerald-400 to-emerald-500",
@@ -421,7 +421,7 @@ export default function BarEvents({ barId, ownerId, address }: BarEventsProps) {
   return (
     <Card>
       <CardHeader>
-        <div className="flex justify-between items-center">
+        <div className="flex flex-col sm:flex-row sm:justify-between sm:items-center gap-3">
           <CardTitle className="flex items-center gap-2">
             <Calendar className="h-5 w-5" />
             Events
@@ -433,11 +433,12 @@ export default function BarEvents({ barId, ownerId, address }: BarEventsProps) {
                   variant="outline"
                   size="sm"
                   onClick={() => setIsAddEventOpen(true)}
+                  className="w-full sm:w-auto"
                 >
                   Add Event
                 </Button>
               </DialogTrigger>
-              <DialogContent>
+              <DialogContent className="mx-4 max-w-md">
                 <DialogHeader>
                   <DialogTitle>Create New Event</DialogTitle>
                 </DialogHeader>
@@ -450,47 +451,54 @@ export default function BarEvents({ barId, ownerId, address }: BarEventsProps) {
           )}
         </div>
       </CardHeader>
-      <CardContent>
+      <CardContent className="px-3 sm:px-6">
         {allEvents.length === 0 ? (
           <p className="text-sm text-muted-foreground">No events scheduled</p>
         ) : (
-          <div className="space-y-4">
+          <div className="space-y-3 sm:space-y-4">
             {allEvents.map((event, index) => (
               <div
                 key={event.id}
-                className="flex items-start gap-4 p-4 border rounded-lg"
+                className="flex flex-col sm:flex-row sm:items-start gap-3 sm:gap-4 p-3 sm:p-4 border rounded-lg"
               >
-                {/* Date/Time Square */}
+                {/* Date/Time Square - Mobile optimized */}
                 <div
-                  className={`flex-shrink-0 w-20 h-20 ${getEventColor(event, index)} rounded-lg flex flex-col items-center justify-center text-center shadow-lg`}
+                  className={`flex-shrink-0 w-full sm:w-20 h-16 sm:h-20 ${getEventColor(index)} rounded-lg flex flex-row sm:flex-col items-center justify-center text-center shadow-lg`}
                 >
-                  <div className="text-xs font-semibold text-white">
-                    {getEventDateDisplay(event)}
+                  <div className="flex-1 sm:flex-none">
+                    <div className="text-sm sm:text-xs font-semibold text-white">
+                      {getEventDateDisplay(event)}
+                    </div>
                   </div>
-                  <div className="text-xs text-white/90 mt-1">
-                    {format(
-                      new Date(`1970-01-01T${event.startTime}`),
-                      "h:mm a",
-                    )}
-                  </div>
-                  <div className="text-xs text-white/90">
-                    {format(new Date(`1970-01-01T${event.endTime}`), "h:mm a")}
+                  <div className="flex-1 sm:flex-none sm:mt-1">
+                    <div className="text-xs text-white/90">
+                      {format(
+                        new Date(`1970-01-01T${event.startTime}`),
+                        "h:mm a",
+                      )}
+                    </div>
+                    <div className="text-xs text-white/90">
+                      {format(
+                        new Date(`1970-01-01T${event.endTime}`),
+                        "h:mm a",
+                      )}
+                    </div>
                   </div>
                 </div>
 
                 {/* Event Details */}
                 <div className="flex-1 min-w-0">
-                  <div className="flex items-start justify-between gap-2">
-                    <div>
-                      <h4 className="font-semibold text-foreground">
+                  <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-2 sm:gap-2">
+                    <div className="flex-1 min-w-0">
+                      <h4 className="font-semibold text-foreground break-words">
                         {event.title}
                       </h4>
                       {event.description && (
-                        <p className="text-sm text-muted-foreground mt-1">
+                        <p className="text-sm text-muted-foreground mt-1 break-words">
                           {event.description}
                         </p>
                       )}
-                      <p className="text-xs text-muted-foreground mt-1">
+                      <p className="text-xs text-muted-foreground mt-1 break-words">
                         {event.isRecurring
                           ? `Every ${formatDay(event.dayOfWeek)}`
                           : `${formatDateString(event.startDate || "")} to ${formatDateString(event.endDate || "")}`}
@@ -500,8 +508,9 @@ export default function BarEvents({ barId, ownerId, address }: BarEventsProps) {
                       variant="outline"
                       size="sm"
                       onClick={() => handleAddToCalendar(event)}
-                      className="flex-shrink-0"
+                      className="w-full sm:w-auto sm:flex-shrink-0 mt-2 sm:mt-0"
                     >
+                      <Calendar className="h-4 w-4 sm:hidden mr-2" />
                       Add to Calendar
                     </Button>
                   </div>
