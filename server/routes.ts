@@ -1625,7 +1625,7 @@ export function registerRoutes(app: Express, server: Server): void {
       console.log("Sending WebSocket notification:", notificationPayload);
       notifyAdmins(wss, notificationPayload);
       // Send email about the bar added
-
+      await sendNotificationEmail("info@mykavabar.com");
       res.json(request);
     } catch (error: any) {
       console.error("Error creating verification request:", error);
