@@ -29,6 +29,76 @@
       "when": 1742300326093,
       "tag": "0003_ambiguous_bug",
       "breakpoints": true
+    },
+    {
+      "idx": 4,
+      "version": "7",
+      "when": 1752051812608,
+      "tag": "0004_fair_jackal",
+      "breakpoints": true
+    },
+    {
+      "idx": 5,
+      "version": "7",
+      "when": 1752054377637,
+      "tag": "0005_red_iron_patriot",
+      "breakpoints": true
+    },
+    {
+      "idx": 6,
+      "version": "7",
+      "when": 1752066495743,
+      "tag": "0006_pink_randall",
+      "breakpoints": true
+    },
+    {
+      "idx": 7,
+      "version": "7",
+      "when": 1752262597847,
+      "tag": "0007_opposite_ares",
+      "breakpoints": true
+    },
+    {
+      "idx": 8,
+      "version": "7",
+      "when": 1752263764677,
+      "tag": "0008_flat_ultragirl",
+      "breakpoints": true
+    },
+    {
+      "idx": 9,
+      "version": "7",
+      "when": 1752504986450,
+      "tag": "0009_illegal_sentry",
+      "breakpoints": true
+    },
+    {
+      "idx": 10,
+      "version": "7",
+      "when": 1752516127086,
+      "tag": "0010_curly_squadron_sinister",
+      "breakpoints": true
+    },
+    {
+      "idx": 11,
+      "version": "7",
+      "when": 1754057512608,
+      "tag": "0011_bitter_sinister_six",
+      "breakpoints": true
+    },
+    {
+      "idx": 12,
+      "version": "7",
+      "when": 1754154262454,
+      "tag": "0012_dapper_infant_terrible",
+      "breakpoints": true
+    },
+    {
+      "idx": 13,
+      "version": "7",
+      "when": 1754235366263,
+      "tag": "0013_futuristic_metal_master",
+      "breakpoints": true
     }
   ]
 }

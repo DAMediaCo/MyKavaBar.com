@@ -1,0 +1,1 @@
+ALTER TABLE "kavatender_referral_profiles" ADD COLUMN "total_paid" numeric(10, 2);

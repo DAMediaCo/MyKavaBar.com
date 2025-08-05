@@ -190,9 +190,7 @@ export default function ForgotPassword() {
                           placeholder="1234567890"
                           {...field}
                           type="tel"
-                          value={
-                            field.value
-                          }
+                          value={field.value}
                           onChange={(e) => {
                             const value = e.target.value.replace(/\D/g, "");
                             field.onChange(value ? `${value}` : "");

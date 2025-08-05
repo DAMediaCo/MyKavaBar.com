@@ -1,8 +1,9 @@
 import { Express, Request, Response } from "express";
 import { and, or, asc, eq, gte, lte, sql } from "drizzle-orm";
 import { db } from "@db";
-import { barEvents, kavaBars } from "@db/schema";
+import { barEvents, eventRsvps, kavaBars } from "@db/schema";
 import { isAuthenticated } from "../middleware/auth";
+import { getNextOccurrence, convertEstToUtcDateTime } from "@utils/time-utils";
 
 // Array of day of week names for logging
 const daysOfWeek = [
@@ -23,37 +24,65 @@ export function registerEventRoutes(app: Express) {
         return res.status(400).json({ error: "Invalid bar ID" });
       }
 
+      const userId = req.user?.id ?? null;
+
       const newYorkTime = new Date().toLocaleString("en-US", {
         timeZone: "America/New_York",
       });
-      const currentDateNY = new Date(newYorkTime).toISOString().split("T")[0]; // Get YYYY-MM-DD
-      const currentDayOfWeekNY = new Date(newYorkTime).getDay(); // 0 = Sunday, 6 = Saturday
+      const currentDateNY = new Date(newYorkTime).toISOString().split("T")[0]; // YYYY-MM-DD
 
-      console.log("Current Date:", currentDateNY);
-      console.log("Current Day of Week:", currentDayOfWeekNY);
-
+      // Fetch all non-recurring events starting from today
       const nonRecurringEvents = await db.query.barEvents.findMany({
         where: and(
           eq(barEvents.barId, id),
           eq(barEvents.isRecurring, false),
-          gte(barEvents.endDate, `${currentDateNY}T00:00:00.000Z`), // Show events until they end
+          gte(barEvents.endDate, `${currentDateNY}T00:00:00.000Z`),
         ),
       });
 
-      console.log("Non-Recurring Events:", nonRecurringEvents);
-
       const recurringEvents = await db.query.barEvents.findMany({
         where: and(eq(barEvents.barId, id), eq(barEvents.isRecurring, true)),
-        orderBy: [asc(barEvents.dayOfWeek)], // Sorting by `dayOfWeek` in ascending order
+        orderBy: [barEvents.dayOfWeek],
       });
 
-      console.log("Recurring Events:", recurringEvents);
+      // 🧠 Helper to compute RSVP status
+      const enrichWithRsvpFlag = async (event: any) => {
+        let eventDate: string;
+        let eventDateTime: Date;
 
-      // Merge both arrays
-      const allEvents = [...nonRecurringEvents, ...recurringEvents];
+        if (event.isRecurring) {
+          const nextDate = getNextOccurrence(event.dayOfWeek); // returns Date in local
+          eventDate = nextDate.toISOString().split("T")[0];
+          eventDateTime = convertEstToUtcDateTime(nextDate, event.startTime);
+        } else {
+          eventDate = event.startDate;
+          const start = new Date(`${event.startDate}T${event.startTime}:00`);
+          eventDateTime = convertEstToUtcDateTime(start, event.startTime);
+        }
 
-      console.log("Final Merged Events:", allEvents);
-      res.json(allEvents);
+        let isRsvped = false;
+        if (userId && new Date() < eventDateTime) {
+          const existing = await db.query.eventRsvps.findFirst({
+            where: and(
+              eq(eventRsvps.userId, userId),
+              eq(eventRsvps.eventId, event.id),
+              eq(eventRsvps.eventDate, eventDate),
+              eq(eventRsvps.isActive, true),
+            ),
+          });
+          isRsvped = !!existing;
+        }
+
+        return { ...event, isRsvped };
+      };
+
+      // Enrich all events
+      const enriched = await Promise.all([
+        ...nonRecurringEvents.map(enrichWithRsvpFlag),
+        ...recurringEvents.map(enrichWithRsvpFlag),
+      ]);
+
+      res.json(enriched);
     } catch (error: any) {
       console.error("Error fetching bar events:", error);
       res.status(500).json({ error: error.message });

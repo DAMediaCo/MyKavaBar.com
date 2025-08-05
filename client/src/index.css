@@ -13,6 +13,14 @@
     height: 100%;
   }
 
+  .description-clamp {
+    display: -webkit-box;
+    -webkit-line-clamp: 3;
+    -webkit-box-orient: vertical;
+    overflow: hidden;
+    white-space: normal;
+  }
+
   body {
     @apply font-sans antialiased bg-background text-foreground;
     min-height: 100%;

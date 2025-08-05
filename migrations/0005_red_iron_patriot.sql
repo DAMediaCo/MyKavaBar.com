@@ -1,0 +1,1 @@
+ALTER TABLE "referrals" ADD CONSTRAINT "referrals_referrer_id_referee_id_unique" UNIQUE("referrer_id","referee_id");

@@ -36,7 +36,18 @@ export default function AuthPage() {
   const { login } = useUser();
   const { toast } = useToast();
   const [isLoading, setIsLoading] = useState(false);
-  const [, navigate] = useLocation();
+  const [_, navigate] = useLocation();
+  const rawTab =
+    typeof window !== "undefined"
+      ? new URLSearchParams(window.location.search).get("tab")
+      : null;
+  const rawRef =
+    typeof window !== "undefined"
+      ? new URLSearchParams(window.location.search).get("ref")
+      : null;
+
+  const tab = rawTab === "register" ? "register" : "login";
+  const referralCode = rawRef && rawRef.startsWith("K-") ? rawRef : undefined;
 
   const form = useForm<LoginFormData>({
     resolver: zodResolver(loginSchema),
@@ -81,7 +92,7 @@ export default function AuthPage() {
           </CardDescription>
         </CardHeader>
         <CardContent>
-          <Tabs defaultValue="login" className="w-full">
+          <Tabs defaultValue={tab} className="w-full">
             <TabsList className="grid w-full grid-cols-2">
               <TabsTrigger value="login">Login</TabsTrigger>
               <TabsTrigger value="register">Register</TabsTrigger>
@@ -139,7 +150,7 @@ export default function AuthPage() {
             </TabsContent>
 
             <TabsContent value="register">
-              <RegisterForm />
+              <RegisterForm referralCode={referralCode || undefined} />
             </TabsContent>
           </Tabs>
         </CardContent>

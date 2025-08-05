@@ -36,6 +36,7 @@ import {
 } from "@/components/ui/dialog";
 import { useState } from "react";
 import { Label } from "@/components/ui/label";
+import { EventRsvpTab } from "@/components/owner/events-rsvp-tab";
 
 const daysOfWeek = [
   "Sunday",
@@ -46,6 +47,26 @@ const daysOfWeek = [
   "Friday",
   "Saturday",
 ] as const;
+const sampleRsvpData = [
+  {
+    id: 1,
+    title: "Kava Karaoke Night",
+    startTime: "19:00",
+    dayOfWeek: 5,
+    rsvps: [
+      { userId: 1, isActive: true },
+      { userId: 2, isActive: false },
+      { userId: 3, isActive: true },
+    ],
+  },
+  {
+    id: 2,
+    title: "Trivia Tuesday",
+    startTime: "20:30",
+    dayOfWeek: 2,
+    rsvps: [{ userId: 4, isActive: true }],
+  },
+];
 
 const hoursFormSchema = z.object({
   hours: z.array(
@@ -595,6 +616,7 @@ export default function ManageBar() {
           <TabsTrigger value="hours">Hours</TabsTrigger>
           <TabsTrigger value="events">Events</TabsTrigger>
           <TabsTrigger value="staff">Staff</TabsTrigger>
+          <TabsTrigger value="rsvp">RSVP Stats</TabsTrigger>
         </TabsList>
 
         <TabsContent value="staff">
@@ -964,6 +986,9 @@ export default function ManageBar() {
               )}
             </CardContent>
           </Card>
+        </TabsContent>
+        <TabsContent value="rsvp">
+          <EventRsvpTab barId={Number(id)} />
         </TabsContent>
       </Tabs>
     </div>

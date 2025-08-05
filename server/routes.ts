@@ -1,12 +1,19 @@
 import { sendNotificationEmail, sendPasswordResetEmail } from "./email";
 import type { Express, Request, Response } from "express";
-import { createServer, type Server } from "http";
+import { type Server } from "http";
 import fetch from "node-fetch";
 import { isAuthenticated } from "./middleware/auth";
 import { Client } from "@googlemaps/google-maps-services-js";
 import { db } from "@db";
 import { executeWithRetry } from "@db/connection";
 import moment from "moment-timezone";
+// Importing controllers
+import {
+  rsvpToEvent,
+  getMyRsvps,
+  deleteRsvp,
+  getBarRsvpStats,
+} from "./controllers/rsvp";
 import {
   kavaBars,
   userFavorites,
@@ -15,7 +22,7 @@ import {
   userActivityLogs,
   verificationCodes,
   barStaff,
-  barEvents,
+  kavatenderReferralProfiles,
   kavatenders,
   kavaBarPhotos,
   barOwnerNotificationPreferences,
@@ -23,21 +30,8 @@ import {
   checkIns,
 } from "@db/schema";
 import { crypto } from "./utils/crypto";
-import {
-  eq,
-  and,
-  isNull,
-  desc,
-  ne,
-  or,
-  sql,
-  asc,
-  gt,
-  lt,
-  inArray,
-} from "drizzle-orm";
+import { eq, and, isNull, desc, ne, sql, gt, lt, inArray } from "drizzle-orm";
 import { setupWebSocket, notifyAdmins } from "./websocket";
-import { WebSocket } from "ws";
 import { fetchKavaBars } from "./scripts/fetch-kava-bars";
 import { setupAuth } from "./auth";
 import { setupSquareRoutes } from "./square";
@@ -54,6 +48,8 @@ import { randomUUID } from "crypto";
 import express from "express";
 import { uploadImageToStorage } from "./upload-to-storage";
 import { parseHours } from "./utils/parse-hours";
+import { getUserReferralDetails } from "@utils/referrals";
+import { generateUniqueReferralCode } from "@utils/generate-referralcode";
 
 // Handle the user type
 declare global {
@@ -443,6 +439,7 @@ export function registerRoutes(app: Express, server: Server): void {
       res.json(emergencyFallbackBars);
     }
   });
+
   app.get("/api/favorite-kava-bars", async (req: Request, res: Response) => {
     try {
       console.log("Fetching favorite kava bars...");
@@ -1324,6 +1321,28 @@ export function registerRoutes(app: Express, server: Server): void {
       // ... existing delete implementation ...
     },
   );
+  app.get("/api/kavatender/referrals", isAuthenticated, async (req, res) => {
+    try {
+      if (!req.user)
+        return res.status(401).json({ error: "Not authenticated" });
+      const role = req.user.role;
+      if (role !== "kavatender")
+        return res.status(403).json({ error: "Not authorized" });
+      const userId = req.user.id;
+      if (isNaN(userId))
+        return res.status(400).json({ error: "Invalid user ID" });
+
+      const result = await getUserReferralDetails(userId);
+      return res.json(result);
+    } catch (error: any) {
+      console.error("Failed to get referral data", error);
+      return res.status(500).json({
+        error: "Something went wrong",
+        details:
+          process.env.NODE_ENV === "development" ? error.message : undefined,
+      });
+    }
+  });
 
   app.post("/api/kava-bars/:id/claim", async (req, res) => {
     if (!req.isAuthenticated()) {
@@ -2745,7 +2764,25 @@ export function registerRoutes(app: Express, server: Server): void {
           isActive: true,
         })
         .returning();
-
+      const [referralCodeExists] = await db
+        .select({
+          referralCode: kavatenderReferralProfiles.referralCode,
+        })
+        .from(kavatenderReferralProfiles)
+        .where(eq(kavatenderReferralProfiles.userId, user.id))
+        .limit(1);
+      let referralCode;
+      if (!referralCodeExists) {
+        referralCode = await generateUniqueReferralCode();
+        console.log(
+          `Generating Referral code for the new kavatender: ${referralCode}`,
+        );
+        await db.insert(kavatenderReferralProfiles).values({
+          userId: user.id,
+          referralCode: referralCode,
+          totalEarnings: 0,
+        });
+      }
       // Update user role
       await db
         .update(users)
@@ -4274,6 +4311,27 @@ export function registerRoutes(app: Express, server: Server): void {
     }
   });
 
+  // RSVPing Events
+  app.post("/api/event-rsvp/:eventId", async (req, res) => {
+    if (!req.isAuthenticated()) {
+      return res.status(401).json({ error: "Not authenticated" });
+    }
+    if (!req.user || !req.user.id)
+      return res.status(401).json({ error: "Not authenticated" });
+    const eventId = Number(req.params.eventId);
+    const userId = Number(req.user.id);
+    try {
+      const result = await rsvpToEvent({ userId, eventId });
+      return res.json(result);
+    } catch (err: any) {
+      return res.status(400).json({ success: false, message: err.message });
+    }
+  });
+
+  app.get("/api/my-rsvps", getMyRsvps);
+  app.delete("/api/event-rsvp/:rsvpId", deleteRsvp);
+  app.get("/api/bar/:barId/rsvp-stats", getBarRsvpStats);
+
   app.put("/api/user/password", async (req, res) => {
     if (!req.isAuthenticated()) {
       return res.status(401).json({ error: "Not authenticated" });
@@ -4572,6 +4630,7 @@ export function registerRoutes(app: Express, server: Server): void {
       });
     }
   });
+
   app.post("/api/admin/restore-all-states", async (req, res) => {
     if (!req.isAuthenticated() || !req.user.isAdmin) {
       return res.status(403).send("Admin access required");

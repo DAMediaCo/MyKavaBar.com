@@ -42,6 +42,13 @@ router.post("/api/phone/verify", async (req, res) => {
       });
     }
 
+    const [phoneNumberExists] = await db
+      .select()
+      .from(users)
+      .where(eq(users.phoneNumber, phoneNumber));
+
+    if (phoneNumberExists)
+      return res.status(409).json({ error: "Phone number already exists" });
     // Delete any existing unverified codes
     await db
       .delete(phoneVerificationCodes)

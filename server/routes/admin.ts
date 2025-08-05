@@ -1,58 +1,72 @@
 import { Router } from "express";
 import { db } from "@db";
-import { users, bannedPhoneNumbers, userActivityLogs, kavaBars } from "@db/schema";
+import { getUsersEligibleForPayout, getPaidAmount } from "../utils/payouts";
+import {
+  users,
+  bannedPhoneNumbers,
+  userActivityLogs,
+  kavaBars,
+} from "@db/schema";
 import { eq } from "drizzle-orm";
 import { requireAdmin } from "../middleware/admin";
 import { crypto } from "../utils/crypto";
 import { fetchKavaBarsByCoordinates } from "../scripts/fetch-by-coordinates";
-import { restoreMissingFloridaBars, confirmRestoreMissingFloridaBars } from "../scripts/restore-missing-florida-bars";
+import { restoreMissingFloridaBars } from "../scripts/restore-missing-florida-bars";
 import { backupDatabase } from "../utils/backup-database";
-import * as fs from 'fs/promises';
-
+import * as fs from "fs/promises";
+import { updateRewardSchema } from "../schema/referrals";
+import { referralAmount, payouts } from "@db/schema";
 const router = Router();
 
 // Get all users with complete user information
 router.get("/users", requireAdmin, async (req, res) => {
   try {
-    console.log('Admin users request:', {
-      user: req.user ? {
-        id: req.user.id,
-        username: req.user.username,
-        isAdmin: req.user.isAdmin
-      } : null,
-      session: req.session?.id,
-      headers: {
-        cookie: req.headers.cookie,
-        authorization: req.headers.authorization
-      }
-    });
+    // console.log("Admin users request:", {
+    //   user: req.user
+    //     ? {
+    //         id: req.user.id,
+    //         username: req.user.username,
+    //         isAdmin: req.user.isAdmin,
+    //       }
+    //     : null,
+    //   session: req.session?.id,
+    //   headers: {
+    //     cookie: req.headers.cookie,
+    //     authorization: req.headers.authorization,
+    //   },
+    // });
 
-    const usersList = await db.query.users.findMany({
-      orderBy: (users, { desc }) => [desc(users.createdAt)],
-      columns: {
-        id: true,
-        username: true,
-        email: true,
-        role: true,
-        status: true,
-        phoneNumber: true,
-        isPhoneVerified: true,
-        points: true,
-        isAdmin: true,
-        createdAt: true,
-        lastLoginAt: true,
-        updatedAt: true
-      }
-    });
+    // const usersList = await db.query.users.findMany({
+    //   orderBy: (users, { desc }) => [desc(users.createdAt)],
+    //   columns: {
+    //     id: true,
+    //     username: true,
+    //     email: true,
+    //     role: true,
+    //     status: true,
+    //     phoneNumber: true,
+    //     isPhoneVerified: true,
+    //     points: true,
+    //     isAdmin: true,
+    //     createdAt: true,
+    //     lastLoginAt: true,
+    //     updatedAt: true,
+    //   },
+    // });
 
-    console.log(`Found ${usersList.length} users:`,
-      usersList.map(u => ({ id: u.id, username: u.username, isAdmin: u.isAdmin }))
-    );
+    // console.log(
+    //   `Found ${usersList.length} users:`,
+    //   usersList.map((u) => ({
+    //     id: u.id,
+    //     username: u.username,
+    //     isAdmin: u.isAdmin,
+    //   })),
+    // );
 
     // Set appropriate headers for CORS and caching
     res.set({
-      'Cache-Control': 'no-store',
-      'Pragma': 'no-cache'
+      "Cache-Control": "no-store",
+      Pragma: "no-cache",
     });
 
     res.json(usersList);
@@ -60,7 +74,103 @@ router.get("/users", requireAdmin, async (req, res) => {
     console.error("Error fetching users:", error);
     res.status(500).json({
       error: "Failed to fetch users",
-      details: process.env.NODE_ENV === 'development' ? error.message : undefined
+      details:
+        process.env.NODE_ENV === "development" ? error.message : undefined,
+    });
+  }
+});
+
+router.post("/payouts", requireAdmin, async (req, res) => {
+  try {
+    const { userId } = req.body;
+
+    if (!userId || typeof userId !== "number") {
+      return res.status(400).json({ error: "Invalid user ID" });
+    }
+
+    // Get user
+    const user = await db
+      .select()
+      .from(users)
+      .where(eq(users.id, userId))
+      .then((rows) => rows[0]);
+
+    if (!user || user.pending < 50) {
+      return res.status(400).json({ error: "User not eligible for payout" });
+    }
+    // Insert payout
+    await db.insert(payouts).values({
+      userId,
+      amount: 50,
+      paidAt: new Date(),
+    });
+
+    return res.json({ success: true });
+  } catch (error: any) {
+    console.error("Error marking payout:", error);
+    return res.status(500).json({
+      error: "Failed to mark payout",
+      details:
+        process.env.NODE_ENV === "development" ? error.message : undefined,
+    });
+  }
+});
+router.get("/payouts/eligible", requireAdmin, async (req, res) => {
+  try {
+    const usersWithPending = await getUsersEligibleForPayout();
+    res.json({ success: true, data: usersWithPending });
+  } catch (error: any) {
+    console.log("Error fetching eligible payouts: ", error);
+    res.status(500).json({
+      error: "Failed to fetch eligible payouts",
+      details:
+        process.env.NODE_ENV === "development" ? error.message : undefined,
+    });
+  }
+});
+
+router.get("/referral-reward", requireAdmin, async (_: any, res) => {
+  try {
+    let reward = 3.0;
+    // Get the existing record (if any)
+    const existing = await db
+      .select({ reward: referralAmount.reward })
+      .from(referralAmount)
+      .limit(1);
+
+    reward = existing[0]?.reward || reward;
+    return res.json({ reward });
+  } catch (error: any) {
+    console.error("Error updating referral reward:", error);
+    res.status(500).json({
+      error: "Failed to update reward",
+      details:
+        process.env.NODE_ENV === "development" ? error.message : undefined,
+    });
+  }
+});
+
+router.put("/referral-reward", requireAdmin, async (req: any, res) => {
+  try {
+    const { reward } = req.body;
+    const validatedFields = updateRewardSchema.safeParse({ reward });
+    if (!validatedFields.success) {
+      return res.status(400).json({ error: "Invalid reward value" });
+    }
+    // Get the existing record (if any)
+    const existing = await db.select().from(referralAmount).limit(1);
+    console.log("Existing referral reward:", existing);
+    await db
+      .update(referralAmount)
+      .set({ reward, updatedAt: new Date() })
+      .where(eq(referralAmount.id, 1));
+    return res.json({ success: "Updated reward successfully" });
+  } catch (error: any) {
+    console.error("Error updating referral reward:", error);
+    res.status(500).json({
+      error: "Failed to update reward",
+      details:
+        process.env.NODE_ENV === "development" ? error.message : undefined,
     });
   }
 });
@@ -90,7 +200,9 @@ router.post("/users", requireAdmin, async (req, res) => {
         .limit(1);
 
       if (bannedPhone) {
-        return res.status(400).json({ error: "This phone number has been banned" });
+        return res
+          .status(400)
+          .json({ error: "This phone number has been banned" });
       }
     }
 
@@ -105,8 +217,8 @@ router.post("/users", requireAdmin, async (req, res) => {
         password: hashedPassword,
         role,
         phoneNumber,
-        status: 'active',
-        isPhoneVerified: false
+        status: "active",
+        isPhoneVerified: false,
       })
       .returning();
 
@@ -115,13 +227,13 @@ router.post("/users", requireAdmin, async (req, res) => {
     // Log the user creation
     await db.insert(userActivityLogs).values({
       userId: newUser.id,
-      activityType: 'user_created',
+      activityType: "user_created",
       details: {
         createdBy: req.user?.id,
-        role
+        role,
       },
       ipAddress: req.ip,
-      userAgent: req.get('user-agent')
+      userAgent: req.get("user-agent"),
     });
 
     const { password: _, ...userWithoutPassword } = newUser;
@@ -157,7 +269,7 @@ router.put("/users/:id", requireAdmin, async (req, res) => {
         email,
         role,
         phoneNumber,
-        updatedAt: new Date()
+        updatedAt: new Date(),
       })
       .where(eq(users.id, userId))
       .returning();
@@ -165,14 +277,14 @@ router.put("/users/:id", requireAdmin, async (req, res) => {
     // Log the update
     await db.insert(userActivityLogs).values({
       userId,
-      activityType: 'user_updated',
+      activityType: "user_updated",
       details: {
         updatedBy: req.user?.id,
         oldRole: existingUser.role,
-        newRole: role
+        newRole: role,
       },
       ipAddress: req.ip,
-      userAgent: req.get('user-agent')
+      userAgent: req.get("user-agent"),
     });
 
     const { password: _, ...userWithoutPassword } = updatedUser;
@@ -202,15 +314,15 @@ router.delete("/users/:id", requireAdmin, async (req, res) => {
     // Log the deletion first
     await db.insert(userActivityLogs).values({
       userId,
-      activityType: 'user_deleted',
+      activityType: "user_deleted",
       details: {
         deletedBy: req.user?.id,
         username: existingUser.username,
         email: existingUser.email,
-        role: existingUser.role
+        role: existingUser.role,
       },
       ipAddress: req.ip,
-      userAgent: req.get('user-agent')
+      userAgent: req.get("user-agent"),
     });
 
     // Delete the user
@@ -250,10 +362,10 @@ router.post("/users/:id/ban", requireAdmin, async (req, res) => {
       await tx
         .update(users)
         .set({
-          status: 'banned',
+          status: "banned",
           statusChangedAt: new Date(),
           statusChangedBy: req.user?.id,
-          updatedAt: new Date()
+          updatedAt: new Date(),
         })
         .where(eq(users.id, userId));
 
@@ -263,21 +375,21 @@ router.post("/users/:id/ban", requireAdmin, async (req, res) => {
           phoneNumber: user.phoneNumber, // Match the schema field
           reason,
           bannedBy: req.user.id, // Match the schema field
-          notes: `User ${user.username} banned`
+          notes: `User ${user.username} banned`,
         });
       }
 
       // Log the ban
       await tx.insert(userActivityLogs).values({
         userId,
-        activityType: 'user_banned',
+        activityType: "user_banned",
         details: {
           bannedBy: req.user?.id,
           reason,
-          phoneNumber: user.phoneNumber
+          phoneNumber: user.phoneNumber,
         },
         ipAddress: req.ip,
-        userAgent: req.get('user-agent')
+        userAgent: req.get("user-agent"),
       });
     });
 
@@ -297,10 +409,10 @@ router.post("/update-google-maps-data", requireAdmin, async (req, res) => {
     console.log("Admin requested Google Maps data update:", {
       latitude,
       longitude,
-      user: req.user?.id
+      user: req.user?.id,
     });
 
-    if (typeof latitude === 'number' && typeof longitude === 'number') {
+    if (typeof latitude === "number" && typeof longitude === "number") {
       await fetchKavaBarsByCoordinates(latitude, longitude);
     }
 
@@ -309,16 +421,17 @@ router.post("/update-google-maps-data", requireAdmin, async (req, res) => {
       message: "Google Maps data update request received",
       coordinates: {
         latitude: latitude || null,
-        longitude: longitude || null
+        longitude: longitude || null,
       },
-      timestamp: new Date().toISOString()
+      timestamp: new Date().toISOString(),
     });
   } catch (error: any) {
     console.error("Error in Google Maps update endpoint:", error);
     res.status(500).json({
       success: false,
       error: "Failed to process Google Maps update request",
-      details: process.env.NODE_ENV === 'development' ? error.message : undefined
+      details:
+        process.env.NODE_ENV === "development" ? error.message : undefined,
     });
   }
 });
@@ -328,27 +441,28 @@ router.post("/restore-florida-bars", requireAdmin, async (req, res) => {
   try {
     console.log("Admin requested Florida bar restoration analysis:", {
       user: req.user?.id,
-      timestamp: new Date().toISOString()
+      timestamp: new Date().toISOString(),
     });
-    
+
     // First phase - analyze missing bars
     const result = await restoreMissingFloridaBars();
-    
+
     res.status(200).json({
       success: true,
       message: "Florida bars analysis completed successfully",
       result: {
         analyzed: result.length,
-        missingBars: result // Include the actual missing bars data
+        missingBars: result, // Include the actual missing bars data
       },
-      timestamp: new Date().toISOString()
+      timestamp: new Date().toISOString(),
     });
   } catch (error: any) {
     console.error("Error analyzing Florida bars:", error);
     res.status(500).json({
       success: false,
       error: "Failed to analyze Florida bars",
-      details: process.env.NODE_ENV === 'development' ? error.message : undefined
+      details:
+        process.env.NODE_ENV === "development" ? error.message : undefined,
     });
   }
 });
@@ -358,75 +472,82 @@ router.post("/analyze-broward-palm-beach", requireAdmin, async (req, res) => {
   try {
     console.log("Admin requested Broward/Palm Beach bar analysis:", {
       user: req.user?.id,
-      timestamp: new Date().toISOString()
+      timestamp: new Date().toISOString(),
     });
-    
+
     // Get all bars from the database
-    const existingBars = await db.select({ 
-      id: kavaBars.id, 
-      placeId: kavaBars.placeId,
-      name: kavaBars.name,
-      address: kavaBars.address
-    }).from(kavaBars);
-    
+    const existingBars = await db
+      .select({
+        id: kavaBars.id,
+        placeId: kavaBars.placeId,
+        name: kavaBars.name,
+        address: kavaBars.address,
+      })
+      .from(kavaBars);
+
     // Identify bars in Broward and Palm Beach counties
-    const browardPalmBeachBars = existingBars.filter(bar => {
+    const browardPalmBeachBars = existingBars.filter((bar) => {
       if (!bar.address) return false;
-      
+
       const addr = bar.address.toLowerCase();
-      return addr.includes("broward") || 
-             addr.includes("fort lauderdale") || 
-             addr.includes("hollywood, fl") ||
-             addr.includes("pompano") ||
-             addr.includes("deerfield") ||
-             addr.includes("palm beach") ||
-             addr.includes("boca raton") ||
-             addr.includes("delray") || 
-             addr.includes("boynton") ||
-             addr.includes("west palm");
+      return (
+        addr.includes("broward") ||
+        addr.includes("fort lauderdale") ||
+        addr.includes("hollywood, fl") ||
+        addr.includes("pompano") ||
+        addr.includes("deerfield") ||
+        addr.includes("palm beach") ||
+        addr.includes("boca raton") ||
+        addr.includes("delray") ||
+        addr.includes("boynton") ||
+        addr.includes("west palm")
+      );
     });
-    
+
     // Do a specific analysis to find missing bars in these counties
     const result = await restoreMissingFloridaBars();
-    
+
     // Filter missing bars for just Broward and Palm Beach
     const browardPalmBeachMissing = result.filter((bar: any) => {
       if (!bar.address) return false;
-      
+
       const addr = bar.address.toLowerCase();
-      return addr.includes("broward") || 
-             addr.includes("fort lauderdale") || 
-             addr.includes("hollywood, fl") ||
-             addr.includes("pompano") ||
-             addr.includes("deerfield") ||
-             addr.includes("palm beach") ||
-             addr.includes("boca raton") ||
-             addr.includes("delray") || 
-             addr.includes("boynton") ||
-             addr.includes("west palm");
+      return (
+        addr.includes("broward") ||
+        addr.includes("fort lauderdale") ||
+        addr.includes("hollywood, fl") ||
+        addr.includes("pompano") ||
+        addr.includes("deerfield") ||
+        addr.includes("palm beach") ||
+        addr.includes("boca raton") ||
+        addr.includes("delray") ||
+        addr.includes("boynton") ||
+        addr.includes("west palm")
+      );
     });
-    
+
     res.status(200).json({
       success: true,
       message: "Broward and Palm Beach analysis completed successfully",
       result: {
         existingCount: browardPalmBeachBars.length,
         missingCount: browardPalmBeachMissing.length,
-        existingBars: browardPalmBeachBars.map(bar => ({
+        existingBars: browardPalmBeachBars.map((bar) => ({
           id: bar.id,
           name: bar.name,
-          address: bar.address
+          address: bar.address,
         })),
-        missingBars: browardPalmBeachMissing
+        missingBars: browardPalmBeachMissing,
       },
-      timestamp: new Date().toISOString()
+      timestamp: new Date().toISOString(),
     });
   } catch (error: any) {
     console.error("Error analyzing Broward/Palm Beach bars:", error);
     res.status(500).json({
       success: false,
       error: "Failed to analyze Broward/Palm Beach bars",
-      details: process.env.NODE_ENV === 'development' ? error.message : undefined
+      details:
+        process.env.NODE_ENV === "development" ? error.message : undefined,
     });
   }
 });
@@ -435,50 +556,58 @@ router.post("/analyze-broward-palm-beach", requireAdmin, async (req, res) => {
 router.post("/confirm-restore-florida-bars", requireAdmin, async (req, res) => {
   try {
     const { missingBars } = req.body;
-    
-    if (!missingBars || !Array.isArray(missingBars) || missingBars.length === 0) {
+
+    if (
+      !missingBars ||
+      !Array.isArray(missingBars) ||
+      missingBars.length === 0
+    ) {
       return res.status(400).json({
         success: false,
-        error: "Missing bars data is required for restoration"
+        error: "Missing bars data is required for restoration",
       });
     }
-    
-    console.log(`Admin confirmed restoration of ${missingBars.length} Florida bars:`, {
-      user: req.user?.id,
-      barCount: missingBars.length,
-      timestamp: new Date().toISOString()
-    });
-    
+
+    console.log(
+      `Admin confirmed restoration of ${missingBars.length} Florida bars:`,
+      {
+        user: req.user?.id,
+        barCount: missingBars.length,
+        timestamp: new Date().toISOString(),
+      },
+    );
+
     // Execute the restoration with provided bars data
     const result = await confirmRestoreMissingFloridaBars(missingBars);
-    
+
     // Log the activity
     await db.insert(userActivityLogs).values({
       userId: req.user?.id,
-      activityType: 'florida_bars_restored',
+      activityType: "florida_bars_restored",
       details: {
         restoredBy: req.user?.id,
         restoredCount: result.restored,
         skippedCount: result.skipped,
         errorCount: result.errors,
-        timestamp: new Date().toISOString()
+        timestamp: new Date().toISOString(),
       },
       ipAddress: req.ip,
-      userAgent: req.get('user-agent')
+      userAgent: req.get("user-agent"),
     });
-    
+
     res.status(200).json({
       success: true,
       message: `Florida bars restoration completed: ${result.restored} restored, ${result.skipped} skipped, ${result.errors} errors`,
       result,
-      timestamp: new Date().toISOString()
+      timestamp: new Date().toISOString(),
     });
   } catch (error: any) {
     console.error("Error restoring Florida bars:", error);
     res.status(500).json({
       success: false,
       error: "Failed to restore Florida bars",
-      details: process.env.NODE_ENV === 'development' ? error.message : undefined
+      details:
+        process.env.NODE_ENV === "development" ? error.message : undefined,
     });
   }
 });
@@ -488,35 +617,39 @@ router.post("/restore-broward-palm-beach", requireAdmin, async (req, res) => {
   try {
     console.log("Admin requested Broward/Palm Beach bar restoration:", {
       user: req.user?.id,
-      timestamp: new Date().toISOString()
+      timestamp: new Date().toISOString(),
     });
-    
+
     // Define the specific missing Place IDs for Broward and Palm Beach
     const MISSING_PLACE_IDS = [
-      'ChIJK7aepRsG2YgRCXHB63USFeA', // Vapor Buy + CBD + Smoke + Kratom + Kava
-      'ChIJxwlPNV8H2YgRbGNSQVZDfJ0'  // Davie Kava
+      "ChIJK7aepRsG2YgRCXHB63USFeA", // Vapor Buy + CBD + Smoke + Kratom + Kava
+      "ChIJxwlPNV8H2YgRbGNSQVZDfJ0", // Davie Kava
     ];
-    
-    console.log("Targeting restoration of specific bars with Place IDs:", MISSING_PLACE_IDS);
-    
+
+    console.log(
+      "Targeting restoration of specific bars with Place IDs:",
+      MISSING_PLACE_IDS,
+    );
+
     // First create a backup
     console.log("Creating backup of current database state...");
     await backupDatabase("pre-operation");
-    
+
     // The backup file to use - should be configurable but using a hardcoded recent one for now
-    const BACKUP_FILE = "./backups/kava_bars_post-operation_2025-03-04T02-03-04.144Z.json";
-    
+    const BACKUP_FILE =
+      "./backups/kava_bars_post-operation_2025-03-04T02-03-04.144Z.json";
+
     // Read from backup
-    const backupData = JSON.parse(await fs.readFile(BACKUP_FILE, 'utf8'));
+    const backupData = JSON.parse(await fs.readFile(BACKUP_FILE, "utf8"));
     const backupBars = backupData.bars || [];
-    
+
     // Find the specific bars to restore
-    const barsToRestore = backupBars.filter((bar: any) => 
-      MISSING_PLACE_IDS.includes(bar.placeId)
+    const barsToRestore = backupBars.filter((bar: any) =>
+      MISSING_PLACE_IDS.includes(bar.placeId),
     );
-    
+
     console.log(`Found ${barsToRestore.length} specific bars to restore`);
-    
+
     // For each bar, check if it exists, and restore if not
     let restored = 0;
     let skipped = 0;
@@ -524,43 +657,49 @@ router.post("/restore-broward-palm-beach", requireAdmin, async (req, res) => {
     const restoredBars = [];
     const skippedBars = [];
     const errorBars = [];
-    
+
     for (const bar of barsToRestore) {
       // Check if already exists
-      const existing = await db.select({ id: kavaBars.id, name: kavaBars.name })
+      const existing = await db
+        .select({ id: kavaBars.id, name: kavaBars.name })
         .from(kavaBars)
         .where(eq(kavaBars.placeId, bar.placeId));
-      
+
       if (existing.length > 0) {
         console.log(`Bar already exists: ${bar.name} (ID: ${existing[0].id})`);
         skippedBars.push({
           name: bar.name,
           placeId: bar.placeId,
-          existingId: existing[0].id
+          existingId: existing[0].id,
         });
         skipped++;
         continue;
       }
-      
+
       try {
         console.log(`Restoring bar: ${bar.name}`);
-        
+
         // Prepare location
         let location = null;
         if (bar.location) {
-          location = typeof bar.location === 'string' 
-            ? bar.location 
-            : JSON.stringify(bar.location);
+          location =
+            typeof bar.location === "string"
+              ? bar.location
+              : JSON.stringify(bar.location);
         }
-        
+
         // Convert rating if needed
-        const ratingValue = typeof bar.rating === 'string' ? parseFloat(bar.rating) : (bar.rating || 0);
-        
+        const ratingValue =
+          typeof bar.rating === "string"
+            ? parseFloat(bar.rating)
+            : bar.rating || 0;
+
         // Handle dataCompletenessScore
-        const completenessScore = typeof bar.dataCompletenessScore === 'string' 
-          ? parseFloat(bar.dataCompletenessScore) 
-          : (bar.dataCompletenessScore || 0);
-        
+        const completenessScore =
+          typeof bar.dataCompletenessScore === "string"
+            ? parseFloat(bar.dataCompletenessScore)
+            : bar.dataCompletenessScore || 0;
+
         // Insert bar with proper value handling
         const insertValues = {
           name: bar.name || "",
@@ -580,16 +719,16 @@ router.post("/restore-broward-palm-beach", requireAdmin, async (req, res) => {
           website: bar.website || null,
           hours: bar.hours || null,
           googlePlaceId: bar.googlePlaceId || null,
-          ownerId: null // Do not restore owner relationships
+          ownerId: null, // Do not restore owner relationships
         };
-        
+
         const result = await db.insert(kavaBars).values(insertValues);
-        
+
         console.log(`Successfully restored bar: ${bar.name}`);
         restoredBars.push({
           name: bar.name,
           placeId: bar.placeId,
-          address: bar.address
+          address: bar.address,
         });
         restored++;
       } catch (restoreError: any) {
@@ -597,31 +736,31 @@ router.post("/restore-broward-palm-beach", requireAdmin, async (req, res) => {
         errorBars.push({
           name: bar.name,
           placeId: bar.placeId,
-          error: restoreError.message || String(restoreError)
+          error: restoreError.message || String(restoreError),
         });
         errors++;
       }
     }
-    
+
     // Create backup after restoration
     console.log("Creating backup after restoration...");
     await backupDatabase("post-operation");
-    
+
     // Log the activity
     await db.insert(userActivityLogs).values({
       userId: req.user?.id,
-      activityType: 'broward_palm_beach_bars_restored',
+      activityType: "broward_palm_beach_bars_restored",
       details: {
         restoredBy: req.user?.id,
         restoredCount: restored,
         skippedCount: skipped,
         errorCount: errors,
-        timestamp: new Date().toISOString()
+        timestamp: new Date().toISOString(),
       },
       ipAddress: req.ip,
-      userAgent: req.get('user-agent')
+      userAgent: req.get("user-agent"),
     });
-    
+
     // Return the response
     res.status(200).json({
       success: true,
@@ -632,16 +771,17 @@ router.post("/restore-broward-palm-beach", requireAdmin, async (req, res) => {
         errors,
         restoredBars,
         skippedBars,
-        errorBars
+        errorBars,
       },
-      timestamp: new Date().toISOString()
+      timestamp: new Date().toISOString(),
     });
   } catch (error: any) {
     console.error("Error in Broward/Palm Beach bar restoration:", error);
     res.status(500).json({
       success: false,
       error: "Failed to restore Broward/Palm Beach bars",
-      details: process.env.NODE_ENV === 'development' ? error.message : undefined
+      details:
+        process.env.NODE_ENV === "development" ? error.message : undefined,
     });
   }
 });

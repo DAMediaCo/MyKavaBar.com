@@ -2,7 +2,7 @@ import { useState } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Calendar, ChevronDown } from "lucide-react";
-import { Badge } from "@/components/ui/badge";
+import { RsvpButton } from "@/components/rsvp-button";
 import { format, addDays, isWithinInterval, parseISO } from "date-fns";
 import { Button } from "@/components/ui/button";
 import {
@@ -535,7 +535,7 @@ export default function BarEvents({ barId, ownerId, address }: BarEventsProps) {
             {allEvents.map((event, index) => (
               <div
                 key={event.id}
-                className="flex flex-col sm:flex-row sm:items-start gap-3 sm:gap-4 p-3 sm:p-4 border rounded-lg"
+                className="flex flex-col sm:flex-row items-start gap-3 sm:gap-4 p-3 sm:p-4 border rounded-lg"
               >
                 {/* Date/Time Square - Mobile optimized */}
                 <div
@@ -570,17 +570,40 @@ export default function BarEvents({ barId, ownerId, address }: BarEventsProps) {
                         {event.title}
                       </h4>
                       {event.description && (
-                        <p className="text-sm text-muted-foreground mt-1 break-words">
-                          {event.description}
-                        </p>
+                        <>
+                          <p className="text-sm text-muted-foreground mt-1  whitespace-pre-line line-clamp-3 ">
+                            {event.description}
+                          </p>
+
+                          {event.description.length > 100 && (
+                            <Dialog>
+                              <DialogTrigger asChild>
+                                <button className="text-white font-medium text-md">
+                                  View more
+                                </button>
+                              </DialogTrigger>
+                              <DialogContent className="max-w-md">
+                                <DialogHeader>
+                                  <DialogTitle>Event Description</DialogTitle>
+                                </DialogHeader>
+                                <div className="whitespace-pre-line text-sm text-muted-foreground mt-2">
+                                  {event.description}
+                                </div>
+                              </DialogContent>
+                            </Dialog>
+                          )}
+                        </>
                       )}
-                      <p className="text-xs text-muted-foreground mt-1 break-words">
+
+                      <p className="text-md text-white font-medium mt-2 break-words">
                         {event.isRecurring
-                          ? `Every ${formatDay(event.dayOfWeek)}`
+                          ? `Next: ${format(getNextEventDate(event), "MM/dd/yy")}`
                           : `${formatDateString(event.startDate || "")} to ${formatDateString(event.endDate || "")}`}
                       </p>
                     </div>
-                    <div className="w-full sm:w-auto sm:flex-shrink-0 mt-2 sm:mt-0">
+                    <div className="w-full sm:w-auto sm:flex-shrink-0 sm:mt-0 flex flex-col gap-2">
+                      <RsvpButton user={user} event={event} barId={barId}/>
+
                       <DropdownMenu>
                         <DropdownMenuTrigger asChild>
                           <Button

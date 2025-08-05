@@ -5,13 +5,14 @@ import {
   timestamp,
   integer,
   boolean,
+  index,
   decimal,
-  foreignKey,
   jsonb,
   uuid,
   pgEnum,
   date,
   time,
+  unique,
 } from "drizzle-orm/pg-core";
 import { createInsertSchema, createSelectSchema } from "drizzle-zod";
 import { relations, type InferModel } from "drizzle-orm";
@@ -32,29 +33,112 @@ export const userStatus = pgEnum("user_status", [
 ]);
 
 // Define the users table with all fields including self-reference
-export const users = pgTable("users", {
-  id: serial("id").primaryKey(),
-  firstName: text("first_name").notNull(),
-  lastName: text("last_name").notNull(),
-  username: text("username").unique().notNull(),
-  email: text("email").unique().notNull(),
-  password: text("password").notNull(),
-  phoneNumber: text("phone_number").unique(),
-  isPhoneVerified: boolean("is_phone_verified").default(false).notNull(),
-  profilePhotoUrl: text("profile_photo_url"),
-  role: userRole("role").default("regular_user").notNull(),
-  status: userStatus("status").default("active").notNull(),
-  points: integer("points").default(0).notNull(),
-  isAdmin: boolean("is_admin").default(false).notNull(),
-  squareCustomerId: text("square_customer_id"),
-  lastLoginAt: timestamp("last_login_at"),
-  statusChangedAt: timestamp("status_changed_at"),
-  statusChangedBy: integer("status_changed_by").references(() => users.id),
-  resetPasswordToken: text("reset_password_token"),
-  resetPasswordExpires: timestamp("reset_password_expires"),
-  createdAt: timestamp("created_at").defaultNow().notNull(),
-  updatedAt: timestamp("updated_at"),
-});
+export const users = pgTable(
+  "users",
+  {
+    id: serial("id").primaryKey(),
+    firstName: text("first_name").notNull(),
+    lastName: text("last_name").notNull(),
+    username: text("username").unique().notNull(),
+    email: text("email").unique().notNull(),
+    password: text("password").notNull(),
+    phoneNumber: text("phone_number").unique(),
+    isPhoneVerified: boolean("is_phone_verified").default(false).notNull(),
+    profilePhotoUrl: text("profile_photo_url"),
+    role: userRole("role").default("regular_user").notNull(),
+    status: userStatus("status").default("active").notNull(),
+    points: integer("points").default(0).notNull(),
+    isAdmin: boolean("is_admin").default(false).notNull(),
+    squareCustomerId: text("square_customer_id"),
+    lastLoginAt: timestamp("last_login_at"),
+    statusChangedAt: timestamp("status_changed_at"),
+    statusChangedBy: integer("status_changed_by").references(() => users.id),
+    resetPasswordToken: text("reset_password_token"),
+    resetPasswordExpires: timestamp("reset_password_expires"),
+    createdAt: timestamp("created_at").defaultNow().notNull(),
+    updatedAt: timestamp("updated_at"),
+  },
+  (users) => ({
+    idx_status: index("idx_status").on(users.status),
+    idx_created_at: index("idx_created_at").on(users.createdAt),
+  }),
+);
+
+export const kavatenderReferralProfiles = pgTable(
+  "kavatender_referral_profiles",
+  {
+    id: serial("id").primaryKey(),
+    userId: integer("user_id")
+      .references(() => users.id)
+      .unique()
+      .notNull(),
+    referralCode: text("referral_code").unique().notNull(),
+    totalEarnings: decimal("total_earnings", { precision: 10, scale: 2 })
+      .default("0.00")
+      .notNull(),
+    createdAt: timestamp("created_at").defaultNow().notNull(),
+    updatedAt: timestamp("updated_at").defaultNow(),
+  },
+  (table) => ({
+    idx_user: index("idx_kavatender_ref_user").on(table.userId),
+    idx_referral_code: index("idx_kavatender_ref_code").on(table.referralCode),
+  }),
+);
+
+// ====================== REFERRALS ======================
+export const referrals = pgTable(
+  "referrals",
+  {
+    id: serial("id").primaryKey(),
+    referrerId: integer("referrer_id").references(() => users.id),
+    refereeId: integer("referee_id").references(() => users.id),
+    createdAt: timestamp("created_at").defaultNow().notNull(),
+  },
+  (referrals) => ({
+    // 🛑 Unique constraint to prevent duplicates
+    uniqueReferrerReferee: unique().on(
+      referrals.referrerId,
+      referrals.refereeId,
+    ),
+    // 🌟 Indexes
+    idx_referrer: index("idx_referrer").on(referrals.referrerId),
+    idx_referee: index("idx_referee").on(referrals.refereeId),
+    idx_created_at: index("idx_referral_created_at").on(referrals.createdAt),
+  }),
+);
+
+// ====================== PAYOUTS ======================
+export const payouts = pgTable(
+  "payouts",
+  {
+    id: serial("id").primaryKey(),
+    userId: integer("user_id")
+      .references(() => users.id)
+      .notNull(),
+    amount: integer("amount").notNull(), // in paise/cents
+    paidAt: timestamp("paid_at").defaultNow(),
+  },
+  (payouts) => ({
+    // 🌟 Indexes
+    idx_user_paid: index("idx_user_paid").on(payouts.userId, payouts.paidAt),
+  }),
+);
+
+// ====================== REFERRAL AMOUNT CONFIG ======================
+export const referralAmount = pgTable(
+  "referral_amount",
+  {
+    id: serial("id").primaryKey(),
+    reward: integer("reward").notNull(), // in paise (₹3.00 = 300)
+    updatedAt: timestamp("updated_at").defaultNow().notNull(),
+  },
+  (referralAmount) => ({
+    // 🌟 For fetching latest reward
+    idx_updated_at: index("idx_referral_reward_updated").on(
+      referralAmount.updatedAt,
+    ),
+  }),
+);
 
 // New table for tracking banned phone numbers
 export const bannedPhoneNumbers = pgTable("banned_phone_numbers", {
@@ -555,6 +639,32 @@ export const barOwnerNotificationRelations = relations(
       fields: [barOwnerNotifications.barId],
       references: [kavaBars.id],
     }),
+  }),
+);
+export const eventRsvps = pgTable(
+  "event_rsvps",
+  {
+    id: serial("id").primaryKey(),
+    userId: integer("user_id")
+      .references(() => users.id, { onDelete: "cascade" })
+      .notNull(),
+    eventId: integer("event_id")
+      .references(() => barEvents.id, { onDelete: "cascade" })
+      .notNull(),
+    eventDate: date("event_date").notNull(),
+    isActive: boolean("is_active").default(true).notNull(),
+    eventDateTime: timestamp("event_date_time").notNull(), // full datetime
+    createdAt: timestamp("created_at").defaultNow().notNull(),
+  },
+  (table) => ({
+    uniqueUserEventDate: unique().on(
+      table.userId,
+      table.eventId,
+      table.eventDate,
+    ),
+    idx_event: index("idx_event_rsvp_event").on(table.eventId),
+    idx_user: index("idx_event_rsvp_user").on(table.userId),
+    idx_date: index("idx_event_rsvp_date").on(table.eventDate),
   }),
 );
 

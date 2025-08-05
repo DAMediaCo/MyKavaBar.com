@@ -22,7 +22,7 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import { Checkbox } from "@/components/ui/checkbox";
-import { Label } from "@/components/ui/label";
+
 import { ScrollArea } from "@/components/ui/scroll-area";
 
 const registerSchema = z.object({
@@ -37,6 +37,7 @@ const registerSchema = z.object({
     message: "You must accept the terms and conditions",
   }),
   marketingConsent: z.boolean().default(false),
+  referralCode: z.string().optional(),
   ageConfirmed: z.boolean().refine((val) => val === true, {
     message: "You must confirm that you are at least 18 years old",
   }),
@@ -44,7 +45,11 @@ const registerSchema = z.object({
 
 type RegisterValues = z.infer<typeof registerSchema>;
 
-export default function RegisterForm() {
+export default function RegisterForm({
+  referralCode,
+}: {
+  referralCode: string | undefined;
+}) {
   const { toast } = useToast();
   const [_, setLocation] = useLocation();
   const [isVerifying, setIsVerifying] = useState(false);
@@ -70,6 +75,7 @@ export default function RegisterForm() {
       verificationCode: "",
       termsAccepted: false,
       marketingConsent: false,
+      referralCode: referralCode || "",
       ageConfirmed: false,
     },
   });
@@ -89,7 +95,13 @@ export default function RegisterForm() {
 
       if (!response.ok) {
         console.error("Verification request failed:", result);
-        throw new Error(result.message || "Failed to send verification code");
+        toast({
+          variant: "destructive",
+          title: "Phone number exists",
+          description:
+            "Please use a different phone number or login with your existing account.",
+        });
+        return;
       }
 
       console.log("Verification request successful:", result);
@@ -255,6 +267,7 @@ export default function RegisterForm() {
       formData.append("marketingConsent", values.marketingConsent ? "1" : "0");
       formData.append("ageConfirmed", values.ageConfirmed ? "1" : "0");
       formData.append("isPhoneVerified", "1");
+      formData.append("referralCode", values.referralCode || "");
 
       if (profilePhoto) {
         formData.append("profilePhoto", profilePhoto);
@@ -434,6 +447,19 @@ export default function RegisterForm() {
             )}
           />
 
+          <FormField
+            control={form.control}
+            name="referralCode"
+            render={({ field }) => (
+              <FormItem>
+                <FormLabel>Referral Code (Optional)</FormLabel>
+                <FormControl>
+                  <Input type="text" placeholder="K-ABC123" {...field} />
+                </FormControl>
+                <FormMessage />
+              </FormItem>
+            )}
+          />
           {codeSent && (
             <FormField
               control={form.control}

@@ -2,7 +2,7 @@ import { type Express } from "express";
 import passport from "passport";
 import { Strategy as LocalStrategy } from "passport-local";
 import session from "express-session";
-import createMemoryStore from "memorystore";
+import { createReferral } from "./utils/generate-referralcode";
 import multer from "multer";
 import path from "path";
 import fs from "fs";
@@ -23,6 +23,7 @@ import { sendVerificationCode, verifyCode } from "./utils/prelude";
 import { formatToE164 } from "./utils/phone-format";
 import { v4 as uuidv4 } from "uuid";
 import { uploadImageToStorage } from "./upload-to-storage";
+import { generateUniqueReferralCode } from "./utils/generate-referralcode";
 
 // Ensure uploads directory exists
 const UPLOADS_DIR = path.join(process.cwd(), "public/uploads/profiles");
@@ -90,14 +91,13 @@ function checkEnvironment() {
 checkEnvironment();
 
 export function setupAuth(app: Express) {
-
   const sessionSettings: session.SessionOptions = {
     secret: process.env.REPL_ID || "mykavabar-secret",
     resave: false,
     saveUninitialized: false,
     cookie: {
       secure: false,
-      maxAge: 90 * 24 * 60 * 60 * 1000, 
+      maxAge: 90 * 24 * 60 * 60 * 1000,
       httpOnly: true,
       sameSite: "lax",
       path: "/",
@@ -245,7 +245,6 @@ export function setupAuth(app: Express) {
       const { username, password, email, phoneNumber, firstName, lastName } =
         result.data;
 
-      // Check if username exists
       const [existingUser] = await db
         .select()
         .from(users)
@@ -253,11 +252,18 @@ export function setupAuth(app: Express) {
         .limit(1);
 
       if (existingUser) {
-        return res.status(400).json({ error: "Username already exists" });
+        return res.status(409).json({ error: "Username already exists" });
       }
 
-      const hashedPassword = await crypto.hash(password);
+      const [existingPhoneNumber] = await db
+        .select()
+        .from(users)
+        .where(eq(users.phoneNumber, phoneNumber));
 
+      if (existingPhoneNumber)
+        return res.status(409).json({ error: "Phone number already exists" });
+
+      const hashedPassword = await crypto.hash(password);
       const [newUser] = await db
         .insert(users)
         .values({
@@ -281,6 +287,19 @@ export function setupAuth(app: Express) {
         isPhoneVerified: newUser.isPhoneVerified,
         profilePhotoUrl: newUser.profilePhotoUrl,
       });
+
+      // ✅ Handle referral if a code is provided
+      const receivedReferralCode = req.body.referralCode?.trim();
+      if (receivedReferralCode) {
+        try {
+          await createReferral(receivedReferralCode, newUser.id);
+        } catch (referralError: any) {
+          console.warn(
+            `Referral warning for user ${newUser.id}: ${referralError.message}`,
+          );
+          // Optional: Log but don’t block user registration
+        }
+      }
 
       // Migrator
       await db.insert(temp).values({

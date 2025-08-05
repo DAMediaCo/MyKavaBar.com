@@ -1,0 +1,1 @@
+ALTER TABLE "event_rsvps" ADD COLUMN "is_active" boolean DEFAULT true NOT NULL;

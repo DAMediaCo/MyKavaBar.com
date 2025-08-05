@@ -16,8 +16,10 @@ import {
   Shield,
   ListPlus,
   BookOpen,
+  Share,
   Users,
 } from "lucide-react";
+
 import { Link, useLocation } from "wouter";
 import AdminNotifications from "@/components/admin-notifications";
 import { ThemeToggle } from "@/components/theme-toggle";
@@ -68,6 +70,14 @@ export default function NavBar() {
                     Edit Profile
                   </DropdownMenuItem>
                 </Link>
+                {user.role === "kavatender" && (
+                  <Link href="/referrals">
+                    <DropdownMenuItem className="cursor-pointer">
+                      <Share className="h-4 w-4 mr-2" />
+                      Referrals
+                    </DropdownMenuItem>
+                  </Link>
+                )}
                 {user.role === "bar_owner" && (
                   <Link href="/owner-dashboard">
                     <DropdownMenuItem className="cursor-pointer">

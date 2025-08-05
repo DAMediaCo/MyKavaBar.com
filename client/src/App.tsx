@@ -36,20 +36,26 @@ import ManageBar from "./pages/manage-bar";
 import TermsOfService from "./pages/terms-of-service";
 import CookiePolicy from "./pages/cookie-policy";
 import Welcome from "./pages/welcome";
-
+import Referral from "./pages/referrals";
+import AdminPayoutPage from "./pages/admin/payout";
+import MyRsvpsPage from "./pages/my-rsvp";
 interface ProtectedRouteProps {
   children: React.ReactNode;
   isAllowed: boolean;
+  redirectTo?: string;
 }
 
-function ProtectedRoute({ children, isAllowed }: ProtectedRouteProps) {
+function ProtectedRoute({
+  children,
+  isAllowed,
+  redirectTo = "/auth", // default to login
+}: ProtectedRouteProps) {
   const [, navigate] = useLocation();
-
   useEffect(() => {
     if (!isAllowed) {
-      navigate("/auth");
+      navigate(redirectTo);
     }
-  }, [isAllowed, navigate]);
+  }, [isAllowed, navigate, redirectTo]);
 
   return isAllowed ? <>{children}</> : null;
 }
@@ -85,27 +91,36 @@ function Router() {
           <Route path="/forgot-password" component={ForgotPassword} />
           <Route path="/reset-password/:token" component={ResetPassword} />
           <Route path="/learn" component={Learn} />
-
           {/* Knowledge Hub Routes */}
           <Route path="/learn/history" component={History} />
           <Route path="/learn/kratom" component={Kratom} />
           <Route path="/learn/blue-lotus" component={BlueLotus} />
           <Route path="/learn/kanna" component={Kanna} />
           <Route path="/learn/damiana" component={Damiana} />
-
           {/* Protected routes */}
           <Route path="/profile">
             <ProtectedRoute isAllowed={!!user}>
               <Profile />
             </ProtectedRoute>
           </Route>
-
+          <Route path="/my-rsvp">
+            <ProtectedRoute isAllowed={!!user}>
+              <MyRsvpsPage />
+            </ProtectedRoute>
+          </Route>
+          <Route path="/referrals">
+            <ProtectedRoute
+              isAllowed={!!user && user.role === "kavatender"}
+              redirectTo={!!user && user.role !== "kavatender" ? "/" : "/auth"}
+            >
+              <Referral />
+            </ProtectedRoute>
+          </Route>
           <Route path="/owner-dashboard">
             <ProtectedRoute isAllowed={!!user}>
               <OwnerDashboard />
             </ProtectedRoute>
           </Route>
-
           {/* Admin routes */}
           <Route path="/admin/verification-status">
             <ProtectedRoute isAllowed={!!user?.isAdmin}>
@@ -132,13 +147,17 @@ function Router() {
               <ManageUsers />
             </ProtectedRoute>
           </Route>
-
+          p
+          <Route path="/admin/payouts">
+            <ProtectedRoute isAllowed={!!user?.isAdmin}>
+              <AdminPayoutPage />
+            </ProtectedRoute>
+          </Route>
           <Route path="/manage-bar/:id">
             <ProtectedRoute isAllowed={!!user}>
               <ManageBar />
             </ProtectedRoute>
           </Route>
-
           {/* Fallback */}
           <Route component={NotFound} />
         </Switch>
