@@ -5,6 +5,7 @@ import { z } from "zod";
 import { useToast } from "@/hooks/use-toast";
 import { useLocation } from "wouter";
 import { Button } from "@/components/ui/button";
+import { useQueryClient } from "@tanstack/react-query";
 import {
   Form,
   FormControl,
@@ -62,6 +63,7 @@ export default function RegisterForm({
   const videoRef = useRef<HTMLVideoElement>(null);
   const streamRef = useRef<MediaStream | null>(null);
   const [showTerms, setShowTerms] = useState(false);
+  const queryClient = useQueryClient();
 
   const form = useForm<RegisterValues>({
     resolver: zodResolver(registerSchema),
@@ -81,7 +83,6 @@ export default function RegisterForm({
   });
 
   async function requestVerificationCode(phoneNumber: string) {
-    console.log("Requesting verification code for:", phoneNumber);
     try {
       const response = await fetch("/api/phone/verify", {
         method: "POST",
@@ -90,7 +91,6 @@ export default function RegisterForm({
         credentials: "include",
       });
 
-      console.log("Verification response status:", response.status);
       const result = await response.json();
 
       if (!response.ok) {
@@ -103,15 +103,12 @@ export default function RegisterForm({
         });
         return;
       }
-
-      console.log("Verification request successful:", result);
       setCodeSent(true);
       toast({
         title: "Verification Code Sent",
         description: "Please check your phone for the verification code.",
       });
     } catch (error: any) {
-      console.error("Error in requestVerificationCode:", error);
       const errorDetails = error.details ? `: ${error.details}` : "";
       toast({
         variant: "destructive",
@@ -288,6 +285,7 @@ export default function RegisterForm({
             "Registration failed",
         );
       }
+      queryClient.invalidateQueries({ queryKey: ["user"] });
 
       toast({
         title: "Registration Successful",
@@ -557,11 +555,12 @@ export default function RegisterForm({
 
           <div className="space-y-4">
             <p className="text-sm text-muted-foreground">
-              By submitting this form and signing up for texts, you consent to
-              receive marketing text messages (e.g., promos and cart reminders)
-              from MyKavaBar autodialer. Consent is not a condition of purchase.
-              Msg & data rates may apply. Msg frequency varies. Unsubscribe at
-              any time by replying STOP or clicking the unsubscribe link.
+              By submitting this form, you agree to receive texts, emails, and
+              push notifications from MyKavaBar.com and bars you follow or
+              subscribe to. These may include updates, promotions, and event
+              reminders. Message and data rates may apply. Frequency may vary.
+              You can unsubscribe anytime by replying STOP, clicking unsubscribe
+              links, or updating your preferences.
             </p>
 
             <Button

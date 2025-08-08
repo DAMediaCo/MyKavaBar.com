@@ -52,19 +52,14 @@ async function handleRequest(
 
 async function fetchUser(): Promise<User | null> {
   try {
-    console.log("Fetching user session...");
-
     try {
       const response = await fetchApi<UserResponse>("/api/user");
-      console.log("User API response:", response);
       const user = response?.user;
 
       if (!user) {
         console.log("No user data in response");
         return null;
       }
-
-      console.log("User session loaded:", user);
       return user;
     } catch (error: any) {
       if (error.message.includes("401")) {

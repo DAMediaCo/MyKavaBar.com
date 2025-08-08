@@ -82,6 +82,7 @@ export async function getUserReferralDetails(userId: number) {
   const profile = await db
     .select({
       earnings: kavatenderReferralProfiles.totalEarnings,
+      referralCode: kavatenderReferralProfiles.referralCode,
     })
     .from(kavatenderReferralProfiles)
     .where(eq(kavatenderReferralProfiles.userId, userId))
@@ -107,5 +108,6 @@ export async function getUserReferralDetails(userId: number) {
   return {
     referrals: referred,
     earnings: parseFloat(profile.earnings).toFixed(2),
+    referralCode: profile.referralCode,
   };
 }

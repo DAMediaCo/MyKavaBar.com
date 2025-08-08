@@ -18,6 +18,7 @@ import {
   BookOpen,
   Share,
   Users,
+  DollarSign,
 } from "lucide-react";
 
 import { Link, useLocation } from "wouter";
@@ -70,6 +71,7 @@ export default function NavBar() {
                     Edit Profile
                   </DropdownMenuItem>
                 </Link>
+
                 {user.role === "kavatender" && (
                   <Link href="/referrals">
                     <DropdownMenuItem className="cursor-pointer">
@@ -78,7 +80,7 @@ export default function NavBar() {
                     </DropdownMenuItem>
                   </Link>
                 )}
-                {user.role === "bar_owner" && (
+                {(user.role === "bar_owner" || user.role === "admin") && (
                   <Link href="/owner-dashboard">
                     <DropdownMenuItem className="cursor-pointer">
                       <Building2 className="h-4 w-4 mr-2" />
@@ -92,6 +94,12 @@ export default function NavBar() {
                       <DropdownMenuItem className="cursor-pointer">
                         <Shield className="h-4 w-4 mr-2" />
                         Verification Codes
+                      </DropdownMenuItem>
+                    </Link>
+                    <Link href="/admin/payouts">
+                      <DropdownMenuItem className="cursor-pointer">
+                        <DollarSign className="h-4 w-4 mr-2" />
+                        Referral Payouts
                       </DropdownMenuItem>
                     </Link>
                     <Link href="/admin/manage-bars">
@@ -108,7 +116,14 @@ export default function NavBar() {
                     </Link>
                   </>
                 )}
-                <DropdownMenuItem onClick={() => logout()} className="text-sm">
+
+                <DropdownMenuItem
+                  onClick={() => {
+                    logout();
+                    navigate("/");
+                  }}
+                  className="text-sm"
+                >
                   <LogOut className="h-4 w-4 mr-2" />
                   Logout
                 </DropdownMenuItem>

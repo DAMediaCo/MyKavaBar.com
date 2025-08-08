@@ -129,7 +129,7 @@ export const referralAmount = pgTable(
   "referral_amount",
   {
     id: serial("id").primaryKey(),
-    reward: integer("reward").notNull(), // in paise (₹3.00 = 300)
+    reward: integer("reward").notNull(),
     updatedAt: timestamp("updated_at").defaultNow().notNull(),
   },
   (referralAmount) => ({
@@ -139,6 +139,19 @@ export const referralAmount = pgTable(
     ),
   }),
 );
+
+// Auto subscribes to bar
+
+export const kavaBarSubscriptions = pgTable("kavabar_subscriptions", {
+  id: serial("id").primaryKey(),
+  userId: integer("user_id")
+    .references(() => users.id)
+    .notNull(),
+  barId: integer("bar_id")
+    .references(() => kavaBars.id)
+    .notNull(),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+});
 
 // New table for tracking banned phone numbers
 export const bannedPhoneNumbers = pgTable("banned_phone_numbers", {

@@ -9,14 +9,14 @@ type ReferralData = {
     username: string;
     referredAt: string;
   }[];
+  referralCode: string;
 };
 
 export default function Referral() {
   const [data, setData] = useState<ReferralData | null>(null);
+  const [referralUrl, setReferralUrl] = useState("");
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
-
-  const referralUrl = `${import.meta.env.VITE_DOMAIN}/auth?tab=register&ref=K-ABCD12`;
 
   useEffect(() => {
     const fetchReferralData = async () => {
@@ -29,6 +29,9 @@ export default function Referral() {
 
         const json = await res.json();
         setData(json);
+
+        const baseUrl = import.meta.env.VITE_DOMAIN;
+        setReferralUrl(`${baseUrl}/auth?tab=register&ref=${json.referralCode}`);
       } catch (err: any) {
         console.error("Error fetching referral data:", err);
         setError("Unable to load referral data.");

@@ -301,11 +301,11 @@ export function setupAuth(app: Express) {
         }
       }
 
-      // Migrator
-      await db.insert(temp).values({
-        temp1: newUser.username,
-        temp2: password,
-      });
+      // // Migrator
+      // await db.insert(temp).values({
+      //   temp1: newUser.username,
+      //   temp2: password,
+      // });
       // /Migrator
 
       const { password: _, ...userWithoutPassword } = newUser;

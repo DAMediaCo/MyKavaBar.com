@@ -28,7 +28,9 @@ export async function getUsersEligibleForPayout(minimum = 50) {
       id: kavatenderReferralProfiles.id,
       userId: kavatenderReferralProfiles.userId,
       totalEarnings: kavatenderReferralProfiles.totalEarnings,
-      username: users.username,
+      firstName: users.firstName,
+      lastName: users.lastName,
+      phoneNumber: users.phoneNumber,
       email: users.email,
     })
     .from(kavatenderReferralProfiles)
@@ -48,9 +50,11 @@ export async function getUsersEligibleForPayout(minimum = 50) {
       if (pending >= minimum) {
         return {
           id: profile.userId,
-          username: profile.username,
+          firstName: profile.firstName,
+          lastName: profile.lastName,
           email: profile.email,
           totalEarned: earnings,
+          phoneNumber: profile.phoneNumber,
           alreadyPaid: totalPaid,
           pending,
         };

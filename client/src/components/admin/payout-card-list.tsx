@@ -12,9 +12,12 @@ import { useToast } from "@/hooks/use-toast";
 
 type UserPayout = {
   id: number;
-  username: string;
+  firstName: string;
+  lastName: string;
+  phoneNumber: string;
   totalEarned: number;
   alreadyPaid: number;
+
   email?: string;
   pending?: number;
 };
@@ -35,7 +38,7 @@ export const PayoutCardList = () => {
         if (!res.ok) throw new Error("Failed to fetch payouts");
 
         const data = await res.json();
-        console.log("Data ", data);
+
         setUsers(
           data.data.map((u: any) => ({
             ...u,

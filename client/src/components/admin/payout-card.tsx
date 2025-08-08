@@ -4,16 +4,20 @@ import { CheckCircle2 } from "lucide-react";
 
 type Props = {
   id: number;
-  username: string;
+  firstName: string;
+  lastName: string;
   totalEarned: number;
   alreadyPaid: number;
+  phoneNumber: string;
   onPayout: (id: number) => void;
   disabled?: boolean; // ← add this
 };
 
 export const PayoutCard: React.FC<Props> = ({
   id,
-  username,
+  firstName,
+  lastName,
+  phoneNumber,
   totalEarned,
   alreadyPaid,
   onPayout,
@@ -22,11 +26,21 @@ export const PayoutCard: React.FC<Props> = ({
   const pending = totalEarned - alreadyPaid;
   const isEligible = pending >= 50;
 
-
   return (
     <div className="flex items-center justify-between border p-6 rounded-xl shadow-md bg-muted/30">
       <div className="flex flex-col gap-1">
-        <span className="text-lg font-semibold">@{username}</span>
+        <span className="text-lg font-semibold">
+          {firstName || lastName ? `${firstName ?? ""} ${lastName ?? ""}` : ""}
+        </span>
+        {phoneNumber && (
+          <a
+            href={`tel:${phoneNumber}`}
+            className="text-sm text-muted-foreground hover:underline"
+          >
+            📞 {phoneNumber}
+          </a>
+        )}
+
         <div className="text-base text-muted-foreground flex flex-wrap gap-6">
           <span>Total Earned: ${totalEarned.toFixed(2)}</span>
           <span>Paid: ${alreadyPaid.toFixed(2)}</span>

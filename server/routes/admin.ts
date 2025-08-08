@@ -21,47 +21,47 @@ const router = Router();
 // Get all users with complete user information
 router.get("/users", requireAdmin, async (req, res) => {
   try {
-    // console.log("Admin users request:", {
-    //   user: req.user
-    //     ? {
-    //         id: req.user.id,
-    //         username: req.user.username,
-    //         isAdmin: req.user.isAdmin,
-    //       }
-    //     : null,
-    //   session: req.session?.id,
-    //   headers: {
-    //     cookie: req.headers.cookie,
-    //     authorization: req.headers.authorization,
-    //   },
-    // });
+    console.log("Admin users request:", {
+      user: req.user
+        ? {
+            id: req.user.id,
+            username: req.user.username,
+            isAdmin: req.user.isAdmin,
+          }
+        : null,
+      session: req.session?.id,
+      headers: {
+        cookie: req.headers.cookie,
+        authorization: req.headers.authorization,
+      },
+    });
 
-    // const usersList = await db.query.users.findMany({
-    //   orderBy: (users, { desc }) => [desc(users.createdAt)],
-    //   columns: {
-    //     id: true,
-    //     username: true,
-    //     email: true,
-    //     role: true,
-    //     status: true,
-    //     phoneNumber: true,
-    //     isPhoneVerified: true,
-    //     points: true,
-    //     isAdmin: true,
-    //     createdAt: true,
-    //     lastLoginAt: true,
-    //     updatedAt: true,
-    //   },
-    // });
+    const usersList = await db.query.users.findMany({
+      orderBy: (users, { desc }) => [desc(users.createdAt)],
+      columns: {
+        id: true,
+        username: true,
+        email: true,
+        role: true,
+        status: true,
+        phoneNumber: true,
+        isPhoneVerified: true,
+        points: true,
+        isAdmin: true,
+        createdAt: true,
+        lastLoginAt: true,
+        updatedAt: true,
+      },
+    });
 
-    // console.log(
-    //   `Found ${usersList.length} users:`,
-    //   usersList.map((u) => ({
-    //     id: u.id,
-    //     username: u.username,
-    //     isAdmin: u.isAdmin,
-    //   })),
-    // );
+    console.log(
+      `Found ${usersList.length} users:`,
+      usersList.map((u) => ({
+        id: u.id,
+        username: u.username,
+        isAdmin: u.isAdmin,
+      })),
+    );
 
     // Set appropriate headers for CORS and caching
     res.set({

@@ -1,7 +1,12 @@
 // drizzle/seedReferralCodes.ts
 import { db } from "../../db/index";
-import { kavatenderReferralProfiles, referrals } from "../../db/schema";
-import { eq, and, sql } from "drizzle-orm";
+import {
+  barStaff,
+  kavatenderReferralProfiles,
+  referrals,
+  kavaBarSubscriptions,
+} from "../../db/schema";
+import { eq, and, sql, inArray } from "drizzle-orm";
 import { getReferralAmount } from "./referrals";
 
 export const generateReadableCode = (length = 6): string => {
@@ -75,6 +80,24 @@ export const createReferral = async (
       referrerId,
       refereeId,
     });
+
+    const staffBars = await db
+      .select({ barId: barStaff.barId })
+      .from(barStaff)
+      .where(and(eq(barStaff.userId, referrerId), eq(barStaff.isActive, true)));
+
+    if (staffBars.length > 0) {
+      const barIds = staffBars.map((entry) => entry.barId);
+      const subscriptions = barIds.map((barId) => ({
+        userId: refereeId,
+        barId,
+      }));
+
+      await db.insert(kavaBarSubscriptions).values(subscriptions);
+      console.log(
+        `User ${refereeId} auto-subscribed to bars: ${barIds.join(", ")}`,
+      );
+    }
 
     // 5. Increment total earnings in the kavatenderReferralProfiles table
     const referAmount = await getReferralAmount(); // returns amount in paise

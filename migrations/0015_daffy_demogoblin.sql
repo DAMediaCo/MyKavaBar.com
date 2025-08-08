@@ -1,0 +1,1 @@
+ALTER TABLE "kavabar_subscriptions" ADD COLUMN "created_at" timestamp DEFAULT now() NOT NULL;

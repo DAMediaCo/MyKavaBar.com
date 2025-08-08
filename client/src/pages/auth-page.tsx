@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
+import { useQueryClient } from "@tanstack/react-query";
 import { useUser } from "@/hooks/use-user";
 import {
   Card,
@@ -35,6 +36,8 @@ type LoginFormData = z.infer<typeof loginSchema>;
 export default function AuthPage() {
   const { login } = useUser();
   const { toast } = useToast();
+  const queryClient = useQueryClient();
+
   const [isLoading, setIsLoading] = useState(false);
   const [_, navigate] = useLocation();
   const rawTab =
@@ -69,6 +72,7 @@ export default function AuthPage() {
         });
       } else {
         // Redirect to home page after successful login
+        queryClient.invalidateQueries({ queryKey: ["user"] });
         navigate("/");
       }
     } catch (error: any) {
