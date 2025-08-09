@@ -109,12 +109,7 @@ function Router() {
             </ProtectedRoute>
           </Route>
           <Route path="/referrals">
-            <ProtectedRoute
-              isAllowed={!!user && user.role === "kavatender"}
-              redirectTo={
-                !!user && user.role === "kavatender" ? "/referrals" : "/"
-              }
-            >
+            <ProtectedRoute isAllowed={!!user && user.role === "kavatender"}>
               <Referral />
             </ProtectedRoute>
           </Route>
