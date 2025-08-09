@@ -99,7 +99,7 @@ export const PayoutCardList = () => {
       </CardHeader>
 
       <CardContent>
-        <ScrollArea className="max-h-[700px] pr-2">
+        <ScrollArea className="pr-2">
           <div className="grid grid-cols-1 gap-6">
             {users.length > 0 &&
               users.map((user) => (

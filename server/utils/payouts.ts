@@ -21,7 +21,7 @@ export async function getAllPayoutsWithUserDetails() {
 }
 
 // ✅ List users eligible for payout (based on referral profile table)
-export async function getUsersEligibleForPayout(minimum = 50) {
+export async function getUsersEligibleForPayout() {
   // Get all kavatenders with referral profiles
   const referralProfiles = await db
     .select({
@@ -47,7 +47,7 @@ export async function getUsersEligibleForPayout(minimum = 50) {
       const earnings = parseFloat(profile.totalEarnings?.toString() || "0");
       const pending = earnings - totalPaid;
 
-      if (pending >= minimum) {
+      if (pending >= 0.01) {
         return {
           id: profile.userId,
           firstName: profile.firstName,
@@ -59,12 +59,10 @@ export async function getUsersEligibleForPayout(minimum = 50) {
           pending,
         };
       }
-
-      return null;
     }),
   );
 
-  return results.filter((u) => u !== null);
+  return results.filter(Boolean);
 }
 
 // ✅ Get total paid amount for a single user
