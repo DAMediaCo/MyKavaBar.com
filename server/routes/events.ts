@@ -21,17 +21,19 @@ export function registerEventRoutes(app: Express) {
     try {
       const id = parseInt(req.params.id, 10);
       if (isNaN(id)) {
+        console.error("Invalid bar ID:", req.params.id);
         return res.status(400).json({ error: "Invalid bar ID" });
       }
-
       const userId = req.user?.id ?? null;
 
+      // Step 1: Get NY date for queries and log it
       const newYorkTime = new Date().toLocaleString("en-US", {
         timeZone: "America/New_York",
       });
-      const currentDateNY = new Date(newYorkTime).toISOString().split("T")[0]; // YYYY-MM-DD
+      const currentDateNY = new Date(newYorkTime).toISOString().split("T")[0];
+      console.log("Current NY Date:", currentDateNY);
 
-      // Fetch all non-recurring events starting from today
+      // Step 2: Fetch non-recurring events from DB, log results
       const nonRecurringEvents = await db.query.barEvents.findMany({
         where: and(
           eq(barEvents.barId, id),
@@ -39,52 +41,109 @@ export function registerEventRoutes(app: Express) {
           gte(barEvents.endDate, `${currentDateNY}T00:00:00.000Z`),
         ),
       });
+      console.log("Non-recurring events fetched:", nonRecurringEvents);
 
+      // Step 3: Fetch recurring events from DB, log results
       const recurringEvents = await db.query.barEvents.findMany({
         where: and(eq(barEvents.barId, id), eq(barEvents.isRecurring, true)),
         orderBy: [barEvents.dayOfWeek],
       });
+      console.log("Recurring events fetched:", recurringEvents);
 
-      // 🧠 Helper to compute RSVP status
-      const enrichWithRsvpFlag = async (event: any) => {
-        let eventDate: string;
-        let eventDateTime: Date;
-
-        if (event.isRecurring) {
-          const nextDate = getNextOccurrence(event.dayOfWeek); // returns Date in local
-          eventDate = nextDate.toISOString().split("T")[0];
-          eventDateTime = convertEstToUtcDateTime(nextDate, event.startTime);
+      // Step 4: Improved date constructor for non-recurring events
+      function getEventStartDate(event: any): Date {
+        if (!event.startDate) {
+          console.error(`Missing startDate for event id=${event.id}`);
+          throw new Error(`Missing startDate for event id=${event.id}`);
+        }
+        // If startDate is YYYY-MM-DD, add time
+        if (event.startDate.length === 10) {
+          if (!event.startTime) {
+            console.error(`Missing startTime for event id=${event.id}`);
+            throw new Error(`Missing startTime for event id=${event.id}`);
+          }
+          return new Date(`${event.startDate}T${event.startTime}`);
         } else {
-          eventDate = event.startDate;
-          const start = new Date(`${event.startDate}T${event.startTime}:00`);
-          eventDateTime = convertEstToUtcDateTime(start, event.startTime);
+          // startDate is already ISO, use directly
+          return new Date(event.startDate);
         }
+      }
 
-        let isRsvped = false;
-        if (userId && new Date() < eventDateTime) {
-          const existing = await db.query.eventRsvps.findFirst({
-            where: and(
-              eq(eventRsvps.userId, userId),
-              eq(eventRsvps.eventId, event.id),
-              eq(eventRsvps.eventDate, eventDate),
-              eq(eventRsvps.isActive, true),
-            ),
-          });
-          isRsvped = !!existing;
+      // Step 5: Helper to enrich with RSVP flag, debugging at each step
+      const enrichWithRsvpFlag = async (event: any) => {
+        try {
+          let eventDate: string;
+          let eventDateTime: Date;
+
+          if (event.isRecurring) {
+            // Recurring event: compute next occurrence
+            const nextDate = getNextOccurrence(event.dayOfWeek);
+            eventDate = nextDate.toISOString().split("T")[0];
+            eventDateTime = convertEstToUtcDateTime(nextDate, event.startTime);
+            console.log(
+              `Recurring event (${event.id}): nextDate=${eventDate}, eventDateTime=${eventDateTime}`,
+            );
+          } else {
+            // Non-recurring event: handle ISO and date-only startDate
+            eventDate = event.startDate;
+            const start = getEventStartDate(event);
+            if (isNaN(start.getTime())) {
+              console.error(
+                `Invalid constructed start date for event id=${event.id}:`,
+                event.startDate,
+                event.startTime,
+              );
+              throw new Error(
+                `Invalid start date for event id=${event.id}: ${event.startDate}`,
+              );
+            }
+            eventDateTime = convertEstToUtcDateTime(start, event.startTime);
+            console.log(
+              `Non-recurring event (${event.id}): start=${start}, eventDateTime=${eventDateTime}`,
+            );
+          }
+
+          let isRsvped = false;
+          // Debugging RSVPed logic
+          console.log(
+            `Checking RSVP for userId=${userId} and eventDateTime=${eventDateTime}`,
+          );
+          if (userId && new Date() < eventDateTime) {
+            const existing = await db.query.eventRsvps.findFirst({
+              where: and(
+                eq(eventRsvps.userId, userId),
+                eq(eventRsvps.eventId, event.id),
+                eq(eventRsvps.eventDate, eventDate),
+                eq(eventRsvps.isActive, true),
+              ),
+            });
+            isRsvped = !!existing;
+            console.log(`Event id=${event.id} RSVP found:`, existing);
+          }
+
+          return { ...event, isRsvped };
+        } catch (innerError) {
+          console.error(
+            `Error enriching event id=${event.id}:`,
+            innerError.message,
+            event,
+          );
+          throw innerError;
         }
-
-        return { ...event, isRsvped };
       };
 
-      // Enrich all events
-      const enriched = await Promise.all([
-        ...nonRecurringEvents.map(enrichWithRsvpFlag),
-        ...recurringEvents.map(enrichWithRsvpFlag),
-      ]);
+      // Step 6: Enrich all events and log the process
+      const allEvents = [...nonRecurringEvents, ...recurringEvents];
+      console.log("All events to enrich:", allEvents);
+
+      const enriched = await Promise.all(
+        allEvents.map((e) => enrichWithRsvpFlag(e)),
+      );
+      console.log("Enriched events result:", enriched);
 
       res.json(enriched);
     } catch (error: any) {
-      console.error("Error fetching bar events:", error);
+      console.error("Error fetching bar events:", error.message, error.stack);
       res.status(500).json({ error: error.message });
     }
   });
