@@ -34,8 +34,6 @@ export default function KavatenderCheckin({ barId }: { barId: number }) {
         user?.role === "bar_owner"),
   });
 
-  console.log("Current checkins ", currentCheckIn);
-
   const checkInMutation = useMutation({
     mutationFn: async () => {
       const response = await fetch(`/api/bars/${barId}/check-in`, {

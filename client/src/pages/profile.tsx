@@ -363,7 +363,6 @@ export default function ProfilePage() {
           </div>
         </CardContent>
       </Card>
-
       <Card className="mt-4">
         <CardHeader>
           <CardTitle>Password</CardTitle>

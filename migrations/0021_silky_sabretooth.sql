@@ -1,0 +1,2 @@
+ALTER TABLE "bar_features" ADD COLUMN "is_featured" boolean DEFAULT false NOT NULL;--> statement-breakpoint
+ALTER TABLE "bar_features_from_master" ADD COLUMN "is_featured" boolean DEFAULT false NOT NULL;

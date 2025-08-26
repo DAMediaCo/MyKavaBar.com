@@ -38,6 +38,7 @@ import CookiePolicy from "./pages/cookie-policy";
 import Welcome from "./pages/welcome";
 import Referral from "./pages/referrals";
 import AdminPayoutPage from "./pages/admin/payout";
+import ManageFeatures from "@/pages/admin/manage-features";
 import MyRsvpsPage from "./pages/my-rsvp";
 interface ProtectedRouteProps {
   children: React.ReactNode;
@@ -137,6 +138,11 @@ function Router() {
           <Route path="/admin/manage-bars">
             <ProtectedRoute isAllowed={!!user?.isAdmin}>
               <ManageBars />
+            </ProtectedRoute>
+          </Route>
+          <Route path="/admin/manage-features">
+            <ProtectedRoute isAllowed={!!user?.isAdmin}>
+              <ManageFeatures />
             </ProtectedRoute>
           </Route>
           <Route path="/admin/users">

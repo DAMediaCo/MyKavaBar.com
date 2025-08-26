@@ -8,7 +8,6 @@ import {
   CardHeader,
   CardTitle,
   CardDescription,
-  CardFooter,
 } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -46,7 +45,6 @@ import { useForm } from "react-hook-form";
 import * as z from "zod";
 import type { KavaBar } from "@db/schema";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-
 const barFormSchema = z.object({
   name: z.string().min(1, "Name is required"),
   address: z.string().min(1, "Address is required"),

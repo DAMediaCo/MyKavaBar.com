@@ -22,6 +22,7 @@ export const userRole = pgEnum("user_role", [
   "regular_user",
   "kavatender",
   "bar_owner",
+  "manager",
   "admin",
 ]);
 
@@ -212,6 +213,7 @@ export const kavaBars = pgTable("kava_bars", {
   address: text("address").notNull(),
   phone: text("phone"),
   hours: jsonb("hours"),
+  happyHours: jsonb("happy_hours"),
   placeId: text("place_id").unique(),
   rating: decimal("rating", { precision: 3, scale: 2 })
     .default("0.00")
@@ -681,6 +683,69 @@ export const eventRsvps = pgTable(
   }),
 );
 
+// Bar features
+export const masterFeatures = pgTable(
+  "master_features",
+  {
+    id: serial("id").primaryKey(),
+    categoryId: integer("category_id").notNull(),
+    name: text("name").notNull(),
+    createdAt: timestamp("created_at").defaultNow().notNull(),
+    createdBy: integer("created_by")
+      .references(() => users.id)
+      .notNull(),
+    updatedAt: timestamp("updated_at"),
+  },
+  (table) => ({
+    idx_category: index("idx_category").on(table.categoryId),
+    idx_unique_feature: unique().on(table.categoryId, table.name),
+  }),
+);
+
+// Link table: bar picks a feature from the master list
+export const barFeaturesFromMaster = pgTable(
+  "bar_features_from_master",
+  {
+    id: serial("id").primaryKey(),
+    barId: integer("bar_id")
+      .references(() => kavaBars.id, { onDelete: "cascade" })
+      .notNull(),
+    featureId: integer("feature_id")
+      .references(() => masterFeatures.id, { onDelete: "cascade" })
+      .notNull(),
+    createdAt: timestamp("created_at").defaultNow().notNull(),
+    isFeatured: boolean("is_featured").default(false).notNull(),
+  },
+  (table) => ({
+    idx_bar_feature: index("idx_bar_feature").on(table.barId, table.featureId),
+    idx_unique_bar_feature: unique().on(table.barId, table.featureId),
+    idx_feature: index("idx_feature").on(table.featureId),
+  }),
+);
+
+// Bar-specific custom features table
+export const barFeatures = pgTable(
+  "bar_features",
+  {
+    id: serial("id").primaryKey(),
+    barId: integer("bar_id")
+      .references(() => kavaBars.id, { onDelete: "cascade" })
+      .notNull(),
+    name: text("name").notNull(),
+    categoryId: integer("category_id").notNull(),
+    createdAt: timestamp("created_at").defaultNow().notNull(),
+    isFeatured: boolean("is_featured").default(false).notNull(),
+    createdBy: integer("created_by")
+      .references(() => users.id)
+      .notNull(),
+    updatedAt: timestamp("updated_at"),
+  },
+  (table) => ({
+    idx_bar: index("idx_bar").on(table.barId),
+    idx_unique_bar_feature: unique().on(table.barId, table.name),
+  }),
+);
+
 export type User = InferModel<typeof users>;
 export type InsertUser = typeof users.$inferInsert;
 export type KavaBar = typeof kavaBars.$inferSelect & {
@@ -699,6 +764,7 @@ export type KavaBar = typeof kavaBars.$inferSelect & {
     height: number;
   }>;
 };
+
 export type InsertKavaBar = typeof kavaBars.$inferInsert;
 export type Review = typeof reviews.$inferSelect;
 export type InsertReview = typeof reviews.$inferInsert;

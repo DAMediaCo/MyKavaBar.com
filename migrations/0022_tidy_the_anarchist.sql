@@ -1,0 +1,1 @@
+ALTER TABLE "kava_bars" ADD COLUMN "happy_hours" jsonb;

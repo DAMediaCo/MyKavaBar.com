@@ -37,6 +37,8 @@ import {
 import { useState } from "react";
 import { Label } from "@/components/ui/label";
 import { EventRsvpTab } from "@/components/owner/events-rsvp-tab";
+import { Features } from "@/components/owner/features";
+import { HappyHours } from "@/components/owner/happy-hours";
 
 const daysOfWeek = [
   "Sunday",
@@ -47,27 +49,6 @@ const daysOfWeek = [
   "Friday",
   "Saturday",
 ] as const;
-const sampleRsvpData = [
-  {
-    id: 1,
-    title: "Kava Karaoke Night",
-    startTime: "19:00",
-    dayOfWeek: 5,
-    rsvps: [
-      { userId: 1, isActive: true },
-      { userId: 2, isActive: false },
-      { userId: 3, isActive: true },
-    ],
-  },
-  {
-    id: 2,
-    title: "Trivia Tuesday",
-    startTime: "20:30",
-    dayOfWeek: 2,
-    rsvps: [{ userId: 4, isActive: true }],
-  },
-];
-
 const hoursFormSchema = z.object({
   hours: z.array(
     z.object({
@@ -611,12 +592,14 @@ export default function ManageBar() {
       <h1 className="text-3xl font-bold mb-8">Manage {bar.name}</h1>
 
       <Tabs defaultValue="details" className="space-y-4">
-        <TabsList>
+        <TabsList className="flex space-x-4 overflow-x-auto no-scrollbar flex-nowrap">
           <TabsTrigger value="details">Details</TabsTrigger>
           <TabsTrigger value="hours">Hours</TabsTrigger>
           <TabsTrigger value="events">Events</TabsTrigger>
           <TabsTrigger value="staff">Staff</TabsTrigger>
           <TabsTrigger value="rsvp">RSVP Stats</TabsTrigger>
+          <TabsTrigger value="features">Features</TabsTrigger>
+          <TabsTrigger value="happyHours">Happy Hours</TabsTrigger>
         </TabsList>
 
         <TabsContent value="staff">
@@ -719,15 +702,34 @@ export default function ManageBar() {
                                 <FormControl>
                                   <div className="flex items-center justify-center gap-2">
                                     <Input
-                                      type="number"
-                                      min="1"
-                                      max="12"
+                                      type="text"
+                                      inputMode="numeric" // still shows numeric keypad on mobile
+                                      pattern="[0-9]*" // restricts input to numbers
+                                      maxLength={2}
                                       value={openTime.hour}
                                       onChange={(e) => {
-                                        const newHour = e.target.value.padStart(
-                                          2,
-                                          "0",
-                                        );
+                                        let newHour = e.target.value;
+
+                                        // Allow user to clear input freely
+                                        if (newHour === "") {
+                                          field.onChange("");
+                                          return;
+                                        }
+
+                                        // Allow only digits
+                                        if (!/^\d*$/.test(newHour)) return;
+
+                                        // Clamp between 1 and 12
+                                        let num = parseInt(newHour, 10);
+                                        if (isNaN(num)) num = 1;
+                                        if (num > 12) num = 12;
+                                        if (num < 1) num = 1;
+
+                                        // Keep padded format
+                                        newHour = num
+                                          .toString()
+                                          .padStart(2, "0");
+
                                         field.onChange(
                                           to24HourFormat(
                                             newHour,
@@ -738,15 +740,34 @@ export default function ManageBar() {
                                       }}
                                       className="w-16 text-center"
                                     />
+
                                     <span>:</span>
+
                                     <Input
-                                      type="number"
-                                      min="0"
-                                      max="59"
+                                      type="text"
+                                      inputMode="numeric"
+                                      pattern="[0-9]*"
+                                      maxLength={2}
                                       value={openTime.minute}
                                       onChange={(e) => {
-                                        const newMinute =
-                                          e.target.value.padStart(2, "0");
+                                        let newMinute = e.target.value;
+
+                                        if (newMinute === "") {
+                                          field.onChange("");
+                                          return;
+                                        }
+
+                                        if (!/^\d*$/.test(newMinute)) return;
+
+                                        let num = parseInt(newMinute, 10);
+                                        if (isNaN(num)) num = 0;
+                                        if (num > 59) num = 59;
+                                        if (num < 0) num = 0;
+
+                                        newMinute = num
+                                          .toString()
+                                          .padStart(2, "0");
+
                                         field.onChange(
                                           to24HourFormat(
                                             openTime.hour,
@@ -989,6 +1010,13 @@ export default function ManageBar() {
         </TabsContent>
         <TabsContent value="rsvp">
           <EventRsvpTab barId={Number(id)} />
+        </TabsContent>
+
+        <TabsContent value="features">
+          <Features barId={Number(id)} />
+        </TabsContent>
+        <TabsContent value="happyHours">
+          <HappyHours barId={Number(id)} />
         </TabsContent>
       </Tabs>
     </div>

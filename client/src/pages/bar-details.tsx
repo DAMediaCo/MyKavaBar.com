@@ -30,6 +30,8 @@ import {
   FavoriteBarDesktop,
   FavoriteBarMobile,
 } from "@/components/favorite-bar";
+import { BarFeatures } from "@/components/bar-features";
+import { BarHappyHours } from "@/components/bar-happy-hours";
 interface Hours {
   weekday_text: string[];
   open_now: boolean;
@@ -116,14 +118,13 @@ export default function BarDetails() {
         }
 
         const data = await response.json();
-        return data;
+        return data || [];
       } catch (error) {
         console.error("Error fetching check-ins:", error);
-        throw error;
+        throw error || [];
       }
     },
   });
-
 
   // // Add debug logging
   // console.log("Bar details:", {
@@ -276,10 +277,15 @@ export default function BarDetails() {
               />
             </CardContent>
           </Card>
+          <BarFeatures barId={Number(bar.id)} />
+          <BarHappyHours barId={Number(bar.id)} />
 
           {/* Events section - visible to all users */}
-          <BarEvents barId={bar.id} ownerId={bar.ownerId} address={bar.address} />
-
+          <BarEvents
+            barId={Number(bar.id)}
+            ownerId={Number(bar.ownerId)}
+            address={bar.address}
+          />
           {/* Reviews section - visible to all users */}
           <Card>
             <CardHeader>

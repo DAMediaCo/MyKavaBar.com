@@ -113,6 +113,55 @@
       "when": 1754678455426,
       "tag": "0015_daffy_demogoblin",
       "breakpoints": true
+    },
+    {
+      "idx": 16,
+      "version": "7",
+      "when": 1755507266393,
+      "tag": "0016_faithful_lilandra",
+      "breakpoints": true
+    },
+    {
+      "idx": 17,
+      "version": "7",
+      "when": 1755507682517,
+      "tag": "0017_tired_colonel_america",
+      "breakpoints": true
+    },
+    {
+      "idx": 18,
+      "version": "7",
+      "when": 1755695401061,
+      "tag": "0018_kind_preak",
+      "breakpoints": true
+    },
+    {
+      "idx": 19,
+      "version": "7",
+      "when": 1755754577016,
+      "tag": "0019_brainy_dazzler",
+      "breakpoints": true
+    },
+    {
+      "idx": 20,
+      "version": "7",
+      "when": 1755800964522,
+      "tag": "0020_bizarre_carlie_cooper",
+      "breakpoints": true
+    },
+    {
+      "idx": 21,
+      "version": "7",
+      "when": 1756109069385,
+      "tag": "0021_silky_sabretooth",
+      "breakpoints": true
+    },
+    {
+      "idx": 22,
+      "version": "7",
+      "when": 1756201098155,
+      "tag": "0022_tidy_the_anarchist",
+      "breakpoints": true
     }
   ]
 }

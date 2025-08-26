@@ -7,6 +7,24 @@ import { Client } from "@googlemaps/google-maps-services-js";
 import { db } from "@db";
 import { executeWithRetry } from "@db/connection";
 import moment from "moment-timezone";
+import {
+  createFeature,
+  deleteFeature,
+  getCategories,
+  getFeaturesByCategory,
+  updateFeature,
+  createBarFeature,
+  updateBarFeature,
+  deleteBarFeature,
+  getBarFeatures,
+  getOwnerBarFeatures,
+  updateMasterFeaturesForBarOwner,
+  toggleFavoriteFeatures,
+} from "./controllers/features";
+import {
+  getHappyHoursController,
+  updateHappyHoursController,
+} from "./controllers/happy-hours";
 // Importing controllers
 import {
   rsvpToEvent,
@@ -50,6 +68,7 @@ import { uploadImageToStorage } from "./upload-to-storage";
 import { parseHours } from "./utils/parse-hours";
 import { getUserReferralDetails } from "@utils/referrals";
 import { generateUniqueReferralCode } from "@utils/generate-referralcode";
+import { requireAdmin } from "./middleware/admin";
 
 // Handle the user type
 declare global {
@@ -154,6 +173,11 @@ export function registerRoutes(app: Express, server: Server): void {
   app.use("/api/admin", adminRoutes);
   // Register event routes
   registerEventRoutes(app);
+  app.use((req, res, next) => {
+    console.log(`[Incoming] ${req.method} ${req.originalUrl}`);
+    console.log("Body:", req.body);
+    next();
+  });
 
   // Set up WebSocket server with error handling
   try {
@@ -254,7 +278,7 @@ export function registerRoutes(app: Express, server: Server): void {
             weekday_text: [
               "Monday: 12:00 PM – 10:00 PM",
               "Tuesday: 12:00 PM – 10:00 PM",
-              "Wednesday: 12:00 PM – 10:00 PM",
+              "Wednesday: 12:00 PM i�� 10:00 PM",
               "Thursday: 12:00 PM – 10:00 PM",
               "Friday: 12:00 PM – 12:00 AM",
               "Saturday: 12:00 PM – 12:00 AM",
@@ -3092,24 +3116,23 @@ export function registerRoutes(app: Express, server: Server): void {
       const barId = Number(req.params.id);
       const currentTime = new Date();
       const now = moment.tz(currentTime, "America/New_York").utc().toDate();
-      // Step 1: Get all bar staff for the given bar
+
+      // Step 1: Get all active bar staff for the given bar
       const staff = await db
         .select()
         .from(barStaff)
-        .where(eq(barStaff.barId, barId));
+        .where(and(eq(barStaff.barId, barId), eq(barStaff.isActive, true)));
 
-      const staffIds = staff.map((s) => s.id);
-      console.log("Bar staff ", staffIds);
-      // Step 2: Check if bar owner exists
+      // Use Set to keep unique staff IDs
+      const staffIdsSet = new Set(staff.map((s) => s.id));
+
+      // Step 2: Check if bar owner exists and is not already included
       const [bar] = await db
         .select()
         .from(kavaBars)
         .where(eq(kavaBars.id, barId));
 
-      let barOwnerStaffId: number | null = null;
-      console.log("Bar ", bar);
       if (bar && bar.ownerId) {
-        // Try to find if the owner is in barStaff (maybe already checked in before)
         let [ownerStaff] = await db
           .select()
           .from(barStaff)
@@ -3117,47 +3140,54 @@ export function registerRoutes(app: Express, server: Server): void {
             and(eq(barStaff.barId, barId), eq(barStaff.userId, bar.ownerId)),
           );
 
-        console.log("Owner staff ", ownerStaff);
-
-        if (ownerStaff) {
-          barOwnerStaffId = ownerStaff.id;
-          staffIds.push(ownerStaff.id); // ensure owner is included
-        } else if (req.user && req.user.id === bar.ownerId) {
+        if (!ownerStaff && req.user && req.user.id === bar.ownerId) {
+          // Insert bar owner as barStaff if missing
           [ownerStaff] = await db
             .insert(barStaff)
             .values({
               barId,
               userId: bar.ownerId,
-              position: "bar_owner", // or whatever field makes sense
+              position: "bar_owner",
+              isActive: true,
             })
             .returning();
         }
-        console.log("New staff ids ", staffIds);
+
+        if (ownerStaff) {
+          staffIdsSet.add(ownerStaff.id);
+        }
       }
+
+      // Convert Set back to array
+      const staffIds = Array.from(staffIdsSet);
+      console.log("Bar staff IDs (unique):", staffIds);
 
       if (!staffIds.length) {
-        return res.json([]); // Return empty array if no staff found
+        return res.json([]); // No staff => no check-ins
       }
 
-      // Step 3: Get active check-ins for any valid staff ID
+      // Step 3: Get active check-ins for the staff IDs
       const activeCheckIns = await db
         .select()
         .from(checkIns)
         .where(
           and(
             inArray(checkIns.barStaffId, staffIds),
-            lt(checkIns.startTime, now),
-            gt(checkIns.endTime, now),
+            lt(checkIns.startTime, now), // startTime < now
+            gt(checkIns.endTime, now), // endTime > now
+            eq(checkIns.isActive, true), // consider only active check-ins
           ),
         );
-      console.log("Active checkins ", activeCheckIns);
+
+      console.log("Active check-ins:", activeCheckIns);
+
       if (!activeCheckIns.length) {
         return res.json([]); // No active check-ins
       }
 
       const activeStaffIds = activeCheckIns.map((c) => c.barStaffId);
 
-      // Step 4: Fetch user details using a JOIN
+      // Step 4: Fetch user details with JOIN on barStaff and users filtered by activeStaffIds
       const activeUsers = await db
         .select({
           firstName: users.firstName,
@@ -3167,8 +3197,9 @@ export function registerRoutes(app: Express, server: Server): void {
         .from(users)
         .innerJoin(barStaff, eq(users.id, barStaff.userId))
         .where(inArray(barStaff.id, activeStaffIds));
-      console.log("Active users ", activeUsers);
-      res.json(activeUsers);
+
+      console.log("Active users:", activeUsers);
+      return res.json(activeUsers);
     } catch (error: any) {
       console.error("Error fetching check-ins:", error);
       res.status(500).json({ error: error.message });
@@ -3191,12 +3222,16 @@ export function registerRoutes(app: Express, server: Server): void {
       if (!barStaffUser) {
         return res.status(404).json({ error: "Bar staff not found" });
       }
+
       const [checkIn] = await db
         .select()
         .from(checkIns)
         .where(eq(checkIns.barStaffId, barStaffUser.id))
         .orderBy(desc(checkIns.createdAt))
         .limit(1);
+      console.log("\n\n\nBar staff id ", barStaffUser.id);
+      console.log("User id ", req.user.id);
+      console.log("Bar id ", id);
       console.log("Check in ", checkIn);
       if (!checkIn) {
         return res.status(404).json({ error: "Check in not found" });
@@ -3247,13 +3282,23 @@ export function registerRoutes(app: Express, server: Server): void {
       let [barStaffUser] = await db
         .select()
         .from(barStaff)
-        .where(eq(barStaff.userId, req.user.id));
+        .where(
+          and(
+            eq(barStaff.userId, req.user.id),
+            eq(barStaff.barId, parseInt(req.params.id)),
+          ),
+        );
       if (!barStaffUser) {
         console.log("Bar staff user not found");
         const [isBarOwner] = await db
           .select()
           .from(kavaBars)
-          .where(eq(kavaBars.ownerId, req.user.id));
+          .where(
+            and(
+              eq(kavaBars.ownerId, req.user.id),
+              eq(kavaBars.id, parseInt(req.params.id)),
+            ),
+          );
         console.log(`Bar staff user `, barStaffUser);
         if (!isBarOwner) {
           console.log("User is not a bar owner ", req.user.id);
@@ -3269,10 +3314,14 @@ export function registerRoutes(app: Express, server: Server): void {
           .returning();
       }
 
-      await db.insert(checkIns).values({
-        barStaffId: barStaffUser.id,
-        endTime: endTimeUTC,
-      });
+      const [checkInRes] = await db
+        .insert(checkIns)
+        .values({
+          barStaffId: barStaffUser.id,
+          endTime: endTimeUTC,
+        })
+        .returning();
+      console.log("Check in created ", checkInRes);
 
       return res.json({ success: true });
     } catch (error: any) {
@@ -4332,6 +4381,47 @@ export function registerRoutes(app: Express, server: Server): void {
   app.delete("/api/event-rsvp/:rsvpId", deleteRsvp);
   app.get("/api/bar/:barId/rsvp-stats", getBarRsvpStats);
 
+  // Bar features for admin
+  app.get("/api/admin/feature-categories", requireAdmin, getCategories);
+  app.get(
+    "/api/admin/features/:categoryId",
+    requireAdmin,
+    getFeaturesByCategory,
+  );
+  app.post("/api/admin/features", requireAdmin, createFeature);
+  app.put("/api/admin/features/:featureId", requireAdmin, updateFeature);
+  app.delete("/api/admin/features/:featureId", requireAdmin, deleteFeature);
+
+  // Bar features for bar owner
+  app.get("/api/bar/:barId/features", getBarFeatures);
+  app.get("/api/bar/:barId/owner/features", getOwnerBarFeatures);
+  app.post("/api/bar/:barId/features", isAuthenticated, createBarFeature);
+  app.put(
+    "/api/bar/:barId/features/from-master",
+    isAuthenticated,
+    updateMasterFeaturesForBarOwner,
+  );
+
+  app.put(
+    "/api/bar/:barId/features/:featureId/toggle-isFeatured",
+    isAuthenticated,
+    toggleFavoriteFeatures,
+  );
+
+  app.put(
+    "/api/bar/:barId/features/:featureId",
+    isAuthenticated,
+    updateBarFeature,
+  );
+
+  app.delete(
+    "/api/bar/:barId/features/:featureId",
+    isAuthenticated,
+    deleteBarFeature,
+  );
+
+  app.get("/api/bar/:barId/happy-hours", getHappyHoursController);
+  app.put("/api/bar/:barId/happy-hours", updateHappyHoursController);
   app.put("/api/user/password", async (req, res) => {
     if (!req.isAuthenticated()) {
       return res.status(401).json({ error: "Not authenticated" });

@@ -1,0 +1,1 @@
+ALTER TABLE "bar_features" ADD COLUMN "category_id" integer NOT NULL;

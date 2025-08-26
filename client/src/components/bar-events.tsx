@@ -602,7 +602,7 @@ export default function BarEvents({ barId, ownerId, address }: BarEventsProps) {
                       </p>
                     </div>
                     <div className="w-full sm:w-auto sm:flex-shrink-0 sm:mt-0 flex flex-col gap-2">
-                      <RsvpButton user={user} event={event} barId={barId}/>
+                      <RsvpButton user={user} event={event} barId={barId} />
 
                       <DropdownMenu>
                         <DropdownMenuTrigger asChild>

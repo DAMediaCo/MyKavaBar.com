@@ -18,6 +18,7 @@ import {
   BookOpen,
   Share,
   Users,
+  Settings,
   DollarSign,
 } from "lucide-react";
 
@@ -85,6 +86,15 @@ export default function NavBar() {
                     <DropdownMenuItem className="cursor-pointer">
                       <Building2 className="h-4 w-4 mr-2" />
                       Bar Owner Dashboard
+                    </DropdownMenuItem>
+                  </Link>
+                )}
+
+                {user.role === "admin" && (
+                  <Link href="/admin/manage-features">
+                    <DropdownMenuItem className="cursor-pointer">
+                      <Settings className="h-4 w-4 mr-2" />
+                      Manage features
                     </DropdownMenuItem>
                   </Link>
                 )}
