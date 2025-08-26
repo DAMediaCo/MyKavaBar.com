@@ -4,7 +4,7 @@ import { z } from "zod";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { Input } from "@/components/ui/input";
-
+import { useToast } from "@/hooks/use-toast"; // adjust path if needed
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import {
@@ -25,7 +25,7 @@ const daysOfWeek = [
   "Saturday",
 ];
 
-const TIME_REGEX = /^(0?[0-9]|1[0-1]):([0-5][0-9])$/;
+const TIME_REGEX = /^(0?[1-9]|1[0-2]):([0-5][0-9])$/;
 
 const happyHourSlotSchema = z
   .object({
@@ -33,7 +33,7 @@ const happyHourSlotSchema = z
       .string()
       .optional()
       .refine((val) => !val || TIME_REGEX.test(val), {
-        message: "Invalid start time format (hh:mm, 0-11 hours)",
+        message: "Invalid start time format (hh:mm, 0-12 hours)",
       }),
     startPeriod: z.enum(["AM", "PM"]),
     end: z
@@ -124,6 +124,7 @@ async function updateHappyHours(barId: string, values: FormValues) {
 
 export function HappyHours({ barId }: { barId: string }) {
   const queryClient = useQueryClient();
+  const { toast } = useToast(); // ✅ get toast fn
 
   const {
     control,
@@ -149,10 +150,16 @@ export function HappyHours({ barId }: { barId: string }) {
     mutationFn: (values: FormValues) => updateHappyHours(barId, values),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["happyHours", barId] });
-      alert("Happy hours updated successfully");
+      toast({
+        title: "Success",
+        description: "Happy hours updated successfully 🎉",
+      });
     },
     onError: () => {
-      alert("Failed to update happy hours");
+      toast({
+        title: "Error",
+        description: "Failed to update happy hours",
+      });
     },
   });
 

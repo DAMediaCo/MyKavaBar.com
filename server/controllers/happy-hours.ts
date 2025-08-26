@@ -4,7 +4,7 @@ import { kavaBars } from "@db/schema";
 import { z } from "zod";
 import { eq } from "drizzle-orm";
 
-const TIME_REGEX = /^(0?[0-9]|1[0-1]):([0-5][0-9])$/;
+const TIME_REGEX = /^(0?[1-9]|1[0-2]):([0-5][0-9])$/;
 
 const happyHourSlotSchema = z.object({
   start: z
