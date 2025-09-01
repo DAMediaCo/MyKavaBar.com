@@ -1,19 +1,13 @@
+"use client";
 import React from "react";
 import { useForm, Controller, SubmitHandler } from "react-hook-form";
 import { z } from "zod";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { Input } from "@/components/ui/input";
-import { useToast } from "@/hooks/use-toast"; // adjust path if needed
+import { useToast } from "@/hooks/use-toast";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
-import {
-  Select,
-  SelectTrigger,
-  SelectContent,
-  SelectItem,
-  SelectValue,
-} from "@/components/ui/select";
 
 const daysOfWeek = [
   "Sunday",
@@ -25,24 +19,23 @@ const daysOfWeek = [
   "Saturday",
 ];
 
-const TIME_REGEX = /^(0?[1-9]|1[0-2]):([0-5][0-9])$/;
-
+// Zod validation schema with custom pairing validation
 const happyHourSlotSchema = z
   .object({
     start: z
       .string()
       .optional()
-      .refine((val) => !val || TIME_REGEX.test(val), {
-        message: "Invalid start time format (hh:mm, 0-12 hours)",
-      }),
-    startPeriod: z.enum(["AM", "PM"]),
+      .refine(
+        (val) => !val || /^([01]\d|2[0-3]):([0-5]\d)$/.test(val),
+        "Invalid start time (HH:MM, 24-hour format)",
+      ),
     end: z
       .string()
       .optional()
-      .refine((val) => !val || TIME_REGEX.test(val), {
-        message: "Invalid end time format (hh:mm, 0-11 hours)",
-      }),
-    endPeriod: z.enum(["AM", "PM"]),
+      .refine(
+        (val) => !val || /^([01]\d|2[0-3]):([0-5]\d)$/.test(val),
+        "Invalid end time (HH:MM, 24-hour format)",
+      ),
   })
   .superRefine((data, ctx) => {
     if ((data.start && !data.end) || (!data.start && data.end)) {
@@ -71,13 +64,7 @@ const happyHoursSchema = z.object({
 type HappyHourSlot = z.infer<typeof happyHourSlotSchema>;
 type FormValues = z.infer<typeof happyHoursSchema>;
 
-const defaultSlot: HappyHourSlot = {
-  start: "",
-  startPeriod: "AM",
-  end: "",
-  endPeriod: "AM",
-};
-
+const defaultSlot: HappyHourSlot = { start: "", end: "" };
 const defaultValues: FormValues = {
   days: Array(7)
     .fill(null)
@@ -89,30 +76,55 @@ const defaultValues: FormValues = {
   _formError: undefined,
 };
 
+function convert24hTo12h(time24: string) {
+  if (!time24) return { hour: "", minute: "", period: "" };
+  const [hourStr, minute] = time24.split(":");
+  let hour = parseInt(hourStr, 10);
+  const period = hour >= 12 ? "PM" : "AM";
+  let hour12 = hour % 12;
+  if (hour12 === 0) hour12 = 12;
+  return {
+    hour: hour12.toString().padStart(2, "0"),
+    minute,
+    period,
+  };
+}
+
 async function fetchHappyHours(barId: string): Promise<FormValues> {
   const res = await fetch(`/api/bar/${barId}/happy-hours`);
   if (!res.ok) throw new Error("Failed to fetch happy hours");
   const data = await res.json();
-
   const days = daysOfWeek.map((day) => {
     const slots = data.happyHours?.[day] ?? [];
     const padded = [...slots];
     while (padded.length < 4) padded.push({ ...defaultSlot });
     return padded.slice(0, 4);
   });
-
   return { days, _formError: undefined };
 }
 
+function formatHappyHoursForAPI(days: FormValues["days"]) {
+  const formatted: Record<string, any[]> = {};
+  daysOfWeek.forEach((day, i) => {
+    const slots = days[i];
+    formatted[day] = slots
+      .filter((s) => s.start && s.end)
+      .map((slot) => {
+        const start = convert24hTo12h(slot.start!);
+        const end = convert24hTo12h(slot.end!);
+        return {
+          start: `${start.hour}:${start.minute}`,
+          startPeriod: start.period,
+          end: `${end.hour}:${end.minute}`,
+          endPeriod: end.period,
+        };
+      });
+  });
+  return { happyHours: formatted };
+}
+
 async function updateHappyHours(barId: string, values: FormValues) {
-  const body = {
-    happyHours: Object.fromEntries(
-      daysOfWeek.map((day, i) => [
-        day,
-        values.days[i].filter((slot) => slot.start && slot.end),
-      ]),
-    ),
-  };
+  const body = formatHappyHoursForAPI(values.days);
   const res = await fetch(`/api/bar/${barId}/happy-hours`, {
     method: "PUT",
     headers: { "Content-Type": "application/json" },
@@ -124,12 +136,12 @@ async function updateHappyHours(barId: string, values: FormValues) {
 
 export function HappyHours({ barId }: { barId: string }) {
   const queryClient = useQueryClient();
-  const { toast } = useToast(); // ✅ get toast fn
-
+  const { toast } = useToast();
   const {
     control,
     handleSubmit,
     reset,
+    setFocus,
     formState: { errors, isSubmitting },
   } = useForm<FormValues>({
     defaultValues,
@@ -145,6 +157,47 @@ export function HappyHours({ barId }: { barId: string }) {
   React.useEffect(() => {
     if (data) reset(data);
   }, [data, reset]);
+
+  // Improved scroll+focus effect on error
+  React.useEffect(() => {
+    if (errors.days && Array.isArray(errors.days)) {
+      outer: for (let dayIndex = 0; dayIndex < errors.days.length; dayIndex++) {
+        const slots = errors.days[dayIndex];
+        if (slots && Array.isArray(slots)) {
+          for (let slotIndex = 0; slotIndex < slots.length; slotIndex++) {
+            const slotErrors = slots[slotIndex];
+            if (slotErrors) {
+              if (slotErrors.start) {
+                // Defer focus+scroll to let React mark inputs with errors
+                setTimeout(() => {
+                  const fieldName = `days.${dayIndex}.${slotIndex}.start`;
+                  setFocus(fieldName);
+                  const el = document.querySelector<HTMLInputElement>(
+                    `input[name="${fieldName}"]`,
+                  );
+                  if (el)
+                    el.scrollIntoView({ behavior: "smooth", block: "center" });
+                }, 20);
+                break outer;
+              }
+              if (slotErrors.end) {
+                setTimeout(() => {
+                  const fieldName = `days.${dayIndex}.${slotIndex}.end`;
+                  setFocus(fieldName);
+                  const el = document.querySelector<HTMLInputElement>(
+                    `input[name="${fieldName}"]`,
+                  );
+                  if (el)
+                    el.scrollIntoView({ behavior: "smooth", block: "center" });
+                }, 20);
+                break outer;
+              }
+            }
+          }
+        }
+      }
+    }
+  }, [errors, setFocus]);
 
   const mutation = useMutation({
     mutationFn: (values: FormValues) => updateHappyHours(barId, values),
@@ -177,31 +230,34 @@ export function HappyHours({ barId }: { barId: string }) {
       <h2 className="text-2xl font-bold mb-6 text-center">
         Bar Happy Hours Scheduler
       </h2>
-      <form onSubmit={handleSubmit(onSubmit)} className="space-y-8">
+      <form onSubmit={handleSubmit(onSubmit)} className="space-y-8" noValidate>
         {daysOfWeek.map((day, dayIndex) => (
           <section key={day}>
             <h3 className="text-lg font-semibold mb-4">{day}</h3>
-            <div className="space-y-4">
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-6">
               {Array(4)
                 .fill(null)
                 .map((_, slotIndex) => (
                   <div
                     key={`${day}-${slotIndex}`}
-                    className="grid grid-cols-1 sm:grid-cols-6 gap-3 items-end"
+                    className="flex flex-col sm:flex-row items-center justify-center gap-4 p-4 border rounded-lg"
                   >
-                    {/* Start time input + error below */}
-                    <div className="flex flex-col sm:col-span-2 space-y-1">
+                    <div className="flex flex-col space-y-1 items-center">
+                      <label
+                        className="text-sm font-medium"
+                        htmlFor={`start-${dayIndex}-${slotIndex}`}
+                      >
+                        Start
+                      </label>
                       <Controller
                         name={`days.${dayIndex}.${slotIndex}.start`}
                         control={control}
                         render={({ field }) => (
                           <Input
                             {...field}
-                            placeholder="hh:mm"
-                            inputMode="numeric"
-                            error={Boolean(
-                              errors?.days?.[dayIndex]?.[slotIndex]?.start,
-                            )}
+                            id={`start-${dayIndex}-${slotIndex}`}
+                            type="time"
+                            className="w-40 text-center"
                           />
                         )}
                       />
@@ -212,41 +268,22 @@ export function HappyHours({ barId }: { barId: string }) {
                       )}
                     </div>
 
-                    {/* Start Period select */}
-                    <div className="sm:col-span-1">
-                      <Controller
-                        name={`days.${dayIndex}.${slotIndex}.startPeriod`}
-                        control={control}
-                        render={({ field }) => (
-                          <Select
-                            value={field.value}
-                            onValueChange={field.onChange}
-                          >
-                            <SelectTrigger>
-                              <SelectValue />
-                            </SelectTrigger>
-                            <SelectContent>
-                              <SelectItem value="AM">AM</SelectItem>
-                              <SelectItem value="PM">PM</SelectItem>
-                            </SelectContent>
-                          </Select>
-                        )}
-                      />
-                    </div>
-
-                    {/* End time input + error below */}
-                    <div className="flex flex-col sm:col-span-2 space-y-1">
+                    <div className="flex flex-col space-y-1 items-center">
+                      <label
+                        className="text-sm font-medium"
+                        htmlFor={`end-${dayIndex}-${slotIndex}`}
+                      >
+                        End
+                      </label>
                       <Controller
                         name={`days.${dayIndex}.${slotIndex}.end`}
                         control={control}
                         render={({ field }) => (
                           <Input
                             {...field}
-                            placeholder="hh:mm"
-                            inputMode="numeric"
-                            error={Boolean(
-                              errors?.days?.[dayIndex]?.[slotIndex]?.end,
-                            )}
+                            id={`end-${dayIndex}-${slotIndex}`}
+                            type="time"
+                            className="w-40 text-center"
                           />
                         )}
                       />
@@ -255,28 +292,6 @@ export function HappyHours({ barId }: { barId: string }) {
                           {errors.days[dayIndex][slotIndex].end?.message}
                         </p>
                       )}
-                    </div>
-
-                    {/* End Period select */}
-                    <div className="sm:col-span-1">
-                      <Controller
-                        name={`days.${dayIndex}.${slotIndex}.endPeriod`}
-                        control={control}
-                        render={({ field }) => (
-                          <Select
-                            value={field.value}
-                            onValueChange={field.onChange}
-                          >
-                            <SelectTrigger>
-                              <SelectValue />
-                            </SelectTrigger>
-                            <SelectContent>
-                              <SelectItem value="AM">AM</SelectItem>
-                              <SelectItem value="PM">PM</SelectItem>
-                            </SelectContent>
-                          </Select>
-                        )}
-                      />
                     </div>
                   </div>
                 ))}

@@ -1,6 +1,5 @@
 "use client";
-
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useRef } from "react";
 import { Card, CardHeader, CardTitle, CardContent } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
@@ -26,16 +25,13 @@ type Feature = {
   categoryId: number;
   isFeatured?: boolean;
 };
-
 type MasterFeature = Feature & {
   selected: boolean;
 };
-
 type Category = {
   id: number;
   name: string;
 };
-
 const categoriesDummy: Category[] = [
   { id: 1, name: "Tech & Connectivity" },
   { id: 2, name: "Entertainment" },
@@ -44,7 +40,6 @@ const categoriesDummy: Category[] = [
   { id: 5, name: "Food & Drink" },
   { id: 6, name: "Merch & Loyalty" },
 ];
-
 // Validation schema with Zod
 const featureSchema = z.object({
   name: z
@@ -53,19 +48,15 @@ const featureSchema = z.object({
     .min(2, "Feature name must be at least 2 characters long")
     .max(50, "Feature name must not exceed 50 characters"),
 });
-
 type FeatureFormInput = z.infer<typeof featureSchema>;
-
 interface FeaturesProps {
   barId: number;
 }
-
 interface FeatureStarProps {
   isFeatured: boolean;
   disabled: boolean;
   onToggle: () => void;
 }
-
 const FeatureStar: React.FC<FeatureStarProps> = ({
   isFeatured,
   disabled,
@@ -92,32 +83,30 @@ const FeatureStar: React.FC<FeatureStarProps> = ({
 export const Features: React.FC<FeaturesProps> = ({ barId }) => {
   const queryClient = useQueryClient();
   const { toast } = useToast();
-
   const [masterFeaturesByCategory, setMasterFeaturesByCategory] = useState<
     Record<number, MasterFeature[]>
   >({});
   const [customFeaturesByCategory, setCustomFeaturesByCategory] = useState<
     Record<number, Feature[]>
   >({});
-
   const [selectedMasterFeatures, setSelectedMasterFeatures] = useState<
     Record<number, Set<number>>
   >({});
-
   const [editingFeature, setEditingFeature] = useState<{
     categoryId: number | null;
     featureId: number | null;
     name: string | null;
   }>({ categoryId: null, featureId: null, name: null });
-
   const [deleteDialog, setDeleteDialog] = useState<{
     open: boolean;
     categoryId: number | null;
     featureId: number | null;
     featureName: string | null;
   }>({ open: false, categoryId: null, featureId: null, featureName: null });
-
   const [formCategoryId, setFormCategoryId] = useState<number | null>(null);
+
+  // Holds active debouncing timers per category
+  const debounceTimers = useRef<Record<number, NodeJS.Timeout>>({});
 
   const { data, isLoading } = useQuery({
     queryKey: ["barFeaturesFull", barId],
@@ -125,30 +114,25 @@ export const Features: React.FC<FeaturesProps> = ({ barId }) => {
       const res = await axios.get(`/api/bar/${barId}/owner/features`, {
         withCredentials: true,
       });
-
       const masterGrouped: Record<number, MasterFeature[]> = {};
       res.data.masterFeatures.forEach((f: MasterFeature) => {
         if (!masterGrouped[f.categoryId]) masterGrouped[f.categoryId] = [];
         masterGrouped[f.categoryId].push(f);
       });
-
       const customGrouped: Record<number, Feature[]> = {};
       res.data.customFeatures.forEach((f: Feature) => {
         if (!customGrouped[f.categoryId]) customGrouped[f.categoryId] = [];
         customGrouped[f.categoryId].push(f);
       });
-
       const selectedMap: Record<number, Set<number>> = {};
       res.data.masterFeatures.forEach((feature: MasterFeature) => {
         if (!selectedMap[feature.categoryId])
           selectedMap[feature.categoryId] = new Set();
         if (feature.selected) selectedMap[feature.categoryId].add(feature.id);
       });
-
       setMasterFeaturesByCategory(masterGrouped);
       setCustomFeaturesByCategory(customGrouped);
       setSelectedMasterFeatures(selectedMap);
-
       return {
         masterFeatures: res.data.masterFeatures,
         customFeatures: res.data.customFeatures,
@@ -208,7 +192,6 @@ export const Features: React.FC<FeaturesProps> = ({ barId }) => {
       });
     },
   });
-
   const updateCustomFeatureMutation = useMutation({
     mutationFn: (payload: {
       barId: number;
@@ -236,7 +219,6 @@ export const Features: React.FC<FeaturesProps> = ({ barId }) => {
       });
     },
   });
-
   const deleteCustomFeatureMutation = useMutation({
     mutationFn: (payload: {
       barId: number;
@@ -271,8 +253,7 @@ export const Features: React.FC<FeaturesProps> = ({ barId }) => {
       });
     },
   });
-
-  // Bulk update mutation for master features per category
+  // Bulk update mutation for master features per category (will be called via debounce)
   const updateMasterFeaturesMutation = useMutation({
     mutationFn: (payload: {
       barId: number;
@@ -349,7 +330,6 @@ export const Features: React.FC<FeaturesProps> = ({ barId }) => {
     });
     return count;
   }, [data]);
-
   const canToggleMore = totalFeaturedCount < 5;
 
   // Handlers
@@ -361,6 +341,7 @@ export const Features: React.FC<FeaturesProps> = ({ barId }) => {
       featureName: feature.name,
     });
   };
+
   const confirmDelete = () => {
     if (deleteDialog.categoryId && deleteDialog.featureId) {
       deleteCustomFeatureMutation.mutate({
@@ -386,12 +367,10 @@ export const Features: React.FC<FeaturesProps> = ({ barId }) => {
   };
   const onSubmit: SubmitHandler<FeatureFormInput> = (dataForm) => {
     if (!formCategoryId) return;
-
     const featuresCount = customFeaturesByCategory[formCategoryId]?.length ?? 0;
     const isEditing =
       editingFeature.categoryId === formCategoryId &&
       editingFeature.featureId !== null;
-
     if (!isEditing && featuresCount >= 10) {
       toast({
         title: "Limit Reached",
@@ -401,7 +380,6 @@ export const Features: React.FC<FeaturesProps> = ({ barId }) => {
       });
       return;
     }
-
     if (isEditing && editingFeature.featureId) {
       updateCustomFeatureMutation.mutate({
         barId,
@@ -418,6 +396,7 @@ export const Features: React.FC<FeaturesProps> = ({ barId }) => {
     }
   };
 
+  // DEBOUNCED API CALL for master feature selection!
   const handleMasterFeatureCheckboxChange = (
     categoryId: number,
     featureId: number,
@@ -432,17 +411,24 @@ export const Features: React.FC<FeaturesProps> = ({ barId }) => {
       }
       return { ...prev, [categoryId]: newSet };
     });
-  };
 
-  const handleUpdateClick = (categoryId: number) => {
-    const selectedFeatureIds = Array.from(
-      selectedMasterFeatures[categoryId] || [],
-    );
-    updateMasterFeaturesMutation.mutate({
-      barId,
-      categoryId,
-      featureIds: selectedFeatureIds,
-    });
+    // Clear previous timer if exists
+    if (debounceTimers.current[categoryId]) {
+      clearTimeout(debounceTimers.current[categoryId]);
+    }
+    // Start new debounce timer (500ms)
+    debounceTimers.current[categoryId] = setTimeout(() => {
+      // Use latest selected features (from state AFTER update)
+      setSelectedMasterFeatures((curr) => {
+        const selectedFeatureIds = Array.from(curr[categoryId] || []);
+        updateMasterFeaturesMutation.mutate({
+          barId,
+          categoryId,
+          featureIds: selectedFeatureIds,
+        });
+        return curr;
+      });
+    }, 500);
   };
 
   return (
@@ -450,13 +436,11 @@ export const Features: React.FC<FeaturesProps> = ({ barId }) => {
       <h1 className="text-3xl font-bold mb-6 text-black dark:text-white">
         Manage Features
       </h1>
-
       {categoriesDummy.map((category) => {
         const masterFeatures =
           data?.masterFeatures.filter(
             (f: MasterFeature) => f.categoryId === category.id,
           ) ?? [];
-
         const customFeatures =
           data?.customFeatures.filter(
             (f: Feature) => f.categoryId === category.id,
@@ -465,20 +449,16 @@ export const Features: React.FC<FeaturesProps> = ({ barId }) => {
           data?.masterFeatures?.filter(
             (f: MasterFeature) => f.selected && f.categoryId === category.id,
           ).length ?? 0;
-
         const customFeaturesCount =
           data?.customFeatures?.filter(
             (f: Feature) => f.categoryId === category.id,
           ).length ?? 0;
-
         const totalFeaturesCount = masterSelectedCount + customFeaturesCount;
         const maxReached = totalFeaturesCount >= 10 || false;
-
         const isEditingCurrentCategory =
           editingFeature.categoryId === category.id;
         const disableInput =
           isBusy || isLoading || (!isEditingCurrentCategory && maxReached);
-
         return (
           <Card
             key={category.id}
@@ -535,7 +515,7 @@ export const Features: React.FC<FeaturesProps> = ({ barId }) => {
                           onToggle={() =>
                             toggleFeaturedMutation.mutate({
                               barId,
-                              featureId: feature.featureId,
+                              featureId: feature.id,
                               type: "master-features",
                             })
                           }
@@ -549,27 +529,12 @@ export const Features: React.FC<FeaturesProps> = ({ barId }) => {
                     No masters features available.
                   </p>
                 )}
-                {masterFeatures.length > 0 && (
-                  <Button
-                    className="mt-3"
-                    onClick={() => handleUpdateClick(category.id)}
-                    disabled={
-                      isBusy ||
-                      updateMasterFeaturesMutation.isPending ||
-                      masterFeatures.length === 0
-                    }
-                  >
-                    {updateMasterFeaturesMutation.isPending
-                      ? "Updating..."
-                      : "Update"}
-                  </Button>
-                )}
+                {/* The update button is removed! */}
               </div>
               <hr className="mb-3" />
               {/* Custom Features */}
               <div>
                 <h3 className="mb-2 font-semibold">Custom Features</h3>
-
                 {customFeatures.length === 0 ? (
                   <p className="italic text-gray-500 dark:text-gray-400">
                     No custom features added.
@@ -624,7 +589,6 @@ export const Features: React.FC<FeaturesProps> = ({ barId }) => {
                   </ul>
                 )}
               </div>
-
               {/* Feature Form */}
               {(isEditingCurrentCategory || formCategoryId === category.id) && (
                 <form
@@ -671,7 +635,6 @@ export const Features: React.FC<FeaturesProps> = ({ barId }) => {
                   )}
                 </form>
               )}
-
               {!isEditingCurrentCategory && !formCategoryId && !maxReached && (
                 <Button
                   onClick={() => setFormCategoryId(category.id)}
@@ -680,7 +643,6 @@ export const Features: React.FC<FeaturesProps> = ({ barId }) => {
                   Add Custom Feature
                 </Button>
               )}
-
               <p className="mt-1 text-sm text-gray-500 dark:text-gray-400">
                 You can add up to 10 custom features per category.
               </p>
@@ -688,7 +650,6 @@ export const Features: React.FC<FeaturesProps> = ({ barId }) => {
           </Card>
         );
       })}
-
       {/* Delete Confirmation Dialog */}
       <Dialog
         open={deleteDialog.open}

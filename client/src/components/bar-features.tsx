@@ -1,5 +1,4 @@
 "use client";
-
 import React, { useEffect, useState } from "react";
 import { Card, CardHeader, CardTitle, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -19,25 +18,21 @@ type MasterFeature = {
   name: string;
   isFeatured: boolean;
 };
-
 type CustomFeature = {
   id: number;
   name: string;
   categoryId: number;
   isFeatured: boolean;
 };
-
 type Category = {
   id: number;
   name: string;
 };
-
 type ApiResponse = {
   masterFeatures: MasterFeature[];
   customFeatures: CustomFeature[];
 };
 
-// Use the same categories and icons as before
 const categories: Category[] = [
   { id: 1, name: "Tech & Connectivity" },
   { id: 2, name: "Entertainment" },
@@ -62,7 +57,6 @@ export const BarFeatures = ({ barId }: { barId: number }) => {
   const [error, setError] = useState<string | null>(null);
   const [expanded, setExpanded] = React.useState(false);
 
-  // Fetch features from API
   useEffect(() => {
     async function fetchFeatures() {
       setLoading(true);
@@ -85,17 +79,15 @@ export const BarFeatures = ({ barId }: { barId: number }) => {
   if (error) return <div className="text-red-600">Error: {error}</div>;
   if (!data) return null;
 
-  // Combine all features into single array with source flags for display
   type FeatureWithType = {
     id: number;
     categoryId: number;
     name: string;
     isFeatured: boolean;
     type: "master" | "custom";
-    selected?: boolean; // only for master
   };
 
-  const combinedFeatures: any[] = [
+  const combinedFeatures: FeatureWithType[] = [
     ...data.masterFeatures.map((f) => ({
       id: f.id,
       categoryId: f.categoryId,
@@ -112,10 +104,20 @@ export const BarFeatures = ({ barId }: { barId: number }) => {
     })),
   ];
 
-  // Filter favorited features for top view
-  const favoritedFeatures = combinedFeatures.filter((f) => f.isFeatured);
+  if (combinedFeatures.length === 0) {
+    return (
+      <Card>
+        <CardHeader>
+          <CardTitle>Bar Features</CardTitle>
+        </CardHeader>
+        <CardContent>No features available.</CardContent>
+      </Card>
+    );
+  }
 
-  // Group features by category for expanded view
+  const favoritedFeatures = combinedFeatures.filter((f) => f.isFeatured);
+  const nonFavoritedFeatures = combinedFeatures.filter((f) => !f.isFeatured);
+
   const groupedByCategory: Record<number, FeatureWithType[]> = {};
   combinedFeatures.forEach((f) => {
     if (!groupedByCategory[f.categoryId]) groupedByCategory[f.categoryId] = [];
@@ -123,6 +125,29 @@ export const BarFeatures = ({ barId }: { barId: number }) => {
   });
 
   const favoritedLimit = 5;
+
+  // Helper to get random slice of array
+  function getRandomSlice<T>(arr: T[], count: number): T[] {
+    if (arr.length <= count) return [...arr];
+    const shuffled = [...arr].sort(() => 0.5 - Math.random());
+    return shuffled.slice(0, count);
+  }
+
+  // Determine number of non-featured to add to reach 5 total
+  let featuresToShow: FeatureWithType[] = [];
+
+  if (favoritedFeatures.length === 0) {
+    // show 5 non-featured or fewer if not enough
+    featuresToShow = nonFavoritedFeatures.slice(0, favoritedLimit);
+  } else if (favoritedFeatures.length >= favoritedLimit) {
+    // show top 5 featured only
+    featuresToShow = favoritedFeatures.slice(0, favoritedLimit);
+  } else {
+    // show all featured, plus random non-featured to total 5 if possible
+    const needed = favoritedLimit - favoritedFeatures.length;
+    const randomNonFav = getRandomSlice(nonFavoritedFeatures, needed);
+    featuresToShow = [...favoritedFeatures, ...randomNonFav];
+  }
 
   return (
     <div>
@@ -133,7 +158,7 @@ export const BarFeatures = ({ barId }: { barId: number }) => {
         <CardContent>
           {!expanded ? (
             <div className="flex flex-wrap gap-2 mb-4 items-center">
-              {favoritedFeatures.slice(0, favoritedLimit).map((f) => {
+              {featuresToShow.map((f) => {
                 const icon = categoryIcons[f.categoryId];
                 return (
                   <Badge

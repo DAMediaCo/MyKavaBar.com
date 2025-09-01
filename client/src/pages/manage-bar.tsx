@@ -49,12 +49,23 @@ const daysOfWeek = [
   "Friday",
   "Saturday",
 ] as const;
+const isHHMM24 = (time: string) => {
+  // allow empty for "closed"
+  if (!time) return true;
+  const m = /^([01]\d|2[0-3]):([0-5]\d)$/.exec(time);
+  return !!m;
+};
+
 const hoursFormSchema = z.object({
   hours: z.array(
     z.object({
       day: z.enum(daysOfWeek),
-      open: z.string(),
-      close: z.string(),
+      open: z
+        .string()
+        .refine(isHHMM24, "Open time must be HH:MM (00:00–23:59)"),
+      close: z
+        .string()
+        .refine(isHHMM24, "Close time must be HH:MM (00:00–23:59)"),
     }),
   ),
 });
@@ -290,7 +301,7 @@ export default function ManageBar() {
     },
     enabled: !!bar, // Only fetch events if bar data is available
   });
-  console.log("Events ", events);
+
   const { data: kavaTenders = [], isLoading: isLoadingKavatenders } = useQuery({
     queryKey: [`/api/kavatenders/${id}`],
     queryFn: async () => {
@@ -592,11 +603,15 @@ export default function ManageBar() {
       <h1 className="text-3xl font-bold mb-8">Manage {bar.name}</h1>
 
       <Tabs defaultValue="details" className="space-y-4">
-        <TabsList className="flex space-x-4 overflow-x-auto no-scrollbar flex-nowrap">
+        <TabsList className="flex space-x-4 overflow-x-auto no-scrollbar flex-nowrap pl-4">
+          {" "}
           <TabsTrigger value="details">Details</TabsTrigger>
           <TabsTrigger value="hours">Hours</TabsTrigger>
           <TabsTrigger value="events">Events</TabsTrigger>
           <TabsTrigger value="staff">Staff</TabsTrigger>
+        </TabsList>
+
+        <TabsList className="flex space-x-4 overflow-x-auto no-scrollbar flex-nowrap pl-4">
           <TabsTrigger value="rsvp">RSVP Stats</TabsTrigger>
           <TabsTrigger value="features">Features</TabsTrigger>
           <TabsTrigger value="happyHours">Happy Hours</TabsTrigger>
@@ -669,27 +684,23 @@ export default function ManageBar() {
         <TabsContent value="hours">
           <Card>
             <CardHeader>
-              <CardTitle>Hours of Operation</CardTitle>
+              <CardTitle className="text-center">Hours of Operation</CardTitle>
             </CardHeader>
             <CardContent>
               <Form {...form}>
                 <form
                   onSubmit={form.handleSubmit(onSubmit)}
-                  className="space-y-6"
+                  className="space-y-6 flex flex-col items-center" // center all content in form vertically and horizontally
                 >
                   {daysOfWeek.map((day, index) => {
-                    const openTime = to12HourFormat(watchedHours[index]?.open);
-                    const closeTime = to12HourFormat(
-                      watchedHours[index]?.close,
-                    );
-
                     return (
                       <div key={day}>
+                        <p className="w-full sm:w-24 font-medium text-center sm:text-left">
+                          {day}
+                        </p>
+                        <br />
                         <div className="flex flex-col sm:flex-row sm:items-center sm:justify-start gap-6 sm:gap-4 flex-wrap">
-                          <p className="w-full sm:w-24 font-medium text-center sm:text-left">
-                            {day}
-                          </p>
-
+                          {/* Open Field */}
                           {/* Open Field */}
                           <FormField
                             control={form.control}
@@ -700,105 +711,14 @@ export default function ManageBar() {
                                   Open
                                 </FormLabel>
                                 <FormControl>
-                                  <div className="flex items-center justify-center gap-2">
-                                    <Input
-                                      type="text"
-                                      inputMode="numeric" // still shows numeric keypad on mobile
-                                      pattern="[0-9]*" // restricts input to numbers
-                                      maxLength={2}
-                                      value={openTime.hour}
-                                      onChange={(e) => {
-                                        let newHour = e.target.value;
-
-                                        // Allow user to clear input freely
-                                        if (newHour === "") {
-                                          field.onChange("");
-                                          return;
-                                        }
-
-                                        // Allow only digits
-                                        if (!/^\d*$/.test(newHour)) return;
-
-                                        // Clamp between 1 and 12
-                                        let num = parseInt(newHour, 10);
-                                        if (isNaN(num)) num = 1;
-                                        if (num > 12) num = 12;
-                                        if (num < 1) num = 1;
-
-                                        // Keep padded format
-                                        newHour = num
-                                          .toString()
-                                          .padStart(2, "0");
-
-                                        field.onChange(
-                                          to24HourFormat(
-                                            newHour,
-                                            openTime.minute,
-                                            openTime.period,
-                                          ),
-                                        );
-                                      }}
-                                      className="w-16 text-center"
-                                    />
-
-                                    <span>:</span>
-
-                                    <Input
-                                      type="text"
-                                      inputMode="numeric"
-                                      pattern="[0-9]*"
-                                      maxLength={2}
-                                      value={openTime.minute}
-                                      onChange={(e) => {
-                                        let newMinute = e.target.value;
-
-                                        if (newMinute === "") {
-                                          field.onChange("");
-                                          return;
-                                        }
-
-                                        if (!/^\d*$/.test(newMinute)) return;
-
-                                        let num = parseInt(newMinute, 10);
-                                        if (isNaN(num)) num = 0;
-                                        if (num > 59) num = 59;
-                                        if (num < 0) num = 0;
-
-                                        newMinute = num
-                                          .toString()
-                                          .padStart(2, "0");
-
-                                        field.onChange(
-                                          to24HourFormat(
-                                            openTime.hour,
-                                            newMinute,
-                                            openTime.period,
-                                          ),
-                                        );
-                                      }}
-                                      className="w-16 text-center"
-                                    />
-                                    <Select
-                                      value={openTime.period}
-                                      onValueChange={(value) => {
-                                        field.onChange(
-                                          to24HourFormat(
-                                            openTime.hour,
-                                            openTime.minute,
-                                            value,
-                                          ),
-                                        );
-                                      }}
-                                    >
-                                      <SelectTrigger className="w-[90px]">
-                                        <SelectValue placeholder="AM/PM" />
-                                      </SelectTrigger>
-                                      <SelectContent>
-                                        <SelectItem value="AM">AM</SelectItem>
-                                        <SelectItem value="PM">PM</SelectItem>
-                                      </SelectContent>
-                                    </Select>
-                                  </div>
+                                  <Input
+                                    type="time"
+                                    value={field.value || ""} // expects "HH:MM"
+                                    onChange={(e) =>
+                                      field.onChange(e.target.value)
+                                    }
+                                    className="w-28 text-center"
+                                  />
                                 </FormControl>
                                 <FormMessage />
                               </FormItem>
@@ -815,67 +735,14 @@ export default function ManageBar() {
                                   Close
                                 </FormLabel>
                                 <FormControl>
-                                  <div className="flex items-center justify-center gap-2">
-                                    <Input
-                                      type="number"
-                                      min="1"
-                                      max="12"
-                                      value={closeTime.hour}
-                                      onChange={(e) => {
-                                        const newHour = e.target.value.padStart(
-                                          2,
-                                          "0",
-                                        );
-                                        field.onChange(
-                                          to24HourFormat(
-                                            newHour,
-                                            closeTime.minute,
-                                            closeTime.period,
-                                          ),
-                                        );
-                                      }}
-                                      className="w-16 text-center"
-                                    />
-                                    <span>:</span>
-                                    <Input
-                                      type="number"
-                                      min="0"
-                                      max="59"
-                                      value={closeTime.minute}
-                                      onChange={(e) => {
-                                        const newMinute =
-                                          e.target.value.padStart(2, "0");
-                                        field.onChange(
-                                          to24HourFormat(
-                                            closeTime.hour,
-                                            newMinute,
-                                            closeTime.period,
-                                          ),
-                                        );
-                                      }}
-                                      className="w-16 text-center"
-                                    />
-                                    <Select
-                                      value={closeTime.period}
-                                      onValueChange={(value) => {
-                                        field.onChange(
-                                          to24HourFormat(
-                                            closeTime.hour,
-                                            closeTime.minute,
-                                            value,
-                                          ),
-                                        );
-                                      }}
-                                    >
-                                      <SelectTrigger className="w-[90px]">
-                                        <SelectValue placeholder="AM/PM" />
-                                      </SelectTrigger>
-                                      <SelectContent>
-                                        <SelectItem value="AM">AM</SelectItem>
-                                        <SelectItem value="PM">PM</SelectItem>
-                                      </SelectContent>
-                                    </Select>
-                                  </div>
+                                  <Input
+                                    type="time"
+                                    value={field.value || ""} // expects "HH:MM"
+                                    onChange={(e) =>
+                                      field.onChange(e.target.value)
+                                    }
+                                    className="w-28 text-center"
+                                  />
                                 </FormControl>
                                 <FormMessage />
                               </FormItem>
