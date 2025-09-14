@@ -8,6 +8,7 @@ import { Input } from "@/components/ui/input";
 import { useToast } from "@/hooks/use-toast";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
+import { ChevronDownIcon } from "@radix-ui/react-icons";
 
 const daysOfWeek = [
   "Sunday",
@@ -19,7 +20,6 @@ const daysOfWeek = [
   "Saturday",
 ];
 
-// Zod validation schema with custom pairing validation
 const happyHourSlotSchema = z
   .object({
     start: z
@@ -27,32 +27,30 @@ const happyHourSlotSchema = z
       .optional()
       .refine(
         (val) => !val || /^([01]\d|2[0-3]):([0-5]\d)$/.test(val),
-        "Invalid start time (HH:MM, 24-hour format)",
+        "Invalid start time (HH:MM 24-hour)",
       ),
     end: z
       .string()
       .optional()
       .refine(
         (val) => !val || /^([01]\d|2[0-3]):([0-5]\d)$/.test(val),
-        "Invalid end time (HH:MM, 24-hour format)",
+        "Invalid end time (HH:MM 24-hour)",
       ),
   })
   .superRefine((data, ctx) => {
     if ((data.start && !data.end) || (!data.start && data.end)) {
-      if (!data.start) {
+      if (!data.start)
         ctx.addIssue({
           code: z.ZodIssueCode.custom,
-          message: "Start time is required if end time is set",
+          message: "Start time required if end time set",
           path: ["start"],
         });
-      }
-      if (!data.end) {
+      if (!data.end)
         ctx.addIssue({
           code: z.ZodIssueCode.custom,
-          message: "End time is required if start time is set",
+          message: "End time required if start time set",
           path: ["end"],
         });
-      }
     }
   });
 
@@ -63,31 +61,26 @@ const happyHoursSchema = z.object({
 
 type HappyHourSlot = z.infer<typeof happyHourSlotSchema>;
 type FormValues = z.infer<typeof happyHoursSchema>;
-
 const defaultSlot: HappyHourSlot = { start: "", end: "" };
-const defaultValues: FormValues = {
-  days: Array(7)
-    .fill(null)
-    .map(() =>
-      Array(4)
-        .fill(null)
-        .map(() => ({ ...defaultSlot })),
-    ),
-  _formError: undefined,
-};
 
-function convert24hTo12h(time24: string) {
-  if (!time24) return { hour: "", minute: "", period: "" };
-  const [hourStr, minute] = time24.split(":");
-  let hour = parseInt(hourStr, 10);
+function convert12hTo24h(time12: string, period: string): string {
+  let [hh, mm] = time12.split(":");
+  let hour = parseInt(hh, 10);
+  if (period === "PM" && hour !== 12) hour += 12;
+  if (period === "AM" && hour === 12) hour = 0;
+  return `${hour.toString().padStart(2, "0")}:${mm}`;
+}
+
+function convert24hTo12h(time24: string): {
+  hh: string;
+  mm: string;
+  period: string;
+} {
+  let [hh, mm] = time24.split(":");
+  let hour = parseInt(hh, 10);
   const period = hour >= 12 ? "PM" : "AM";
-  let hour12 = hour % 12;
-  if (hour12 === 0) hour12 = 12;
-  return {
-    hour: hour12.toString().padStart(2, "0"),
-    minute,
-    period,
-  };
+  hour = hour % 12 || 12;
+  return { hh: hour.toString().padStart(2, "0"), mm, period };
 }
 
 async function fetchHappyHours(barId: string): Promise<FormValues> {
@@ -96,9 +89,11 @@ async function fetchHappyHours(barId: string): Promise<FormValues> {
   const data = await res.json();
   const days = daysOfWeek.map((day) => {
     const slots = data.happyHours?.[day] ?? [];
-    const padded = [...slots];
-    while (padded.length < 4) padded.push({ ...defaultSlot });
-    return padded.slice(0, 4);
+    const converted = slots.map((slot: any) => ({
+      start: convert12hTo24h(slot.start, slot.startPeriod),
+      end: convert12hTo24h(slot.end, slot.endPeriod),
+    }));
+    return converted.length ? converted : [];
   });
   return { days, _formError: undefined };
 }
@@ -106,18 +101,14 @@ async function fetchHappyHours(barId: string): Promise<FormValues> {
 function formatHappyHoursForAPI(days: FormValues["days"]) {
   const formatted: Record<string, any[]> = {};
   daysOfWeek.forEach((day, i) => {
-    const slots = days[i];
-    formatted[day] = slots
+    formatted[day] = days[i]
       .filter((s) => s.start && s.end)
       .map((slot) => {
-        const start = convert24hTo12h(slot.start!);
-        const end = convert24hTo12h(slot.end!);
-        return {
-          start: `${start.hour}:${start.minute}`,
-          startPeriod: start.period,
-          end: `${end.hour}:${end.minute}`,
-          endPeriod: end.period,
-        };
+        const { hh, mm, period } = convert24hTo12h(slot.start!);
+        const start = `${hh}:${mm}`;
+        const { hh: eh, mm: em, period: ePeriod } = convert24hTo12h(slot.end!);
+        const end = `${eh}:${em}`;
+        return { start, startPeriod: period, end, endPeriod: ePeriod };
       });
   });
   return { happyHours: formatted };
@@ -137,67 +128,56 @@ async function updateHappyHours(barId: string, values: FormValues) {
 export function HappyHours({ barId }: { barId: string }) {
   const queryClient = useQueryClient();
   const { toast } = useToast();
-  const {
-    control,
-    handleSubmit,
-    reset,
-    setFocus,
-    formState: { errors, isSubmitting },
-  } = useForm<FormValues>({
-    defaultValues,
-    resolver: zodResolver(happyHoursSchema),
-    mode: "onBlur",
-  });
 
-  const { isLoading, data, dataUpdatedAt } = useQuery<FormValues, Error>({
+  // Open current day by default
+  const [openDay, setOpenDay] = React.useState(() => new Date().getDay());
+
+  const { data: loadedFormData, isLoading } = useQuery<FormValues, Error>({
     queryKey: ["happyHours", barId],
     queryFn: () => fetchHappyHours(barId),
   });
 
-  React.useEffect(() => {
-    if (data) reset(data);
-  }, [data, reset]);
+  // Initialize useForm only when loadedFormData is available
+  const formMethods = useForm<FormValues>({
+    defaultValues: loadedFormData ?? { days: Array(7).fill([]) },
+    resolver: zodResolver(happyHoursSchema),
+    mode: "onBlur",
+  });
+  const { control, handleSubmit, reset, watch, formState } = formMethods;
+  const { errors, isSubmitting } = formState;
 
-  // Improved scroll+focus effect on error
+  React.useEffect(() => {
+    if (loadedFormData) {
+      reset(loadedFormData);
+      setOpenDay(new Date().getDay());
+    }
+  }, [loadedFormData, reset]);
+
   React.useEffect(() => {
     if (errors.days && Array.isArray(errors.days)) {
-      outer: for (let dayIndex = 0; dayIndex < errors.days.length; dayIndex++) {
+      for (let dayIndex = 0; dayIndex < errors.days.length; dayIndex++) {
         const slots = errors.days[dayIndex];
         if (slots && Array.isArray(slots)) {
           for (let slotIndex = 0; slotIndex < slots.length; slotIndex++) {
-            const slotErrors = slots[slotIndex];
-            if (slotErrors) {
-              if (slotErrors.start) {
-                // Defer focus+scroll to let React mark inputs with errors
-                setTimeout(() => {
-                  const fieldName = `days.${dayIndex}.${slotIndex}.start`;
-                  setFocus(fieldName);
-                  const el = document.querySelector<HTMLInputElement>(
-                    `input[name="${fieldName}"]`,
-                  );
-                  if (el)
-                    el.scrollIntoView({ behavior: "smooth", block: "center" });
-                }, 20);
-                break outer;
+            const slot = slots[slotIndex];
+            if (slot?.start || slot?.end) {
+              const errorField = document.querySelector<HTMLInputElement>(
+                `input[name="days.${dayIndex}.${slotIndex}.${slot.start ? "start" : "end"}"]`,
+              );
+              if (errorField) {
+                errorField.scrollIntoView({
+                  behavior: "smooth",
+                  block: "center",
+                });
+                errorField.focus();
               }
-              if (slotErrors.end) {
-                setTimeout(() => {
-                  const fieldName = `days.${dayIndex}.${slotIndex}.end`;
-                  setFocus(fieldName);
-                  const el = document.querySelector<HTMLInputElement>(
-                    `input[name="${fieldName}"]`,
-                  );
-                  if (el)
-                    el.scrollIntoView({ behavior: "smooth", block: "center" });
-                }, 20);
-                break outer;
-              }
+              return;
             }
           }
         }
       }
     }
-  }, [errors, setFocus]);
+  }, [errors]);
 
   const mutation = useMutation({
     mutationFn: (values: FormValues) => updateHappyHours(barId, values),
@@ -220,93 +200,150 @@ export function HappyHours({ barId }: { barId: string }) {
     mutation.mutate(data);
   };
 
-  if (isLoading) return <div>Loading happy hours...</div>;
+  const days = watch("days");
+
+  const toggleDayPanel = (index: number) => {
+    setOpenDay((prev) => (prev === index ? -1 : index));
+  };
+
+  const addSlot = (dayIndex: number) => {
+    const daySlots = days[dayIndex] ?? [];
+    if (daySlots.length >= 4) return;
+    const newSlots = [...daySlots, { ...defaultSlot }];
+    const newDays = days.map((slots, idx) =>
+      idx === dayIndex ? newSlots : slots,
+    );
+    reset({ days: newDays });
+  };
+
+  const removeSlot = (dayIndex: number, slotIndex: number) => {
+    const newSlots = [...(days[dayIndex] ?? [])];
+    newSlots.splice(slotIndex, 1);
+    const newDays = days.map((slots, idx) =>
+      idx === dayIndex ? newSlots : slots,
+    );
+    reset({ days: newDays });
+  };
+
+  if (isLoading || !loadedFormData) return <div>Loading happy hours...</div>;
 
   return (
-    <Card
-      key={`happy-hours-form-${dataUpdatedAt ?? 0}`}
-      className="p-6 max-w-5xl mx-auto my-8 rounded-lg"
-    >
-      <h2 className="text-2xl font-bold mb-6 text-center">
-        Bar Happy Hours Scheduler
+    <Card className="p-6 max-w-5xl mx-auto my-8 rounded-lg">
+      <h2 className="text-3xl font-bold mb-6 text-center">
+        Happy Hours Scheduler
       </h2>
-      <form onSubmit={handleSubmit(onSubmit)} className="space-y-8" noValidate>
-        {daysOfWeek.map((day, dayIndex) => (
-          <section key={day}>
-            <h3 className="text-lg font-semibold mb-4">{day}</h3>
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-6">
-              {Array(4)
-                .fill(null)
-                .map((_, slotIndex) => (
+      <form onSubmit={handleSubmit(onSubmit)} className="space-y-8">
+        {daysOfWeek.map((day, dayIndex) => {
+          const isOpen = dayIndex === openDay;
+          const daySlots = days[dayIndex] ?? [];
+
+          return (
+            <Card key={day} className="border rounded-lg overflow-hidden">
+              <button
+                type="button"
+                aria-expanded={isOpen}
+                aria-controls={`panel-${dayIndex}`}
+                onClick={() => toggleDayPanel(dayIndex)}
+                className="flex justify-between items-center px-4 py-3 font-semibold cursor-pointer w-full"
+              >
+                <span>{day}</span>
+                <ChevronDownIcon
+                  className={`w-5 h-5 transition-transform ${
+                    isOpen ? "rotate-180" : ""
+                  }`}
+                />
+              </button>
+              <div
+                id={`panel-${dayIndex}`}
+                className={`overflow-hidden transition-all duration-500 ease-in-out ${
+                  isOpen
+                    ? "max-h-[999px] p-4 opacity-100"
+                    : "max-h-0 p-0 opacity-0 pointer-events-none"
+                }`}
+              >
+                {daySlots.length === 0 && (
+                  <p className="italic text-gray-600">No happy hours yet</p>
+                )}
+                {daySlots.map((slot, slotIdx) => (
                   <div
-                    key={`${day}-${slotIndex}`}
-                    className="flex flex-col sm:flex-row items-center justify-center gap-4 p-4 border rounded-lg"
+                    key={slotIdx}
+                    className="flex flex-col md:grid md:grid-cols-3 gap-4 items-center border border-gray-300 rounded-lg p-4"
                   >
-                    <div className="flex flex-col space-y-1 items-center">
-                      <label
-                        className="text-sm font-medium"
-                        htmlFor={`start-${dayIndex}-${slotIndex}`}
-                      >
-                        Start
-                      </label>
+                    <div>
+                      <label className="block mb-1 text-sm">Start</label>
                       <Controller
-                        name={`days.${dayIndex}.${slotIndex}.start`}
+                        name={`days.${dayIndex}.${slotIdx}.start`}
                         control={control}
                         render={({ field }) => (
                           <Input
                             {...field}
-                            id={`start-${dayIndex}-${slotIndex}`}
                             type="time"
-                            className="w-40 text-center"
+                            className="w-full text-center"
                           />
                         )}
                       />
-                      {errors?.days?.[dayIndex]?.[slotIndex]?.start && (
-                        <p className="text-xs text-red-600">
-                          {errors.days[dayIndex][slotIndex].start?.message}
+                      {errors.days?.[dayIndex]?.[slotIdx]?.start && (
+                        <p className="text-xs text-red-600 mt-1">
+                          {errors.days[dayIndex][slotIdx].start?.message}
                         </p>
                       )}
                     </div>
-
-                    <div className="flex flex-col space-y-1 items-center">
-                      <label
-                        className="text-sm font-medium"
-                        htmlFor={`end-${dayIndex}-${slotIndex}`}
-                      >
-                        End
-                      </label>
+                    <div>
+                      <label className="block mb-1 text-sm">End</label>
                       <Controller
-                        name={`days.${dayIndex}.${slotIndex}.end`}
+                        name={`days.${dayIndex}.${slotIdx}.end`}
                         control={control}
                         render={({ field }) => (
                           <Input
                             {...field}
-                            id={`end-${dayIndex}-${slotIndex}`}
                             type="time"
-                            className="w-40 text-center"
+                            className="w-full text-center"
                           />
                         )}
                       />
-                      {errors?.days?.[dayIndex]?.[slotIndex]?.end && (
-                        <p className="text-xs text-red-600">
-                          {errors.days[dayIndex][slotIndex].end?.message}
+                      {errors.days?.[dayIndex]?.[slotIdx]?.end && (
+                        <p className="text-xs text-red-600 mt-1">
+                          {errors.days[dayIndex][slotIdx].end?.message}
                         </p>
                       )}
+                    </div>
+                    <div className="w-full md:w-auto flex justify-center mt-2 md:mt-0">
+                      <Button
+                        variant="destructive"
+                        size="sm"
+                        type="button"
+                        onClick={() => removeSlot(dayIndex, slotIdx)}
+                      >
+                        Remove
+                      </Button>
                     </div>
                   </div>
                 ))}
-            </div>
-          </section>
-        ))}
+                <div className="flex gap-2 flex-wrap items-center">
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    disabled={daySlots.length >= 4}
+                    onClick={() => addSlot(dayIndex)}
+                  >
+                    + Add Happy Hour ({daySlots.length} / 4)
+                  </Button>
+                </div>
+              </div>
+            </Card>
+          );
+        })}
         {mutation.isError && (
-          <p className="text-center text-red-600 mt-4">
+          <p className="text-center text-red-600 mt-2">
             Error updating happy hours.
           </p>
         )}
         <Button
           type="submit"
-          className="mt-6 w-full"
           disabled={mutation.isPending || isSubmitting}
+          className="w-full mt-6"
+          size="lg"
         >
           {mutation.isPending ? "Saving..." : "Save Happy Hours"}
         </Button>

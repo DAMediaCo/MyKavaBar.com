@@ -1,13 +1,13 @@
 import { Router } from "express";
 import { db } from "@db";
-import { getUsersEligibleForPayout, getPaidAmount } from "../utils/payouts";
+import { getUsersEligibleForPayout } from "../utils/payouts";
 import {
   users,
   bannedPhoneNumbers,
   userActivityLogs,
   kavaBars,
 } from "@db/schema";
-import { eq } from "drizzle-orm";
+import { and, eq, ne } from "drizzle-orm";
 import { requireAdmin } from "../middleware/admin";
 import { crypto } from "../utils/crypto";
 import { fetchKavaBarsByCoordinates } from "../scripts/fetch-by-coordinates";
@@ -17,7 +17,35 @@ import * as fs from "fs/promises";
 import { updateRewardSchema } from "../schema/referrals";
 import { referralAmount, payouts } from "@db/schema";
 const router = Router();
-
+import { z } from "zod";
+const updateUserSchema = z
+  .object({
+    username: z
+      .string()
+      .min(4)
+      .max(20)
+      .regex(/^[a-zA-Z0-9_]+$/)
+      .optional(),
+    email: z.string().email().optional(),
+    phoneNumber: z
+      .string()
+      .min(10)
+      .max(15)
+      .regex(/^[+\d][\d\s\-]{7,15}$/)
+      .optional(),
+    password: z.preprocess(
+      (val) => (typeof val === "string" && val.trim() === "" ? undefined : val),
+      z.string().min(8).optional(),
+    ),
+  })
+  .refine(
+    (data) =>
+      data.username !== undefined ||
+      data.email !== undefined ||
+      data.phoneNumber !== undefined ||
+      data.password !== undefined,
+    { message: "At least one field must be provided" },
+  );
 // Get all users with complete user information
 router.get("/users", requireAdmin, async (req, res) => {
   try {
@@ -54,15 +82,6 @@ router.get("/users", requireAdmin, async (req, res) => {
       },
     });
 
-    console.log(
-      `Found ${usersList.length} users:`,
-      usersList.map((u) => ({
-        id: u.id,
-        username: u.username,
-        isAdmin: u.isAdmin,
-      })),
-    );
-
     // Set appropriate headers for CORS and caching
     res.set({
       "Cache-Control": "no-store",
@@ -74,6 +93,111 @@ router.get("/users", requireAdmin, async (req, res) => {
     console.error("Error fetching users:", error);
     res.status(500).json({
       error: "Failed to fetch users",
+      details:
+        process.env.NODE_ENV === "development" ? error.message : undefined,
+    });
+  }
+});
+router.patch("/users/:userId", requireAdmin, async (req, res) => {
+  try {
+    const { userId } = req.params;
+    console.log("Received PATCH request for userId:", userId);
+    const parseResult = updateUserSchema.safeParse(req.body);
+
+    console.log("Request body:", req.body);
+    if (!parseResult.success) {
+      console.log("Validation failed:", parseResult.error.issues);
+      return res.status(400).json({
+        error:
+          "Invalid payload. Only username, email, phoneNumber or password allowed.",
+        details: parseResult.error.issues,
+      });
+    }
+    console.log("Validation succeeded:", parseResult.data);
+
+    const updates: Record<string, any> = {};
+
+    // Username uniqueness check (exclude self)
+    if (parseResult.data.username) {
+      console.log(
+        "Checking uniqueness of username:",
+        parseResult.data.username,
+      );
+      const existing = await db
+        .select()
+        .from(users)
+        .where(
+          and(
+            eq(users.username, parseResult.data.username),
+            ne(users.id, Number(userId)),
+          ),
+        )
+        .limit(1);
+      if (existing[0]) {
+        console.log("Username already exists for another user.");
+        return res.status(409).json({ error: "Username already exists" });
+      }
+      updates.username = parseResult.data.username.trim();
+      console.log("Username will be updated.");
+    }
+
+    // Phone number uniqueness check (exclude self)
+    if (parseResult.data.phoneNumber) {
+      console.log(
+        "Checking uniqueness of phoneNumber:",
+        parseResult.data.phoneNumber,
+      );
+      const existingPhone = await db
+        .select()
+        .from(users)
+        .where(
+          and(
+            eq(users.phoneNumber, parseResult.data.phoneNumber),
+            ne(users.id, Number(userId)),
+          ),
+        )
+        .limit(1);
+      if (existingPhone[0]) {
+        console.log("Phone number already exists for another user.");
+        return res.status(409).json({ error: "Phone number already exists" });
+      }
+      updates.phoneNumber = parseResult.data.phoneNumber.trim();
+      console.log("Phone number will be updated.");
+    }
+
+    // Email updating (optional, add uniqueness check if needed)
+    if (parseResult.data.email) {
+      updates.email = parseResult.data.email.trim();
+      console.log("Email will be updated to:", updates.email);
+    }
+
+    // Password hashing
+    if (parseResult.data.password) {
+      console.log("Hashing password.");
+      updates.password = await crypto.hash(parseResult.data.password);
+      console.log("Password hashed.");
+    }
+
+    // No permitted fields provided
+    if (Object.keys(updates).length === 0) {
+      console.log("No permitted fields provided for update.");
+      return res
+        .status(400)
+        .json({ error: "No permitted fields provided for update." });
+    }
+
+    console.log("Performing update with:", updates);
+    await db
+      .update(users)
+      .set(updates)
+      .where(eq(users.id, Number(userId)));
+
+    console.log("User info updated successfully.");
+    res.json({ success: true, message: "User info updated." });
+  } catch (error: any) {
+    console.log("ERROR WHILE UPDATING USER:", error);
+    res.status(500).json({
+      error: "Failed to update user",
       details:
         process.env.NODE_ENV === "development" ? error.message : undefined,
     });

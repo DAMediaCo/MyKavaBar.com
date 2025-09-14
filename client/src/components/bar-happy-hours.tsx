@@ -3,12 +3,7 @@ import React, { useMemo, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { Card, CardHeader, CardTitle, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import {
-  Dialog,
-  DialogContent,
-  DialogHeader,
-  DialogTitle,
-} from "@/components/ui/dialog";
+import { Badge } from "@/components/ui/badge";
 
 const daysOfWeek = [
   "Sunday",
@@ -26,6 +21,7 @@ type HappyHourSlot = {
   end: string;
   endPeriod: "AM" | "PM";
 };
+
 type HappyHoursResponse = {
   happyHours: Record<string, HappyHourSlot[]>;
 };
@@ -34,8 +30,7 @@ const slotToString = (slot: HappyHourSlot) =>
   `${slot.start} ${slot.startPeriod} - ${slot.end} ${slot.endPeriod}`;
 
 export const BarHappyHours = ({ barId }: { barId: number }) => {
-  const [dialogOpen, setDialogOpen] = useState(false);
-
+  const [expanded, setExpanded] = useState(false);
   const { data, isLoading, error } = useQuery({
     queryKey: ["happyHours", barId],
     queryFn: async (): Promise<HappyHoursResponse> => {
@@ -48,10 +43,8 @@ export const BarHappyHours = ({ barId }: { barId: number }) => {
   const today = new Date();
   const todayDay = daysOfWeek[today.getDay()];
 
-  // Preprocess schedules
   const schedules = useMemo(() => {
     if (!data?.happyHours) return {};
-
     const result: Record<string, string[]> = {};
     daysOfWeek.forEach((day) => {
       const slots = data.happyHours?.[day] ?? [];
@@ -69,6 +62,9 @@ export const BarHappyHours = ({ barId }: { barId: number }) => {
     return <div>No happy hours available.</div>;
 
   const todaySlots = schedules[todayDay] ?? [];
+  const otherDaysWithSlots = Object.keys(schedules).filter(
+    (d) => d !== todayDay,
+  );
 
   return (
     <Card>
@@ -76,44 +72,65 @@ export const BarHappyHours = ({ barId }: { barId: number }) => {
         <CardTitle>Bar Happy Hours</CardTitle>
       </CardHeader>
       <CardContent>
-        {/* Show only today's hours */}
-        <section className="mb-4">
-          <h3 className="text-lg font-semibold mb-1">{todayDay.slice(0, 3)}</h3>
-          {todaySlots.length > 0 ? (
-            <p>{todaySlots.join(", ")}</p>
-          ) : (
-            <p>No happy hours today</p>
-          )}
-        </section>
-
-        {/* Show More button if other days have slots */}
-        {Object.keys(schedules).filter((d) => d !== todayDay).length > 0 && (
-          <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
+        {!expanded ? (
+          <>
+            {todaySlots.length > 0 ? (
+              <div className="mb-2 font-semibold">{todayDay}</div>
+            ) : (
+              <p>No happy hours today</p>
+            )}
+            <div className="flex flex-wrap gap-2 items-center mb-4">
+              {todaySlots.map((slot, idx) => (
+                <Badge
+                  key={`${todayDay}-${idx}`}
+                  variant="secondary"
+                  className="cursor-default"
+                >
+                  {slot}
+                </Badge>
+              ))}
+              {otherDaysWithSlots.length > 0 && (
+                <Button
+                  onClick={() => setExpanded(true)}
+                  variant="outline"
+                  size="sm"
+                  className="ml-2"
+                >
+                  View More
+                </Button>
+              )}
+            </div>
+          </>
+        ) : (
+          <>
+            {daysOfWeek.map((day) => {
+              const slots = schedules[day] ?? [];
+              if (slots.length === 0) return null;
+              return (
+                <section key={day} className="mb-6">
+                  <h3 className="text-lg font-semibold mb-2">{day}</h3>
+                  <div className="flex flex-wrap gap-2">
+                    {slots.map((slot, idx) => (
+                      <Badge
+                        key={`${day}-expanded-${idx}`}
+                        variant="secondary"
+                        className="cursor-default"
+                      >
+                        {slot}
+                      </Badge>
+                    ))}
+                  </div>
+                </section>
+              );
+            })}
             <Button
-              size="sm"
+              onClick={() => setExpanded(false)}
               variant="outline"
-              onClick={() => setDialogOpen(true)}
+              size="sm"
             >
-              View More
+              Show Less
             </Button>
-            <DialogContent className="max-w-md">
-              <DialogHeader>
-                <DialogTitle className="text-base">All Happy Hours</DialogTitle>
-              </DialogHeader>
-              <div className="space-y-2 text-sm">
-                {daysOfWeek.map((day) => {
-                  const slots = schedules[day] ?? [];
-                  if (slots.length === 0) return null;
-                  return (
-                    <div key={day}>
-                      <span className="font-medium">{day.slice(0, 3)}:</span>{" "}
-                      <span>{slots.join(", ")}</span>
-                    </div>
-                  );
-                })}
-              </div>
-            </DialogContent>
-          </Dialog>
+          </>
         )}
       </CardContent>
     </Card>
