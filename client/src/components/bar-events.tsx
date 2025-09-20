@@ -578,7 +578,7 @@ export default function BarEvents({ barId, ownerId, address }: BarEventsProps) {
                           {event.description.length > 100 && (
                             <Dialog>
                               <DialogTrigger asChild>
-                                <button className="text-white font-medium text-md">
+                                <button className="text-black dark:text-white font-medium text-md">
                                   View more
                                 </button>
                               </DialogTrigger>
@@ -595,7 +595,7 @@ export default function BarEvents({ barId, ownerId, address }: BarEventsProps) {
                         </>
                       )}
 
-                      <p className="text-md text-white font-medium mt-2 break-words">
+                      <p className="text-md text-black dark:text-white font-medium mt-2 break-words">
                         {event.isRecurring
                           ? `Next: ${format(getNextEventDate(event), "MM/dd/yy")}`
                           : `${formatDateString(event.startDate || "")} to ${formatDateString(event.endDate || "")}`}

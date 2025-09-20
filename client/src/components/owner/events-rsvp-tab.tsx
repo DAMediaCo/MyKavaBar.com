@@ -1,3 +1,4 @@
+import React, { useState } from "react";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Card, CardHeader, CardTitle, CardContent } from "@/components/ui/card";
 import { useQuery } from "@tanstack/react-query";
@@ -23,26 +24,22 @@ function formatTimeRange24To12(timeRange: string): string {
   return `${to12(start)} - ${to12(end)}`;
 }
 
-// Returns the next occurrence (Date object) of a given day of the week and time string ("HH:MM:SS")
-function getNextOccurrence(dayOfWeek: number, time: string): Date {
-  const [hour, minute, second] = time.split(":").map(Number);
-  const now = new Date();
-  const result = new Date(now);
+function formatDateMMDDYYYY(date: Date): string {
+  const mm = (date.getMonth() + 1).toString().padStart(2, "0");
+  const dd = date.getDate().toString().padStart(2, "0");
+  const yyyy = date.getFullYear();
+  return `${mm}/${dd}/${yyyy}`;
+}
 
-  result.setHours(hour, minute, second, 0);
-
-  const currentDay = now.getDay();
-  const daysToAdd = (dayOfWeek - currentDay + 7) % 7;
-  if (daysToAdd === 0 && result <= now) {
-    result.setDate(result.getDate() + 7);
-  } else {
-    result.setDate(result.getDate() + daysToAdd);
-  }
-
-  return result;
+// Parse ISO date string "YYYY-MM-DD" as local date ignoring timezone shifts
+function parseDateAsLocalDate(dateStr: string): Date {
+  const [year, month, day] = dateStr.split("-").map(Number);
+  return new Date(year, month - 1, day);
 }
 
 export function EventRsvpTab({ barId }: { barId: number }) {
+  const [tabValue, setTabValue] = useState<"upcoming" | "past">("upcoming");
+
   const { data, isLoading, error } = useQuery({
     queryKey: ["bar-rsvp-stats", barId],
     queryFn: async () => {
@@ -70,68 +67,42 @@ export function EventRsvpTab({ barId }: { barId: number }) {
       </Card>
     );
 
-  const now = new Date();
-  const events = data?.data ?? [];
-
-  const futureEvents = events.filter((e: any) => {
-    const schedule = e.schedule;
-    if (schedule.type === "recurring") {
-      const next = getNextOccurrence(
-        schedule.dayOfWeek,
-        schedule.time.split(" - ")[0],
-      );
-      e.displayDate = next;
-      return next >= now;
-    } else {
-      const date = new Date(
-        `${schedule.date}T${schedule.time.split(" - ")[0]}`,
-      );
-      e.displayDate = date;
-      return date >= now;
-    }
-  });
-
-  const pastEvents = events.filter((e: any) => {
-    const schedule = e.schedule;
-    if (schedule.type === "recurring") {
-      const next = getNextOccurrence(
-        schedule.dayOfWeek,
-        schedule.time.split(" - ")[0],
-      );
-      e.displayDate = next;
-      return next < now;
-    } else {
-      const date = new Date(
-        `${schedule.date}T${schedule.time.split(" - ")[0]}`,
-      );
-      e.displayDate = date;
-      return date < now;
-    }
-  });
+  // Use backend-provided arrays directly
+  const pastEvents = data?.data?.past ?? [];
+  const upcomingEvents = data?.data?.upcoming ?? [];
 
   const renderEvents = (events: any[]) =>
     events.map((event) => {
-      const { title, isRecurring, schedule, rsvps, displayDate } = event;
+      const { title, isRecurring, schedule, rsvps } = event;
       const activeCount = rsvps?.activeCount ?? 0;
       const inactiveCount = rsvps?.inactiveCount ?? 0;
+
+      const displayDateStr =
+        schedule && (schedule.specificDate || schedule.date)
+          ? schedule.specificDate || schedule.date
+          : "";
+      const displayDate = displayDateStr
+        ? parseDateAsLocalDate(displayDateStr)
+        : null;
 
       return (
         <Card key={event.eventId}>
           <CardContent className="p-4 space-y-1">
             <h2 className="text-lg font-semibold">{title}</h2>
-            {isRecurring
-              ? `${daysOfWeek[schedule.dayOfWeek]}, ${formatTimeRange24To12(schedule.time)} (${displayDate.toLocaleDateString()})`
-              : `${new Date(
-                  `${schedule.date}T${schedule.time.split(" - ")[0]}`,
-                ).toLocaleString([], {
-                  hour: "numeric",
-                  minute: "2-digit",
-                  hour12: true,
-                  year: "numeric",
-                  month: "short",
-                  day: "numeric",
-                })} (${formatTimeRange24To12(schedule.time)})`}
-
+            {isRecurring && displayDate ? (
+              <>
+                {daysOfWeek[schedule.dayOfWeek]},{" "}
+                {formatTimeRange24To12(schedule.time)} (
+                {formatDateMMDDYYYY(displayDate)})
+              </>
+            ) : displayDate ? (
+              <>
+                {formatDateMMDDYYYY(displayDate)} (
+                {formatTimeRange24To12(schedule.time)})
+              </>
+            ) : (
+              "--"
+            )}
             <div className="flex gap-4 pt-2">
               <span className="text-green-600 text-sm">✅ {activeCount}</span>
               <span className="text-gray-500 text-sm">❌ {inactiveCount}</span>
@@ -147,20 +118,24 @@ export function EventRsvpTab({ barId }: { barId: number }) {
         <CardTitle>Event RSVP Stats</CardTitle>
       </CardHeader>
       <CardContent>
-        <Tabs defaultValue="future" className="w-full">
+        <Tabs
+          value={tabValue}
+          onValueChange={(value) => setTabValue(value as "upcoming" | "past")}
+          className="w-full"
+        >
           <TabsList>
-            <TabsTrigger value="future">Upcoming</TabsTrigger>
+            <TabsTrigger value="upcoming">Upcoming</TabsTrigger>
             <TabsTrigger value="past">Past</TabsTrigger>
           </TabsList>
 
-          <TabsContent value="future">
+          <TabsContent value="upcoming">
             <div className="space-y-4 mt-4">
-              {futureEvents.length === 0 ? (
+              {upcomingEvents.length === 0 ? (
                 <p className="text-center text-sm text-muted-foreground">
                   No upcoming events.
                 </p>
               ) : (
-                renderEvents(futureEvents)
+                renderEvents(upcomingEvents)
               )}
             </div>
           </TabsContent>

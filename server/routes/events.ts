@@ -15,7 +15,24 @@ const daysOfWeek = [
   "Friday",
   "Saturday",
 ];
-
+// Step 4: Improved date constructor for non-recurring events
+function getEventStartDate(event: any): Date {
+  if (!event.startDate) {
+    console.error(`Missing startDate for event id=${event.id}`);
+    throw new Error(`Missing startDate for event id=${event.id}`);
+  }
+  // If startDate is YYYY-MM-DD, add time
+  if (event.startDate.length === 10) {
+    if (!event.startTime) {
+      console.error(`Missing startTime for event id=${event.id}`);
+      throw new Error(`Missing startTime for event id=${event.id}`);
+    }
+    return new Date(`${event.startDate}T${event.startTime}`);
+  } else {
+    // startDate is already ISO, use directly
+    return new Date(event.startDate);
+  }
+}
 export function registerEventRoutes(app: Express) {
   app.get("/api/bars/:id/events", async (req: Request, res: Response) => {
     try {
@@ -49,25 +66,6 @@ export function registerEventRoutes(app: Express) {
         orderBy: [barEvents.dayOfWeek],
       });
       console.log("Recurring events fetched:", recurringEvents);
-
-      // Step 4: Improved date constructor for non-recurring events
-      function getEventStartDate(event: any): Date {
-        if (!event.startDate) {
-          console.error(`Missing startDate for event id=${event.id}`);
-          throw new Error(`Missing startDate for event id=${event.id}`);
-        }
-        // If startDate is YYYY-MM-DD, add time
-        if (event.startDate.length === 10) {
-          if (!event.startTime) {
-            console.error(`Missing startTime for event id=${event.id}`);
-            throw new Error(`Missing startTime for event id=${event.id}`);
-          }
-          return new Date(`${event.startDate}T${event.startTime}`);
-        } else {
-          // startDate is already ISO, use directly
-          return new Date(event.startDate);
-        }
-      }
 
       // Step 5: Helper to enrich with RSVP flag, debugging at each step
       const enrichWithRsvpFlag = async (event: any) => {
@@ -122,7 +120,7 @@ export function registerEventRoutes(app: Express) {
           }
 
           return { ...event, isRsvped };
-        } catch (innerError) {
+        } catch (innerError: any) {
           console.error(
             `Error enriching event id=${event.id}:`,
             innerError.message,

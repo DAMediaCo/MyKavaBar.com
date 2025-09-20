@@ -1,0 +1,1 @@
+CREATE INDEX IF NOT EXISTS "idx_event_rsvp_event_date" ON "event_rsvps" USING btree ("event_id","event_date");

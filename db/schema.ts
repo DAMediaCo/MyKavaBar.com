@@ -680,6 +680,12 @@ export const eventRsvps = pgTable(
     idx_event: index("idx_event_rsvp_event").on(table.eventId),
     idx_user: index("idx_event_rsvp_user").on(table.userId),
     idx_date: index("idx_event_rsvp_date").on(table.eventDate),
+
+    // Added composite index for eventId + eventDate for efficient RSVP counts queries
+    idx_event_date: index("idx_event_rsvp_event_date").on(
+      table.eventId,
+      table.eventDate,
+    ),
   }),
 );
 

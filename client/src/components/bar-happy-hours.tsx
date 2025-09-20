@@ -59,7 +59,14 @@ export const BarHappyHours = ({ barId }: { barId: number }) => {
   if (error)
     return <div className="text-red-600">Error loading happy hours</div>;
   if (!data || Object.keys(schedules).length === 0)
-    return <div>No happy hours available.</div>;
+    return (
+      <Card>
+        <CardHeader>
+          <CardTitle>Bar Happy Hours</CardTitle>
+        </CardHeader>
+        <CardContent>No happy hours available.</CardContent>
+      </Card>
+    );
 
   const todaySlots = schedules[todayDay] ?? [];
   const otherDaysWithSlots = Object.keys(schedules).filter(
