@@ -10,6 +10,11 @@ export default {
         md: "calc(var(--radius) - 2px)",
         sm: "calc(var(--radius) - 4px)",
       },
+      textShadow: {
+        default: "2px 2px 4px rgba(0, 0, 0, 0.5)",
+        md: "3px 3px 6px rgba(0, 0, 0, 0.6)",
+        lg: "4px 4px 8px rgba(0, 0, 0, 0.7)",
+      },
       colors: {
         background: "hsl(var(--background))",
         foreground: "hsl(var(--foreground))",
@@ -86,5 +91,9 @@ export default {
       },
     },
   },
-  plugins: [require("tailwindcss-animate"), require("@tailwindcss/typography")],
+  plugins: [
+    require("tailwindcss-animate"),
+    require("@tailwindcss/typography"),
+    require("tailwindcss-textshadow"),
+  ],
 } satisfies Config;

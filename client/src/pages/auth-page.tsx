@@ -3,6 +3,7 @@ import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { useQueryClient } from "@tanstack/react-query";
 import { useUser } from "@/hooks/use-user";
+import GoogleButton from "@/components/auth/google-auth-button";
 import {
   Card,
   CardContent,
@@ -158,6 +159,8 @@ export default function AuthPage() {
             </TabsContent>
           </Tabs>
         </CardContent>
+
+        {/* <GoogleButton /> */}
       </Card>
     </div>
   );

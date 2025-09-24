@@ -1,4 +1,4 @@
-import { useState, useRef } from "react";
+import { useState, useRef, useEffect } from "react";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
@@ -23,7 +23,6 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import { Checkbox } from "@/components/ui/checkbox";
-
 import { ScrollArea } from "@/components/ui/scroll-area";
 
 const registerSchema = z.object({
@@ -53,6 +52,7 @@ export default function RegisterForm({
 }) {
   const { toast } = useToast();
   const [_, setLocation] = useLocation();
+
   const [isVerifying, setIsVerifying] = useState(false);
   const [codeSent, setCodeSent] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -65,8 +65,13 @@ export default function RegisterForm({
   const [showTerms, setShowTerms] = useState(false);
   const queryClient = useQueryClient();
 
+  // OTP resend management state
+  const [otpRequestCount, setOtpRequestCount] = useState(0);
+  const [otpCooldown, setOtpCooldown] = useState(0); // seconds remaining cooldown
+
   const form = useForm<RegisterValues>({
     resolver: zodResolver(registerSchema),
+    mode: "onTouched",
     defaultValues: {
       firstName: "",
       lastName: "",
@@ -82,6 +87,15 @@ export default function RegisterForm({
     },
   });
 
+  // Cooldown countdown timer effect
+  useEffect(() => {
+    if (otpCooldown > 0) {
+      const timerId = setTimeout(() => setOtpCooldown(otpCooldown - 1), 1000);
+      return () => clearTimeout(timerId);
+    }
+  }, [otpCooldown]);
+
+  // Reuse existing function but without changing codeSent inside it
   async function requestVerificationCode(phoneNumber: string) {
     try {
       const response = await fetch("/api/phone/verify", {
@@ -101,13 +115,13 @@ export default function RegisterForm({
           description:
             "Please use a different phone number or login with your existing account.",
         });
-        return;
+        return false;
       }
-      setCodeSent(true);
       toast({
         title: "Verification Code Sent",
         description: "Please check your phone for the verification code.",
       });
+      return true;
     } catch (error: any) {
       const errorDetails = error.details ? `: ${error.details}` : "";
       toast({
@@ -117,9 +131,46 @@ export default function RegisterForm({
           "Our SMS verification service is currently unavailable. Please try again later or contact support." +
           errorDetails,
       });
-      setCodeSent(false);
+      return false;
     } finally {
       setIsVerifying(false);
+    }
+  }
+
+  async function handleRequestOtp() {
+    if (otpRequestCount > 2) {
+      toast({
+        variant: "destructive",
+        title: "OTP Limit Reached",
+        description: "You have reached the maximum number of OTP requests.",
+      });
+      return;
+    }
+
+    setIsVerifying(true);
+    const phoneNumber = form.getValues("phoneNumber");
+    if (!phoneNumber || phoneNumber.length < 10) {
+      toast({
+        variant: "destructive",
+        title: "Invalid Phone Number",
+        description: "Please enter a valid phone number before requesting OTP.",
+      });
+      setIsVerifying(false);
+      return;
+    }
+
+    const success = await requestVerificationCode(phoneNumber);
+    setIsVerifying(false);
+
+    if (success) {
+      setOtpRequestCount(otpRequestCount + 1);
+      // Set cooldown timer according to attempts
+      if (otpRequestCount === 0) {
+        setOtpCooldown(15);
+      } else if (otpRequestCount === 1) {
+        setOtpCooldown(30);
+      }
+      setCodeSent(true);
     }
   }
 
@@ -217,9 +268,9 @@ export default function RegisterForm({
     try {
       setIsSubmitting(true);
 
+      // If code not sent yet, send first OTP and exit
       if (!codeSent) {
-        setIsVerifying(true);
-        await requestVerificationCode(values.phoneNumber);
+        await handleRequestOtp();
         return;
       }
 
@@ -303,6 +354,8 @@ export default function RegisterForm({
       });
       if (error.message?.includes("verification code")) {
         setCodeSent(false);
+        setOtpRequestCount(0);
+        setOtpCooldown(0);
       }
     } finally {
       setIsSubmitting(false);
@@ -360,7 +413,7 @@ export default function RegisterForm({
                   <FormControl>
                     <Input placeholder="First name" {...field} />
                   </FormControl>
-                  <FormMessage />
+                  <FormMessage className="text-red-600 mt-1" />
                 </FormItem>
               )}
             />
@@ -374,7 +427,7 @@ export default function RegisterForm({
                   <FormControl>
                     <Input placeholder="Last name" {...field} />
                   </FormControl>
-                  <FormMessage />
+                  <FormMessage className="text-red-600 mt-1" />
                 </FormItem>
               )}
             />
@@ -389,7 +442,7 @@ export default function RegisterForm({
                 <FormControl>
                   <Input placeholder="username" {...field} />
                 </FormControl>
-                <FormMessage />
+                <FormMessage className="text-red-600 mt-1" />
               </FormItem>
             )}
           />
@@ -407,7 +460,7 @@ export default function RegisterForm({
                     {...field}
                   />
                 </FormControl>
-                <FormMessage />
+                <FormMessage className="text-red-600 mt-1" />
               </FormItem>
             )}
           />
@@ -421,7 +474,7 @@ export default function RegisterForm({
                 <FormControl>
                   <Input type="password" placeholder="********" {...field} />
                 </FormControl>
-                <FormMessage />
+                <FormMessage className="text-red-600 mt-1" />
               </FormItem>
             )}
           />
@@ -440,7 +493,7 @@ export default function RegisterForm({
                     {...field}
                   />
                 </FormControl>
-                <FormMessage />
+                <FormMessage className="text-red-600 mt-1" />
               </FormItem>
             )}
           />
@@ -459,24 +512,41 @@ export default function RegisterForm({
             )}
           />
           {codeSent && (
-            <FormField
-              control={form.control}
-              name="verificationCode"
-              render={({ field }) => (
-                <FormItem>
-                  <FormLabel>Verification Code</FormLabel>
-                  <FormControl>
-                    <Input
-                      type="text"
-                      placeholder="Enter code"
-                      maxLength={6}
-                      {...field}
-                    />
-                  </FormControl>
-                  <FormMessage />
-                </FormItem>
-              )}
-            />
+            <>
+              <FormField
+                control={form.control}
+                name="verificationCode"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Verification Code</FormLabel>
+                    <FormControl>
+                      <Input
+                        type="text"
+                        placeholder="Enter code"
+                        maxLength={6}
+                        {...field}
+                      />
+                    </FormControl>
+                    <FormMessage className="text-red-600 mt-1" />
+                  </FormItem>
+                )}
+              />
+              {/* <button
+                type="button"
+                onClick={handleRequestOtp}
+                disabled={isVerifying || otpCooldown > 0 || otpRequestCount > 2}
+                className={`
+                  font-medium text-sm underline text-primary
+                  ${isVerifying || otpCooldown > 0 || otpRequestCount > 2 ? "pointer-events-none opacity-50 cursor-default" : "cursor-pointer"}
+                `}
+              >
+                {otpCooldown > 0
+                  ? `Resend OTP in ${otpCooldown}s`
+                  : otpRequestCount > 2
+                    ? "No More OTP Attempts"
+                    : "Resend OTP"}
+              </button> */}
+            </>
           )}
 
           <div className="space-y-6 border-t pt-6">
@@ -503,7 +573,7 @@ export default function RegisterForm({
                       </button>{" "}
                       and Privacy Policy.
                     </FormLabel>
-                    <FormMessage />
+                    <FormMessage className="text-red-600 mt-1" />
                   </div>
                 </FormItem>
               )}
@@ -546,7 +616,7 @@ export default function RegisterForm({
                     <FormLabel className="text-sm text-muted-foreground">
                       I confirm that I am at least 18 years old.
                     </FormLabel>
-                    <FormMessage />
+                    <FormMessage className="text-red-600 mt-1" />
                   </div>
                 </FormItem>
               )}
@@ -566,7 +636,7 @@ export default function RegisterForm({
             <Button
               type="submit"
               className="w-full"
-              disabled={isVerifying || isSubmitting || !form.formState.isValid}
+              disabled={isVerifying || isSubmitting}
             >
               {isVerifying || isSubmitting ? (
                 <>

@@ -169,6 +169,13 @@
       "when": 1758218660295,
       "tag": "0023_medical_purple_man",
       "breakpoints": true
+    },
+    {
+      "idx": 24,
+      "version": "7",
+      "when": 1758712099687,
+      "tag": "0024_woozy_scarlet_witch",
+      "breakpoints": true
     }
   ]
 }

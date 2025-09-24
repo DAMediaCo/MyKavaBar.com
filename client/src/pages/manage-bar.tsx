@@ -21,13 +21,6 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Separator } from "@/components/ui/separator";
 import { EventForm, type EventFormValues } from "@/components/event-form";
 import {
-  Select,
-  SelectTrigger,
-  SelectValue,
-  SelectContent,
-  SelectItem,
-} from "@/components/ui/select";
-import {
   Dialog,
   DialogContent,
   DialogHeader,
@@ -39,6 +32,7 @@ import { Label } from "@/components/ui/label";
 import { EventRsvpTab } from "@/components/owner/events-rsvp-tab";
 import { Features } from "@/components/owner/features";
 import { HappyHours } from "@/components/owner/happy-hours";
+import ComingSoonForm from "@/components/owner/coming-soon-form";
 
 const daysOfWeek = [
   "Sunday",
@@ -69,32 +63,25 @@ const hoursFormSchema = z.object({
     }),
   ),
 });
+const kavaBarUpdateSchema = z
+  .object({
+    comingSoon: z.boolean(),
+    grandOpeningDate: z.string().nullable().optional(),
+  })
+  .refine(
+    (data) => {
+      if (data.grandOpeningDate && !data.comingSoon) {
+        return false;
+      }
+      return true;
+    },
+    {
+      message: "You must enable Coming Soon if you set a Grand Opening Date",
+      path: ["comingSoon"],
+    },
+  );
 
 type HoursFormValues = z.infer<typeof hoursFormSchema>;
-
-// Function to convert 24-hour time to 12-hour format with AM/PM
-const to12HourFormat = (time: string | undefined) => {
-  if (!time) {
-    return { hour: "", minute: "", period: "" }; // Return empty values if time is undefined
-  }
-
-  const [hour, minute] = time.split(":").map(Number);
-  const period = hour >= 12 ? "PM" : "AM";
-  const adjustedHour = hour % 12 || 12; // Convert 0 to 12 for midnight
-  return {
-    hour: adjustedHour.toString().padStart(2, "0"),
-    minute: minute.toString().padStart(2, "0"),
-    period,
-  };
-};
-
-// Function to convert 12-hour time back to 24-hour format
-const to24HourFormat = (hour: string, minute: string, period: string) => {
-  let adjustedHour = parseInt(hour, 10);
-  if (period === "PM" && adjustedHour !== 12) adjustedHour += 12;
-  if (period === "AM" && adjustedHour === 12) adjustedHour = 0;
-  return `${adjustedHour.toString().padStart(2, "0")}:${minute}`;
-};
 
 export default function ManageBar() {
   const { id } = useParams<{ id: string }>();
@@ -455,6 +442,10 @@ export default function ManageBar() {
 
   const [phoneNumber, setPhoneNumber] = useState("");
   const [isVerifying, setIsVerifying] = useState(false);
+  const [comingSoon, setComingSoon] = useState(bar?.comingSoon ?? false);
+  const [grandOpeningDate, setGrandOpeningDate] = useState<Date | undefined>(
+    bar?.grandOpeningDate ?? undefined,
+  );
 
   const verifyKavatenderMutation = useMutation({
     mutationFn: async () => {
@@ -676,6 +667,7 @@ export default function ManageBar() {
                     {bar.phone || "Not provided"}
                   </p>
                 </div>
+                <ComingSoonForm bar={bar} />
               </div>
             </CardContent>
           </Card>

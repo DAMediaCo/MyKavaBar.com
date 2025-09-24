@@ -33,6 +33,12 @@ export const userStatus = pgEnum("user_status", [
   "banned",
 ]);
 
+export const authProviderEnum = pgEnum("auth_provider", [
+  "local",
+  "google",
+  "apple",
+]);
+
 // Define the users table with all fields including self-reference
 export const users = pgTable(
   "users",
@@ -62,6 +68,31 @@ export const users = pgTable(
   (users) => ({
     idx_status: index("idx_status").on(users.status),
     idx_created_at: index("idx_created_at").on(users.createdAt),
+  }),
+);
+
+// OAuth
+export const user_auth_providers = pgTable(
+  "user_auth_providers",
+  {
+    id: integer("id").primaryKey(),
+    userId: integer("user_id")
+      .notNull()
+      .references(() => users.id),
+    provider: authProviderEnum("provider").notNull(),
+    providerAccountId: text("provider_account_id").notNull(),
+    createdAt: timestamp("created_at").defaultNow().notNull(),
+    updatedAt: timestamp("updated_at"),
+  },
+  (user_auth_providers) => ({
+    idx_user_provider: index("idx_user_provider").on(
+      user_auth_providers.userId,
+      user_auth_providers.provider,
+    ),
+    idx_provider_account: index("idx_provider_account").on(
+      user_auth_providers.provider,
+      user_auth_providers.providerAccountId,
+    ),
   }),
 );
 
@@ -232,6 +263,8 @@ export const kavaBars = pgTable("kava_bars", {
   }).default("0.00"),
   isVerifiedKavaBar: boolean("is_verified_kava_bar").default(false),
   verificationNotes: text("verification_notes"),
+  comingSoon: boolean("coming_soon").default(false),
+  grandOpeningDate: date("grand_opening_date"),
   createdAt: timestamp("created_at").defaultNow().notNull(),
 });
 

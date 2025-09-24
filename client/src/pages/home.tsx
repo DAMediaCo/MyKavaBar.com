@@ -16,7 +16,6 @@ import {
 } from "@/components/ui/select";
 import { Slider } from "@/components/ui/slider";
 import { Search, MapPin, List, Crosshair } from "lucide-react";
-import SpinningWheel from "@/components/spinning-wheel";
 import { useToast } from "@/hooks/use-toast";
 import { useUser } from "@/hooks/use-user";
 
@@ -34,7 +33,7 @@ export default function Home() {
     isLoading: isLoadingLocation,
     requestLocation,
   } = useLocation();
-  
+
   const { toast } = useToast();
 
   useEffect(() => {
@@ -55,7 +54,6 @@ export default function Home() {
   }, [requestLocation, toast]);
 
   // Log total number of bars received
-  console.log("Total kava bars received:", kavaBars?.length);
   // Fetch favorite bars only when sortBy is "favorite"
   const { data: favoriteBars, isLoading: isLoadingFavorites } = useQuery({
     queryKey: ["favoriteBars"],
@@ -80,14 +78,6 @@ export default function Home() {
       bar.address.toLowerCase().includes("cocoa") ||
       bar.address.toLowerCase().includes("merritt island"),
   );
-  console.log("Melbourne area bars found:", melbourneBars?.length);
-  melbourneBars?.forEach((bar) => {
-    console.log(`${bar.name}:`, {
-      address: bar.address,
-      location: bar.location,
-      verificationStatus: bar.verificationStatus,
-    });
-  });
 
   // Filter bars based on search and location
   const filteredBars = kavaBars?.filter((bar) => {
@@ -117,7 +107,6 @@ export default function Home() {
   });
 
   // Log filtered results
-  console.log("Filtered bars count:", filteredBars?.length);
 
   let sortedBars = filteredBars
     ?.map((bar) => {
@@ -152,18 +141,18 @@ export default function Home() {
     sortedBars = favoriteBars;
   }
   // Log sorted results and map markers
-  console.log("Sorted bars count:", sortedBars?.length);
-  if (view === "map") {
-    console.log(
-      "Map markers:",
-      sortedBars?.map((bar) => ({
-        name: bar.name,
-        address: bar.address,
-        location: bar.location,
-        verificationStatus: bar.verificationStatus,
-      })),
-    );
-  }
+
+  // if (view === "map") {
+  //   console.log(
+  //     "Map markers:",
+  //     sortedBars?.map((bar) => ({
+  //       name: bar.name,
+  //       address: bar.address,
+  //       location: bar.location,
+  //       verificationStatus: bar.verificationStatus,
+  //     })),
+  //   );
+  // }
 
   const handleSortChange = (value: string) => {
     setSortBy(value as SortOption);

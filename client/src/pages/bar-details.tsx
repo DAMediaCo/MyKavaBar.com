@@ -10,6 +10,7 @@ import ReviewList from "@/components/reviews/review-list";
 import ReviewForm from "@/components/reviews/review-form";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
+import { ComingSoonBanner } from "@/components/coming-soon";
 import { Button } from "@/components/ui/button";
 import {
   MapPin,
@@ -205,7 +206,9 @@ export default function BarDetails() {
             <CheckInCarousel checkIns={checkIns} />
           )}
         </div>
-
+        {bar.comingSoon && (
+          <ComingSoonBanner grandOpeningDate={bar.grandOpeningDate} />
+        )}
         <div className="flex gap-2">
           <ShareBar bar={bar} />
           <FavoriteBarMobile barId={Number(id)} />

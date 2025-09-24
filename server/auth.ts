@@ -1,6 +1,7 @@
 import { type Express } from "express";
 import passport from "passport";
 import { Strategy as LocalStrategy } from "passport-local";
+import { Strategy as GoogleStrategy } from "passport-google-oauth20";
 import session from "express-session";
 import { createReferral } from "./utils/generate-referralcode";
 import multer from "multer";
@@ -23,7 +24,6 @@ import { sendVerificationCode, verifyCode } from "./utils/prelude";
 import { formatToE164 } from "./utils/phone-format";
 import { v4 as uuidv4 } from "uuid";
 import { uploadImageToStorage } from "./upload-to-storage";
-import { generateUniqueReferralCode } from "./utils/generate-referralcode";
 
 // Ensure uploads directory exists
 const UPLOADS_DIR = path.join(process.cwd(), "public/uploads/profiles");
@@ -115,9 +115,9 @@ export function setupAuth(app: Express) {
     }
   }
 
-  app.use(session(sessionSettings));
-  app.use(passport.initialize());
-  app.use(passport.session());
+  app.use("/api", session(sessionSettings));
+  app.use("/api", passport.initialize());
+  app.use("/api", passport.session());
 
   // Configure local strategy
   passport.use(
@@ -155,7 +155,56 @@ export function setupAuth(app: Express) {
       }
     }),
   );
+  passport.use(
+    new GoogleStrategy(
+      {
+        clientID: process.env.GOOGLE_CLIENT_ID!,
+        clientSecret: process.env.GOOGLE_CLIENT_SECRET!,
+        callbackURL: "/api/auth/google/callback",
+      },
+      async (accessToken, refreshToken, profile, done) => {
+        try {
+          // Extract Google profile info
+          const email = profile.emails?.[0]?.value;
+          if (!email) return done(new Error("No email from Google profile"));
+          console.log("\n\nGoogle profile:", profile);
+          // Check if user with email already exists
+          let [user] = await db
+            .select()
+            .from(users)
+            .where(eq(users.email, email))
+            .limit(1);
 
+          if (!user) {
+            // Create a new user for Google login
+            const [newUser] = await db
+              .insert(users)
+              .values({
+                email,
+                username: profile.id, // or create a unique username from profile
+                firstName: profile.name?.givenName || "",
+                lastName: profile.name?.familyName || "",
+                password: "", // no password for Google users
+                role: "regular_user",
+                status: "active",
+                isAdmin: false,
+                isPhoneVerified: false,
+                profilePhotoUrl: profile.photos?.[0]?.value || null,
+              })
+              .returning();
+            console.log("Created new user from Google:", newUser);
+            user = newUser;
+          }
+
+          // Return user without password
+          const { ...userWithoutPassword } = user;
+          done(null, userWithoutPassword);
+        } catch (error) {
+          done(error);
+        }
+      },
+    ),
+  );
   passport.serializeUser((user: Express.User, done) => {
     console.log("Serializing user:", {
       id: user.id,
@@ -204,6 +253,20 @@ export function setupAuth(app: Express) {
       done(err, null);
     }
   });
+
+  app.get(
+    "/api/auth/google",
+    passport.authenticate("google", { scope: ["profile", "email"] }),
+  );
+
+  app.get(
+    "/api/auth/google/callback",
+    passport.authenticate("google", { failureRedirect: "/auth" }),
+    (req, res) => {
+      // Successful authentication
+      res.redirect("/"); // Or send custom response if API
+    },
+  );
 
   app.post("/api/register", upload.single("profilePhoto"), async (req, res) => {
     try {

@@ -69,6 +69,7 @@ import { parseHours } from "./utils/parse-hours";
 import { getUserReferralDetails } from "@utils/referrals";
 import { generateUniqueReferralCode } from "@utils/generate-referralcode";
 import { requireAdmin } from "./middleware/admin";
+import { differenceInDays, startOfDay } from "date-fns";
 
 // Handle the user type
 declare global {
@@ -331,6 +332,7 @@ export function registerRoutes(app: Express, server: Server): void {
               owner_id: number | null;
               is_sponsored: boolean;
               hours: string | null;
+              grandOpeningDate: string | null;
               hours_json?: string;
             }>(sql`
             SELECT 
@@ -357,8 +359,6 @@ export function registerRoutes(app: Express, server: Server): void {
             priority: "high", // Set high priority for user-facing operation
           },
         );
-
-        console.log(`Found ${bars.rows.length} total kava bars`);
 
         // Process and validate the bars
         const validBars = bars.rows.map((bar) => {
@@ -460,6 +460,7 @@ export function registerRoutes(app: Express, server: Server): void {
       ];
 
       res.setHeader("X-Service-Status", "emergency-fallback");
+
       res.json(emergencyFallbackBars);
     }
   });
@@ -904,6 +905,8 @@ export function registerRoutes(app: Express, server: Server): void {
           name: bar.name,
           address: bar.address,
           hours: bar.hours,
+          comingSoon: bar.coming_soon ?? false,
+          grandOpeningDate: bar.grand_opening_date || undefined,
           phone: bar.phone,
           businessStatus: bar.business_status,
           rating: Number(bar.rating) || 0,
@@ -976,6 +979,8 @@ export function registerRoutes(app: Express, server: Server): void {
           googlePlaceId: bar.google_place_id,
           isVerifiedKavaBar: bar.is_verified_kava_bar,
           isBarStaff,
+          comingSoon: bar.coming_soon ?? false,
+          grandOpeningDate: bar.grand_opening_date || undefined,
           verificationNotes: req.user?.isAdmin
             ? bar.verification_notes
             : undefined,
@@ -3366,6 +3371,71 @@ export function registerRoutes(app: Express, server: Server): void {
         success: false,
         error: error.message,
       });
+    }
+  });
+  app.put("/api/kava-bars/:id/opening", async (req, res) => {
+    const { id } = req.params;
+    const { comingSoon, grandOpeningDate } = req.body;
+
+    if (typeof comingSoon !== "boolean") {
+      return res.status(400).json({ error: "'comingSoon' must be a boolean" });
+    }
+
+    let comingSoonBoolean = comingSoon; // use the incoming value directly
+    let grandOpeningDateValue: string | null = null; // default null
+
+    // Only validate and set date if comingSoon is true
+    if (comingSoon) {
+      if (!grandOpeningDate) {
+        // If comingSoon true but no date provided, keep null or return error (optional)
+        grandOpeningDateValue = null;
+      } else {
+        let dateObj = new Date(grandOpeningDate);
+        if (isNaN(dateObj.getTime())) {
+          return res.status(400).json({
+            error: "'grandOpeningDate' must be a valid date string or null",
+          });
+        }
+
+        const today = startOfDay(new Date());
+
+        const diffDays = differenceInDays(dateObj, today);
+        if (diffDays < 1) {
+          return res.status(400).json({
+            error:
+              "'grandOpeningDate' must be at least 1 day after the current date",
+          });
+        }
+        // Add 1 day to grandOpeningDate
+        dateObj = addDays(dateObj, 1);
+
+        // Format date to YYYY-MM-DD (local)
+        const yyyy = dateObj.getFullYear();
+        const mm = String(dateObj.getMonth() + 1).padStart(2, "0");
+        const dd = String(dateObj.getDate()).padStart(2, "0");
+        grandOpeningDateValue = `${yyyy}-${mm}-${dd}`;
+      }
+    } else {
+      // comingSoon is false => clear the date
+      comingSoonBoolean = false;
+      grandOpeningDateValue = null;
+    }
+
+    try {
+      await db
+        .update(kavaBars)
+        .set({
+          comingSoon: comingSoonBoolean,
+          grandOpeningDate: grandOpeningDateValue, // null when comingSoon false
+        })
+        .where(eq(kavaBars.id, Number(id)));
+
+      return res
+        .status(200)
+        .json({ message: "Bar details updated successfully" });
+    } catch (err) {
+      console.error("Error updating bar details:", err);
+      return res.status(500).json({ error: "Internal server error" });
     }
   });
 

@@ -2,31 +2,43 @@ import { Link } from "wouter";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Star, MapPin } from "lucide-react";
-import type { KavaBar } from "@db/schema";
 import ShareBar from "./share-bar";
-import { FavoriteBar } from "./favorite-bar";
-import { useUser } from "@/hooks/use-user";
+import { format, isBefore, startOfDay } from "date-fns";
 
 interface KavaBarCardProps {
-  bar: KavaBar;
+  bar: any;
   distance?: number;
 }
 
 export default function KavaBarCard({ bar, distance }: KavaBarCardProps) {
   if (!bar) return null;
-  const { user } = useUser();
-  // Log bar data for debugging
-  console.log(`Rendering bar ${bar.name}:`, {
-    rating: bar.rating,
-    ratingType: typeof bar.rating,
-    address: bar.address,
-    placeId: bar.placeId,
-  });
 
   // Format rating display
   const rating = Number(bar.rating) || 0;
   const hasRating = rating > 0;
   const displayRating = hasRating ? rating.toFixed(1) : "Not Yet Rated";
+
+  // Handling grand opening date display
+  const rawDateString = bar.grand_opening_date; // e.g. "2025-09-27"
+  let comingSoonText: string | null = null;
+
+  if (bar.coming_soon) {
+    if (rawDateString) {
+      const grandOpeningDate = new Date(rawDateString);
+      const today = startOfDay(new Date());
+
+      if (!isBefore(grandOpeningDate, today)) {
+        comingSoonText = `Coming Soon • ${format(grandOpeningDate, "MMM d")}`;
+      } else {
+        comingSoonText = null;
+      }
+    } else {
+      comingSoonText = "Coming Soon • TBD";
+    }
+  } else {
+    // coming_soon is false; explicitly set null to show no text
+    comingSoonText = null;
+  }
 
   return (
     <Card className="hover:bg-accent cursor-pointer transition-colors">
@@ -35,7 +47,7 @@ export default function KavaBarCard({ bar, distance }: KavaBarCardProps) {
           <div className="flex justify-between items-start">
             <CardTitle className="text-lg font-bold">
               {bar.name}
-              {bar.isSponsored && (
+              {bar.is_sponsored && (
                 <Badge variant="secondary" className="ml-2">
                   Sponsored
                 </Badge>
@@ -77,10 +89,19 @@ export default function KavaBarCard({ bar, distance }: KavaBarCardProps) {
         </CardContent>
       </Link>
 
-      {/* Ensures consistent spacing and alignment */}
+      {/* Bottom row with ShareBar and Coming Soon badge */}
       <div className="mt-auto flex items-center justify-between pt-3">
-        <ShareBar bar={bar} />
-        {/* {user && <FavoriteBar barId={bar.id} />} */}
+        <div className="flex items-center gap-4">
+          <ShareBar bar={bar} />
+          {comingSoonText && (
+            <Badge
+              variant="outline"
+              className="text-red-400 border-red-400 whitespace-nowrap"
+            >
+              {comingSoonText}
+            </Badge>
+          )}
+        </div>
       </div>
     </Card>
   );

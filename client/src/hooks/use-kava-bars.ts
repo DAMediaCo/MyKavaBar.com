@@ -47,6 +47,8 @@ export interface KavaBar extends PublicKavaBar {
   isVerifiedKavaBar?: boolean;
   verificationNotes?: string | null;
   virtualTourUrl?: string | null;
+  comingSoon: boolean;
+  grandOpeningDate?: Date | undefined;
   googlePhotos?: Array<{
     photoReference: string;
     width: number;
@@ -230,6 +232,9 @@ export function useKavaBars() {
               phone: bar.phone || null,
               businessStatus: "OPERATIONAL",
               rating: 0,
+              grandOpeningDate: bar.grandOpeningDate
+                ? bar.grandOpeningDate
+                : null,
               isSponsored: false,
               verificationStatus: "pending",
               placeId: null,
