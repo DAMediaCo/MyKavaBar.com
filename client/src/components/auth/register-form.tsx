@@ -24,6 +24,7 @@ import {
 } from "@/components/ui/dialog";
 import { Checkbox } from "@/components/ui/checkbox";
 import { ScrollArea } from "@/components/ui/scroll-area";
+import GoogleButton from "./google-auth-button";
 
 const registerSchema = z.object({
   firstName: z.string().min(1, "First name is required"),
@@ -652,6 +653,8 @@ export default function RegisterForm({
           </div>
         </form>
       </Form>
+
+      <GoogleButton />
 
       <Dialog
         open={showCamera}

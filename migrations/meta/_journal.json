@@ -176,6 +176,20 @@
       "when": 1758712099687,
       "tag": "0024_woozy_scarlet_witch",
       "breakpoints": true
+    },
+    {
+      "idx": 25,
+      "version": "7",
+      "when": 1758793598161,
+      "tag": "0025_cool_shaman",
+      "breakpoints": true
+    },
+    {
+      "idx": 26,
+      "version": "7",
+      "when": 1758808943555,
+      "tag": "0026_loud_whirlwind",
+      "breakpoints": true
     }
   ]
 }

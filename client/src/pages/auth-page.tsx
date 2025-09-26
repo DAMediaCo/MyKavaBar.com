@@ -152,6 +152,7 @@ export default function AuthPage() {
                   </Button>
                 </form>
               </Form>
+              <GoogleButton />
             </TabsContent>
 
             <TabsContent value="register">
@@ -159,8 +160,6 @@ export default function AuthPage() {
             </TabsContent>
           </Tabs>
         </CardContent>
-
-        {/* <GoogleButton /> */}
       </Card>
     </div>
   );

@@ -16,6 +16,7 @@ import PrivacyPolicy from "./pages/privacy-policy";
 import NotFound from "@/pages/not-found";
 import Home from "@/pages/home";
 import AuthPage from "@/pages/auth-page";
+import CompleteOnboarding from "@/pages/complete-onboarding";
 import BarDetails from "@/pages/bar-details";
 import OwnerDashboard from "@/pages/owner-dashboard";
 import VerificationCodes from "@/pages/admin/verification-codes";
@@ -63,6 +64,7 @@ function ProtectedRoute({
 
 function Router() {
   const { user, isLoading, error } = useUser();
+  const [, navigate] = useLocation();
 
   if (isLoading) {
     return (
@@ -75,6 +77,9 @@ function Router() {
   if (error) {
     console.error("User authentication error:", error);
   }
+
+  if (user && user.username === null && user.provider !== "local")
+    navigate("/complete-onboarding");
 
   return (
     <div className="min-h-screen bg-background flex flex-col">
@@ -92,6 +97,7 @@ function Router() {
           <Route path="/forgot-password" component={ForgotPassword} />
           <Route path="/reset-password/:token" component={ResetPassword} />
           <Route path="/learn" component={Learn} />
+          <Route path="/complete-onboarding" component={CompleteOnboarding} />
           {/* Knowledge Hub Routes */}
           <Route path="/learn/history" component={History} />
           <Route path="/learn/kratom" component={Kratom} />
@@ -150,7 +156,7 @@ function Router() {
               <ManageUsers />
             </ProtectedRoute>
           </Route>
-          p
+
           <Route path="/admin/payouts">
             <ProtectedRoute isAllowed={!!user?.isAdmin}>
               <AdminPayoutPage />

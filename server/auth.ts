@@ -6,7 +6,12 @@ import session from "express-session";
 import { createReferral } from "./utils/generate-referralcode";
 import multer from "multer";
 import path from "path";
+import {
+  generateUsernameSuggestions,
+  usernameExists,
+} from "./utils/username-suggestions";
 import fs from "fs";
+import { isAuthenticated } from "./middleware/auth";
 import {
   users,
   insertUserSchema,
@@ -65,6 +70,7 @@ interface BaseUser {
   lastName?: string;
   points: number;
   isAdmin: boolean;
+  provider: "local" | "google" | "apple";
   squareCustomerId: string | null;
   createdAt: Date;
   phoneNumber: string | null;
@@ -162,7 +168,7 @@ export function setupAuth(app: Express) {
         clientSecret: process.env.GOOGLE_CLIENT_SECRET!,
         callbackURL: "/api/auth/google/callback",
       },
-      async (accessToken, refreshToken, profile, done) => {
+      async (profile: any, done) => {
         try {
           // Extract Google profile info
           const email = profile.emails?.[0]?.value;
@@ -229,6 +235,7 @@ export function setupAuth(app: Express) {
           phoneNumber: users.phoneNumber,
           isPhoneVerified: users.isPhoneVerified,
           role: users.role,
+          provider: users.provider,
           status: users.status,
           profilePhotoUrl: users.profilePhotoUrl,
         })
@@ -245,6 +252,7 @@ export function setupAuth(app: Express) {
         id: user.id,
         username: user.username,
         isAdmin: user.isAdmin,
+        provider: user.provider,
       });
 
       done(null, user);
@@ -265,6 +273,99 @@ export function setupAuth(app: Express) {
     (req, res) => {
       // Successful authentication
       res.redirect("/"); // Or send custom response if API
+    },
+  );
+
+  app.get(
+    "/api/auth/username-suggestions",
+    isAuthenticated,
+    async (req, res) => {
+      try {
+        if (!req.user || !req.user.id)
+          return res.status(401).json({ error: "Not authenticated" });
+        const userId =
+          typeof req.user.id === "string"
+            ? parseInt(req.user.id, 10)
+            : req.user.id;
+
+        // Fetch the current user's firstName and lastName from DB
+        const user = await db
+          .select({ firstName: users.firstName, lastName: users.lastName })
+          .from(users)
+          .where(eq(users.id, userId))
+          .limit(1);
+
+        if (!user || user.length === 0) {
+          return res.status(404).json({ error: "User not found" });
+        }
+
+        const { firstName, lastName } = user[0];
+
+        if (!firstName || !lastName) {
+          return res
+            .status(400)
+            .json({ error: "User's name not available for suggestions" });
+        }
+
+        const suggestions = await generateUsernameSuggestions(
+          firstName,
+          lastName,
+          3,
+        );
+
+        res.status(200).json({ suggestions });
+      } catch (error: any) {
+        console.log("Error while suggesting username: ", error);
+        res.status(500).json({ error: "Error while suggesting username" });
+      }
+    },
+  );
+
+  app.put(
+    "/api/auth/complete-onboarding",
+    isAuthenticated,
+    async (req, res) => {
+      try {
+        if (!req.user || !req.user.id)
+          return res.status(401).json({ error: "Not authenticated" });
+        const userId =
+          typeof req.user.id === "string"
+            ? parseInt(req.user.id, 10)
+            : req.user.id;
+
+        const { username } = req.body;
+        if (
+          !username ||
+          typeof username !== "string" ||
+          username.trim().length < 3
+        )
+          return res
+            .status(400)
+            .json({ error: "Invalid username or invalid length" });
+
+        const [user] = await db
+          .select({ id: users.id, provider: users.provider })
+          .from(users)
+          .where(eq(users.id, userId))
+          .limit(1);
+        if (!user || user.provider !== "local") {
+          return res
+            .status(400)
+            .json({ error: "Cannot update username for this provider" });
+        }
+        const usernameExistsInDb = await usernameExists(username);
+        if (usernameExistsInDb)
+          return res.status(409).json({ error: "Username already exists" });
+
+        await db
+          .update(users)
+          .set({ username: username.trim() })
+          .where(eq(users.id, userId));
+        return res.json({ success: true });
+      } catch (error: any) {
+        console.log("Update username error: ", error);
+        res.status(500).json({ error: "Error while updating username" });
+      }
     },
   );
 
@@ -505,6 +606,7 @@ export function setupAuth(app: Express) {
           isAdmin: req.user.isAdmin,
           points: req.user.points || 0,
           role: req.user.role,
+          provider: req.user.provider,
           phoneNumber: req.user.phoneNumber,
           profilePhotoUrl: req.user.profilePhotoUrl,
         },
