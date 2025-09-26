@@ -333,7 +333,7 @@ export function setupAuth(app: Express) {
             ? parseInt(req.user.id, 10)
             : req.user.id;
 
-        const { username } = req.body;
+        const { username, phoneNumber } = req.body;
         if (
           !username ||
           typeof username !== "string" ||
@@ -343,11 +343,25 @@ export function setupAuth(app: Express) {
             .status(400)
             .json({ error: "Invalid username or invalid length" });
 
-        const [user] = await db
-          .select({ id: users.id, provider: users.provider })
-          .from(users)
-          .where(eq(users.id, userId))
-          .limit(1);
+        if (phoneNumber && typeof phoneNumber !== "string")
+          return res.status(400).json({ error: "Invalid phone number" });
+        let user: any;
+        if (phoneNumber) {
+          [user] = await db
+            .select()
+            .from(users)
+            .where(
+              and(eq(users.id, userId), eq(users.phoneNumber, phoneNumber)),
+            );
+          if(u)
+        } else {
+          [user] = await db
+            .select({ id: users.id, provider: users.provider })
+            .from(users)
+            .where(eq(users.id, userId))
+            .limit(1);
+        }
+
         if (!user || user.provider !== "local") {
           return res
             .status(400)
