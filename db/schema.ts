@@ -63,6 +63,7 @@ export const users = pgTable(
     resetPasswordToken: text("reset_password_token"),
     provider: authProviderEnum("provider").default("local").notNull(),
     resetPasswordExpires: timestamp("reset_password_expires"),
+    marketingConsent: boolean("marketing_consent").default(false).notNull(),
     createdAt: timestamp("created_at").defaultNow().notNull(),
     updatedAt: timestamp("updated_at"),
   },
@@ -78,7 +79,7 @@ export const users = pgTable(
 export const user_auth_providers = pgTable(
   "user_auth_providers",
   {
-    id: integer("id").primaryKey(),
+    id: serial("id").primaryKey(),
     userId: integer("user_id")
       .notNull()
       .references(() => users.id),
@@ -102,7 +103,7 @@ export const user_auth_providers = pgTable(
 export const kavatenderReferralProfiles = pgTable(
   "kavatender_referral_profiles",
   {
-    id: serial("id").primaryKey(),
+    id: integer("id").primaryKey(),
     userId: integer("user_id")
       .references(() => users.id)
       .unique()

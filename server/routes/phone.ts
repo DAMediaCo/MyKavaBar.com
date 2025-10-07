@@ -11,9 +11,7 @@ const router = Router();
 router.post("/api/phone/verify", async (req, res) => {
   try {
     const body = req.body;
-    console.log("Received request to verify phone number:", body);
     const { phoneNumber } = body;
-    console.log("Received verification request for:", phoneNumber);
 
     if (!phoneNumber) {
       return res.status(400).json({

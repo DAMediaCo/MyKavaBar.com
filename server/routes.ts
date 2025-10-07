@@ -2,7 +2,7 @@ import { sendNotificationEmail, sendPasswordResetEmail } from "./email";
 import type { Express, Request, Response } from "express";
 import { type Server } from "http";
 import fetch from "node-fetch";
-import { isAuthenticated } from "./middleware/auth";
+import { isAuthenticated, isPhoneVerifiedMiddleware } from "./middleware/auth";
 import { Client } from "@googlemaps/google-maps-services-js";
 import { db } from "@db";
 import { executeWithRetry } from "@db/connection";
@@ -2270,68 +2270,73 @@ export function registerRoutes(app: Express, server: Server): void {
   });
 
   // Add photo upload and retrieval endpoints after the existing bar routes
-  app.post("/api/bars/:id/photos", upload.single("photo"), async (req, res) => {
-    try {
-      console.log("Photo upload request received", {
-        authenticated: req.isAuthenticated(),
-        hasFile: !!req.file,
-        fileSize: req.file ? req.file.size : 0,
-        barId: req.params.id,
-      });
+  app.post(
+    "/api/bars/:id/photos",
+    isPhoneVerifiedMiddleware,
+    upload.single("photo"),
+    async (req, res) => {
+      try {
+        console.log("Photo upload request received", {
+          authenticated: req.isAuthenticated(),
+          hasFile: !!req.file,
+          fileSize: req.file ? req.file.size : 0,
+          barId: req.params.id,
+        });
 
-      if (!req.isAuthenticated()) {
-        console.log("User not authenticated");
-        return res.status(401).send("Not authenticated");
+        if (!req.isAuthenticated()) {
+          console.log("User not authenticated");
+          return res.status(401).send("Not authenticated");
+        }
+
+        if (!req.file) {
+          console.log("No file uploaded");
+          return res.status(400).send("No photo uploaded");
+        }
+
+        const barId = Number(req.params.id);
+        console.log("Processing photo upload for bar:", barId);
+
+        // Process the uploaded image with Sharp
+        const processedImageBuffer = await sharp(req.file.buffer)
+          .resize(1200, null, {
+            withoutEnlargement: true,
+            fit: "inside",
+          })
+          .jpeg({ quality: 80 })
+          .toBuffer();
+
+        console.log("Image processed successfully");
+
+        // Generate a unique filename
+        const filename = `${barId}-${randomUUID()}.jpg`;
+
+        // Use the uploadImageToStorage function from your utility
+        const { publicUrl } = await uploadImageToStorage(
+          processedImageBuffer,
+          filename,
+        );
+
+        console.log("Image uploaded to storage:", publicUrl);
+
+        // Save photo record in database
+        const [photo] = await db
+          .insert(kavaBarPhotos)
+          .values({
+            barId,
+            url: publicUrl,
+            uploadedById: req.user.id,
+            caption: req.body.caption || null,
+          })
+          .returning();
+
+        console.log("Saved photo to database:", photo);
+        res.status(201).json(photo);
+      } catch (error: any) {
+        console.error("Photo upload error:", error);
+        res.status(500).json({ error: error.message });
       }
-
-      if (!req.file) {
-        console.log("No file uploaded");
-        return res.status(400).send("No photo uploaded");
-      }
-
-      const barId = Number(req.params.id);
-      console.log("Processing photo upload for bar:", barId);
-
-      // Process the uploaded image with Sharp
-      const processedImageBuffer = await sharp(req.file.buffer)
-        .resize(1200, null, {
-          withoutEnlargement: true,
-          fit: "inside",
-        })
-        .jpeg({ quality: 80 })
-        .toBuffer();
-
-      console.log("Image processed successfully");
-
-      // Generate a unique filename
-      const filename = `${barId}-${randomUUID()}.jpg`;
-
-      // Use the uploadImageToStorage function from your utility
-      const { publicUrl } = await uploadImageToStorage(
-        processedImageBuffer,
-        filename,
-      );
-
-      console.log("Image uploaded to storage:", publicUrl);
-
-      // Save photo record in database
-      const [photo] = await db
-        .insert(kavaBarPhotos)
-        .values({
-          barId,
-          url: publicUrl,
-          uploadedById: req.user.id,
-          caption: req.body.caption || null,
-        })
-        .returning();
-
-      console.log("Saved photo to database:", photo);
-      res.status(201).json(photo);
-    } catch (error: any) {
-      console.error("Photo upload error:", error);
-      res.status(500).json({ error: error.message });
-    }
-  });
+    },
+  );
 
   app.get("/api/bars/:id/photos", async (req, res) => {
     try {
@@ -3373,13 +3378,25 @@ export function registerRoutes(app: Express, server: Server): void {
       });
     }
   });
-  app.put("/api/kava-bars/:id/opening", async (req, res) => {
+  app.put("/api/kava-bars/:id/opening", isAuthenticated, async (req, res) => {
     const { id } = req.params;
     const { comingSoon, grandOpeningDate } = req.body;
 
+    if (!req.user || !req.user.id)
+      return res.status(403).json({ error: "Unauthorized" });
     if (typeof comingSoon !== "boolean") {
       return res.status(400).json({ error: "'comingSoon' must be a boolean" });
     }
+
+    const userId =
+      typeof req.user.id === "string" ? parseInt(req.user.id, 10) : req.user.id;
+
+    const [isAuthorized] = await db
+      .select({ id: kavaBars.id })
+      .from(kavaBars)
+      .where(and(eq(kavaBars.id, Number(id)), eq(kavaBars.ownerId, userId)))
+      .limit(1);
+    if (!isAuthorized) return res.status(403).json({ error: "Unauthorized" });
 
     let comingSoonBoolean = comingSoon; // use the incoming value directly
     let grandOpeningDateValue: string | null = null; // default null
@@ -4431,24 +4448,28 @@ export function registerRoutes(app: Express, server: Server): void {
   });
 
   // RSVPing Events
-  app.post("/api/event-rsvp/:eventId", async (req, res) => {
-    if (!req.isAuthenticated()) {
-      return res.status(401).json({ error: "Not authenticated" });
-    }
-    if (!req.user || !req.user.id)
-      return res.status(401).json({ error: "Not authenticated" });
-    const eventId = Number(req.params.eventId);
-    const userId = Number(req.user.id);
-    try {
-      const result = await rsvpToEvent({ userId, eventId });
-      return res.json(result);
-    } catch (err: any) {
-      return res.status(400).json({ success: false, message: err.message });
-    }
-  });
+  app.post(
+    "/api/event-rsvp/:eventId",
+    isPhoneVerifiedMiddleware,
+    async (req, res) => {
+      if (!req.isAuthenticated()) {
+        return res.status(401).json({ error: "Not authenticated" });
+      }
+      if (!req.user || !req.user.id)
+        return res.status(401).json({ error: "Not authenticated" });
+      const eventId = Number(req.params.eventId);
+      const userId = Number(req.user.id);
+      try {
+        const result = await rsvpToEvent({ userId, eventId });
+        return res.json(result);
+      } catch (err: any) {
+        return res.status(400).json({ success: false, message: err.message });
+      }
+    },
+  );
 
-  app.get("/api/my-rsvps", getMyRsvps);
-  app.delete("/api/event-rsvp/:rsvpId", deleteRsvp);
+  app.get("/api/my-rsvps", isPhoneVerifiedMiddleware, getMyRsvps);
+  app.delete("/api/event-rsvp/:rsvpId", isPhoneVerifiedMiddleware, deleteRsvp);
   app.get("/api/bar/:barId/rsvp-stats", getBarRsvpStats);
 
   // Bar features for admin

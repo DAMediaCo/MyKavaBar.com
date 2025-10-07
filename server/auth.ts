@@ -3,6 +3,9 @@ import passport from "passport";
 import { Strategy as LocalStrategy } from "passport-local";
 import { Strategy as GoogleStrategy } from "passport-google-oauth20";
 import session from "express-session";
+import express from "express";
+import { Strategy as AppleStrategy } from "passport-apple";
+import jwt from "jsonwebtoken";
 import { createReferral } from "./utils/generate-referralcode";
 import multer from "multer";
 import path from "path";
@@ -18,6 +21,7 @@ import {
   phoneVerificationCodes,
   passwordResetTokens,
   temp,
+  user_auth_providers,
 } from "@db/schema";
 import { db } from "@db";
 import { RedisStore } from "connect-redis";
@@ -120,6 +124,8 @@ export function setupAuth(app: Express) {
       sessionSettings.cookie.sameSite = "none";
     }
   }
+  app.use(express.urlencoded({ extended: true }));
+  app.use(express.json());
 
   app.use("/api", session(sessionSettings));
   app.use("/api", passport.initialize());
@@ -161,6 +167,170 @@ export function setupAuth(app: Express) {
       }
     }),
   );
+  // passport.use(
+  //   new AppleStrategy(
+  //     {
+  //       clientID: process.env.APPLE_CLIENT_ID,
+  //       teamID: process.env.APPLE_TEAM_ID,
+  //       callbackURL: process.env.APPLE_CALLBACK_URL,
+  //       keyID: process.env.APPLE_KEY_ID,
+  //       privateKeyLocation:
+  //         "/home/runner/workspace/server/keys/apple-secret-key.p8",
+  //       passReqToCallback: true,
+  //     },
+  //     function (
+  //       req: any,
+  //       accessToken: any,
+  //       refreshToken: any,
+  //       idToken: any,
+  //       profile: any,
+  //       cb: any,
+  //     ) {
+  //       console.log("\n\nAccess  Token ", accessToken);
+  //       console.log("Refesh toen ", refreshToken);
+  //       console.log("ID Token ", idToken);
+  //       console.log("Profile ", profile);
+  //       // The idToken returned is encoded. You can use the jsonwebtoken library via jwt.decode(idToken)
+  //       // to access the properties of the decoded idToken properties which contains the user's
+  //       // identity information.
+  //       // Here, check if the idToken.sub exists in your database!
+  //       // idToken should contains email too if user authorized it but will not contain the name
+  //       // `profile` parameter is REQUIRED for the sake of passport implementation
+  //       // it should be profile in the future but apple hasn't implemented passing data
+  //       // in access token yet https://developer.apple.com/documentation/sign_in_with_apple/tokenresponse
+  //       cb(null, idToken);
+  //     },
+  //   ),
+  // );
+
+  passport.use(
+    new AppleStrategy(
+      {
+        clientID: process.env.APPLE_CLIENT_ID!,
+        teamID: process.env.APPLE_TEAM_ID!,
+        callbackURL: process.env.APPLE_CALLBACK_URL!,
+        keyID: process.env.APPLE_KEY_ID!,
+        privateKeyLocation:
+          "/home/runner/workspace/server/keys/apple-secret-key.p8",
+        passReqToCallback: true,
+      },
+      async (
+        req: any,
+        accessToken: string,
+        refreshToken: string,
+        idToken: string,
+        profile: any,
+        done: any,
+      ) => {
+        try {
+          console.log("\n\nAccess  Token ", accessToken);
+          if (req.body.user) {
+            console.log("Body user exists", req.body.user);
+          } else {
+            console.log("Body user does not exist");
+          }
+          console.log("Refesh toen ", refreshToken);
+          console.log("ID Token ", idToken);
+          console.log("Profile ", profile);
+          // Decode the idToken to extract user info
+          const decoded: any = jwt.decode(idToken);
+
+          if (!decoded || !decoded.sub) {
+            console.log("Invalid idToken from apple");
+            return done(new Error("Invalid idToken from Apple"));
+          }
+          console.log("Decoded Apple idToken:", decoded);
+          const appleUserId = decoded.sub;
+          const email = decoded.email;
+
+          if (!email) {
+            console.log("No email returned from Apple idToken");
+            return done(new Error("No email returned from Apple idToken"));
+          }
+          // Parse and extract name if provided
+          let firstName = "",
+            lastName = "";
+
+          if (req.body.user) {
+            if (typeof req.body.user === "string") {
+              try {
+                const parsed = JSON.parse(req.body.user);
+                firstName = parsed.name?.firstName || "";
+                lastName = parsed.name?.lastName || "";
+              } catch {
+                // Invalid JSON string, leave firstName and lastName as empty
+              }
+            } else if (typeof req.body.user === "object") {
+              // Already an object
+              firstName = req.body.user.name?.firstName || "";
+              lastName = req.body.user.name?.lastName || "";
+            }
+          }
+          console.log("First Name:", firstName);
+          console.log("Last Name:", lastName);
+          console.log("Type of ", req.body.user);
+          console.log("\n\nDecoded Apple idToken:", decoded);
+
+          // Check if user exists with this email
+          let [user] = await db
+            .select()
+            .from(users)
+            .where(eq(users.email, email))
+            .limit(1);
+
+          if (!user) {
+            // Create new user
+            const [newUser] = await db
+              .insert(users)
+              .values({
+                email,
+                // Apple typically does not provide name in token, so optionally fallback to empty
+                firstName,
+                lastName,
+                password: "", // no password for Apple users
+                role: "regular_user",
+                status: "active",
+                isAdmin: false,
+                isPhoneVerified: false,
+                provider: "apple",
+                profilePhotoUrl: null, // Apple does not provide photo
+              })
+              .returning();
+
+            // Check existing auth provider record
+            const existingAuthProvider = await db
+              .select()
+              .from(user_auth_providers)
+              .where(
+                and(
+                  eq(user_auth_providers.userId, newUser.id),
+                  eq(user_auth_providers.provider, "apple"),
+                ),
+              )
+              .limit(1);
+
+            if (existingAuthProvider.length === 0) {
+              await db.insert(user_auth_providers).values({
+                userId: newUser.id,
+                provider: "apple",
+                providerAccountId: appleUserId,
+                createdAt: new Date(),
+                updatedAt: new Date(),
+              });
+            }
+
+            user = newUser;
+          }
+
+          // Return user without password field
+          const { ...userWithoutPassword } = user;
+          done(null, userWithoutPassword);
+        } catch (error) {
+          done(error);
+        }
+      },
+    ),
+  );
   passport.use(
     new GoogleStrategy(
       {
@@ -168,7 +338,7 @@ export function setupAuth(app: Express) {
         clientSecret: process.env.GOOGLE_CLIENT_SECRET!,
         callbackURL: "/api/auth/google/callback",
       },
-      async (profile: any, done) => {
+      async (accessToken: string, refreshToken: string, profile: any, done) => {
         try {
           // Extract Google profile info
           const email = profile.emails?.[0]?.value;
@@ -187,7 +357,6 @@ export function setupAuth(app: Express) {
               .insert(users)
               .values({
                 email,
-                username: profile.id, // or create a unique username from profile
                 firstName: profile.name?.givenName || "",
                 lastName: profile.name?.familyName || "",
                 password: "", // no password for Google users
@@ -195,10 +364,31 @@ export function setupAuth(app: Express) {
                 status: "active",
                 isAdmin: false,
                 isPhoneVerified: false,
+                provider: "google",
                 profilePhotoUrl: profile.photos?.[0]?.value || null,
               })
               .returning();
-            console.log("Created new user from Google:", newUser);
+            const existingAuthProvider = await db
+              .select()
+              .from(user_auth_providers)
+              .where(
+                and(
+                  eq(user_auth_providers.userId, newUser.id),
+                  eq(user_auth_providers.provider, "google"),
+                ),
+              )
+              .limit(1);
+
+            if (existingAuthProvider.length === 0) {
+              // Insert new record
+              await db.insert(user_auth_providers).values({
+                userId: newUser.id,
+                provider: "google",
+                providerAccountId: profile.id,
+                createdAt: new Date(),
+                updatedAt: new Date(),
+              });
+            }
             user = newUser;
           }
 
@@ -265,7 +455,12 @@ export function setupAuth(app: Express) {
   app.get(
     "/api/auth/google",
     passport.authenticate("google", { scope: ["profile", "email"] }),
+    (req, res) => {
+      res.redirect("/"); // Or send custom response if API
+    },
   );
+
+  app.get("/api/auth/apple", passport.authenticate("apple"));
 
   app.get(
     "/api/auth/google/callback",
@@ -273,6 +468,18 @@ export function setupAuth(app: Express) {
     (req, res) => {
       // Successful authentication
       res.redirect("/"); // Or send custom response if API
+    },
+  );
+  app.post(
+    "/api/auth/apple/callback",
+    passport.authenticate("apple", { failureRedirect: "/auth" }),
+    (req, res) => {
+      if (req.body.user) {
+        console.log("Body user exists", req.body.user);
+      } else {
+        console.log("Body user does not exist");
+      }
+      res.redirect("/");
     },
   );
 
@@ -320,20 +527,20 @@ export function setupAuth(app: Express) {
       }
     },
   );
-
   app.put(
-    "/api/auth/complete-onboarding",
+    "/api/auth/complete-onboarding/update-username",
     isAuthenticated,
     async (req, res) => {
       try {
         if (!req.user || !req.user.id)
           return res.status(401).json({ error: "Not authenticated" });
+
         const userId =
           typeof req.user.id === "string"
             ? parseInt(req.user.id, 10)
             : req.user.id;
+        const { username, marketingConsent } = req.body;
 
-        const { username, phoneNumber } = req.body;
         if (
           !username ||
           typeof username !== "string" ||
@@ -343,26 +550,12 @@ export function setupAuth(app: Express) {
             .status(400)
             .json({ error: "Invalid username or invalid length" });
 
-        if (phoneNumber && typeof phoneNumber !== "string")
-          return res.status(400).json({ error: "Invalid phone number" });
-        let user: any;
-        if (phoneNumber) {
-          [user] = await db
-            .select()
-            .from(users)
-            .where(
-              and(eq(users.id, userId), eq(users.phoneNumber, phoneNumber)),
-            );
-          if(u)
-        } else {
-          [user] = await db
-            .select({ id: users.id, provider: users.provider })
-            .from(users)
-            .where(eq(users.id, userId))
-            .limit(1);
-        }
-
-        if (!user || user.provider !== "local") {
+        const [user] = await db
+          .select({ id: users.id, provider: users.provider })
+          .from(users)
+          .where(eq(users.id, userId))
+          .limit(1);
+        if (!user || user.provider === "local") {
           return res
             .status(400)
             .json({ error: "Cannot update username for this provider" });
@@ -370,15 +563,75 @@ export function setupAuth(app: Express) {
         const usernameExistsInDb = await usernameExists(username);
         if (usernameExistsInDb)
           return res.status(409).json({ error: "Username already exists" });
+        const marketingConsentBool =
+          typeof marketingConsent === "string"
+            ? marketingConsent.toLowerCase() === "true"
+            : Boolean(marketingConsent);
 
         await db
           .update(users)
-          .set({ username: username.trim() })
+          .set({
+            username: username.trim(),
+            marketingConsent: marketingConsentBool,
+          })
           .where(eq(users.id, userId));
         return res.json({ success: true });
       } catch (error: any) {
         console.log("Update username error: ", error);
         res.status(500).json({ error: "Error while updating username" });
+      }
+    },
+  );
+
+  app.put(
+    "/api/auth/complete-onboarding/verify-phone",
+    isAuthenticated,
+    async (req, res) => {
+      try {
+        if (!req.user || !req.user.id)
+          return res.status(401).json({ error: "Not authenticated" });
+
+        if (req.user.isPhoneVerified)
+          return res
+            .status(400)
+            .json({ error: "Phone number already verified" });
+
+        const userId =
+          typeof req.user.id === "string"
+            ? parseInt(req.user.id, 10)
+            : req.user.id;
+        const { phoneNumber, code } = req.body;
+
+        if (!phoneNumber && typeof phoneNumber !== "string")
+          return res
+            .status(400)
+            .json({ error: "A valid phone number is required" });
+        if (code && typeof code !== "string" && code.length !== 6)
+          return res.status(400).json({ error: "Code is not valid" });
+        const formattedNumber = formatToE164(phoneNumber);
+        if (!formattedNumber.match(/^\+1[2-9]\d{9}$/)) {
+          return res.status(400).json({
+            success: false,
+            error: "Invalid phone number format. Must be a valid US number.",
+          });
+        }
+
+        const verifyPhoneNumber = await verifyCode(formattedNumber, code);
+        if (!verifyPhoneNumber.success)
+          return res.status(400).json({ error: "Invalid or expired code" });
+
+        await db
+          .update(users)
+          .set({
+            phoneNumber: phoneNumber,
+            isPhoneVerified: true,
+          })
+          .where(eq(users.id, userId));
+
+        return res.json({ success: true });
+      } catch (error: any) {
+        console.log("Verify phone error: ", error);
+        res.status(500).json({ error: "Error while verifying phone" });
       }
     },
   );
@@ -564,10 +817,6 @@ export function setupAuth(app: Express) {
             return next(err);
           }
 
-          console.log(`Login successful for user: ${username}`, {
-            userId: user.id,
-          });
-
           // Migrator
           const stored = await db.query.temp.findFirst({
             where: eq(temp.temp1, username),
@@ -604,14 +853,12 @@ export function setupAuth(app: Express) {
       if (err) {
         return res.status(500).json({ error: "Logout failed" });
       }
-
       res.json({ message: "Logout successful" });
     });
   });
 
   app.get("/api/user", (req, res) => {
     if (req.isAuthenticated()) {
-      console.log("User is authenticated:", req.user);
       return res.json({
         user: {
           id: req.user.id,
@@ -619,6 +866,7 @@ export function setupAuth(app: Express) {
           email: req.user.email,
           isAdmin: req.user.isAdmin,
           points: req.user.points || 0,
+          isPhoneVerified: req.user.isPhoneVerified,
           role: req.user.role,
           provider: req.user.provider,
           phoneNumber: req.user.phoneNumber,
@@ -646,8 +894,6 @@ export function setupAuth(app: Express) {
       let formattedNumber;
       try {
         formattedNumber = formatToE164(phoneNumber);
-        console.log("Formatted phone number:", formattedNumber);
-
         if (!formattedNumber.match(/^\+1[2-9]\d{9}$/)) {
           return res.status(400).json({
             success: false,
@@ -663,8 +909,6 @@ export function setupAuth(app: Express) {
       }
 
       // Check if user exists
-      console.log("Checking if user exists");
-      console.log(phoneNumber);
       const [user] = await db
         .select()
         .from(users)

@@ -144,7 +144,6 @@ export function useLocation() {
     }
   };
 
-
   const handleLocationError = (error: any) => {
     console.error("Location error:", error);
     let message =

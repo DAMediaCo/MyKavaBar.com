@@ -37,9 +37,10 @@ export async function sendVerificationCode(phoneNumber: string) {
         type: "phone_number",
         value: formattedNumber,
       },
-      channel: "sms",
-      locale: "en",
-      region: "US",
+      method: "text",
+      options: {
+        locale: "en-US",
+      },
     });
 
     console.log("Raw Prelude response:", JSON.stringify(verification, null, 2));

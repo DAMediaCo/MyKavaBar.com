@@ -143,7 +143,7 @@ export default function AdminUsersPage() {
             description: errMsg,
             variant: "destructive",
           });
-          
+
           return;
         }
 
@@ -178,24 +178,28 @@ export default function AdminUsersPage() {
               <span className="text-red-600">{errors.username.message}</span>
             )}
 
-            <Label>Email</Label>
-            <Input {...register("email")} />
-            {errors.email && (
-              <span className="text-red-600">{errors.email.message}</span>
-            )}
-
             <Label>Phone Number</Label>
             <Input {...register("phoneNumber")} />
             {errors.phoneNumber && (
               <span className="text-red-600">{errors.phoneNumber.message}</span>
             )}
+            {user.provider === "local" && (
+              <>
+                <Label>Email</Label>
+                <Input {...register("email")} />
+                {errors.email && (
+                  <span className="text-red-600">{errors.email.message}</span>
+                )}
 
-            <Label>New Password</Label>
-            <Input type="password" {...register("password")} />
-            {errors.password && (
-              <span className="text-red-600">{errors.password.message}</span>
+                <Label>New Password</Label>
+                <Input type="password" {...register("password")} />
+                {errors.password && (
+                  <span className="text-red-600">
+                    {errors.password.message}
+                  </span>
+                )}
+              </>
             )}
-
             <DialogFooter>
               <div className="mt-3">
                 <Button type="submit" disabled={isSubmitting}>

@@ -1,0 +1,1 @@
+ALTER TABLE "users" ALTER COLUMN "marketing_consent" SET DEFAULT false;

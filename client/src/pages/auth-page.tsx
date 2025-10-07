@@ -4,6 +4,7 @@ import { zodResolver } from "@hookform/resolvers/zod";
 import { useQueryClient } from "@tanstack/react-query";
 import { useUser } from "@/hooks/use-user";
 import GoogleButton from "@/components/auth/google-auth-button";
+import AppleButton from "@/components/auth/apple-auth-button";
 import {
   Card,
   CardContent,
@@ -102,6 +103,8 @@ export default function AuthPage() {
               <TabsTrigger value="login">Login</TabsTrigger>
               <TabsTrigger value="register">Register</TabsTrigger>
             </TabsList>
+            <GoogleButton />
+            <AppleButton />
 
             <TabsContent value="login">
               <Form {...form}>
@@ -152,7 +155,6 @@ export default function AuthPage() {
                   </Button>
                 </form>
               </Form>
-              <GoogleButton />
             </TabsContent>
 
             <TabsContent value="register">

@@ -1,0 +1,1 @@
+ALTER TABLE "user_auth_providers" ALTER COLUMN "id" SET DATA TYPE serial;

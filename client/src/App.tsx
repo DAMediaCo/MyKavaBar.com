@@ -64,7 +64,7 @@ function ProtectedRoute({
 
 function Router() {
   const { user, isLoading, error } = useUser();
-  const [, navigate] = useLocation();
+  const [, setLocation] = useLocation();
 
   if (isLoading) {
     return (
@@ -78,8 +78,9 @@ function Router() {
     console.error("User authentication error:", error);
   }
 
-  if (user && user.username === null && user.provider !== "local")
-    navigate("/complete-onboarding");
+  if (user && user.username === null && user.provider !== "local") {
+    setLocation("/complete-onboarding");
+  }
 
   return (
     <div className="min-h-screen bg-background flex flex-col">

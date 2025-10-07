@@ -29,8 +29,6 @@ async function handleRequest(
   body?: InsertUser,
 ): Promise<RequestResult> {
   try {
-    console.log(`Making ${method} request to: ${url}`);
-
     if (method === "POST") {
       const result = await postApi<ApiResponse>(url, body);
       return {

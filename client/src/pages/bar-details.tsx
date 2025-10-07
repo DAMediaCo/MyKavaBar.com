@@ -1,4 +1,4 @@
-import { useParams } from "wouter";
+import { useLocation, useParams } from "wouter";
 import { useKavaBar } from "@/hooks/use-kava-bars";
 import { useUser } from "@/hooks/use-user";
 import SponsorBarDialog from "@/components/sponsor-bar-dialog";
@@ -33,6 +33,7 @@ import {
 } from "@/components/favorite-bar";
 import { BarFeatures } from "@/components/bar-features";
 import { BarHappyHours } from "@/components/bar-happy-hours";
+import { CustomModal } from "@/components/custom-modal";
 interface Hours {
   weekday_text: string[];
   open_now: boolean;
@@ -101,6 +102,7 @@ export default function BarDetails() {
   const { data: bar, isLoading, error } = useKavaBar(id || "");
   const { user } = useUser();
   const { toast } = useToast();
+  const [_, navigate] = useLocation();
 
   const { data: checkIns } = useQuery<any[]>({
     queryKey: [`checkIns/${id}`],
@@ -295,7 +297,18 @@ export default function BarDetails() {
               <CardTitle>Reviews</CardTitle>
             </CardHeader>
             <CardContent className="space-y-6">
-              {user && <ReviewForm barId={bar.id} />}
+              {user &&
+                (user.isPhoneVerified ? (
+                  <ReviewForm barId={bar.id} />
+                ) : (
+                  <CustomModal
+                    title="Phone Verification Required"
+                    description="Phone verification is required to post reviews."
+                    confirmButtonText="Complete onboarding"
+                    confirmAction={() => navigate("/complete-onboarding")}
+                    trigger={<Button size="sm">Write a Review</Button>}
+                  />
+                ))}
               <ReviewList barId={bar.id} />
             </CardContent>
           </Card>

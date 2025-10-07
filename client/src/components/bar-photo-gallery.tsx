@@ -1,13 +1,15 @@
 import { useState } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { Card, CardContent } from "@/components/ui/card";
-import { Button } from "@/components/ui/button";
 import { ChevronLeft, ChevronRight, Upload } from "lucide-react";
 import type { KavaBar } from "@db/schema";
 import { PhotoUploader } from "./photo-uploader";
+import { Button } from "@/components/ui/button";
 import { useUser } from "@/hooks/use-user";
 import { useToast } from "@/hooks/use-toast";
 import { ImageWithFallback } from "@/pages/profile";
+import { CustomModal } from "./custom-modal";
+import { useLocation } from "wouter";
 
 interface Props {
   bar: KavaBar;
@@ -26,7 +28,7 @@ export default function BarPhotoGallery({ bar }: Props) {
   const { user } = useUser();
   const queryClient = useQueryClient();
   const { toast } = useToast();
-
+  const [_, navigate] = useLocation();
   // Fetch user-uploaded photos
   const { data: userPhotos = [], isLoading: isPhotosLoading } = useQuery<
     Photo[]
@@ -242,7 +244,17 @@ export default function BarPhotoGallery({ bar }: Props) {
       ) : (
         <Card>
           <CardContent className="p-6 text-center">
-            <PhotoUploader barId={bar.id} onSuccess={handleUploadSuccess} />
+            {user.isPhoneVerified ? (
+              <PhotoUploader barId={bar.id} onSuccess={handleUploadSuccess} />
+            ) : (
+              <CustomModal
+                title="Phone Verification Required"
+                description="Phone verification is required to post photos."
+                confirmButtonText="Complete onboarding"
+                confirmAction={() => navigate("/complete-onboarding")}
+                trigger={<Button size="sm">Upload Now</Button>}
+              />
+            )}
           </CardContent>
         </Card>
       )}

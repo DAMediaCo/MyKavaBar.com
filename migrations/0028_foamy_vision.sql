@@ -1,0 +1,1 @@
+ALTER TABLE "kavatender_referral_profiles" ALTER COLUMN "id" SET DATA TYPE integer;

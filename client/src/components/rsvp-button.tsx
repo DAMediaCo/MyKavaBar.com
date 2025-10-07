@@ -2,6 +2,8 @@ import { useToast } from "@/hooks/use-toast";
 import { Button } from "@/components/ui/button";
 import { useState } from "react";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
+import { CustomModal } from "@/components/custom-modal"; // Adjust import as needed
+import { useLocation } from "wouter";
 
 export function RsvpButton({
   user,
@@ -15,6 +17,7 @@ export function RsvpButton({
   const [isRsvped, setIsRsvped] = useState(!!event.isRsvped);
   const { toast } = useToast();
   const queryClient = useQueryClient();
+  const [_, navigate] = useLocation();
 
   const { mutate, isPending } = useMutation({
     mutationFn: async () => {
@@ -51,15 +54,45 @@ export function RsvpButton({
   });
 
   if (!user) return null;
+  const onRsvpClick = () => {
+    if (!user.isPhoneVerified) {
+      // Show modal by clicking trigger button
+      setShowModal(true);
+      return;
+    }
+    mutate();
+  };
+
+  // Using React state to control modal open is not needed here since CustomModal handles it internally through trigger button
 
   return (
-    <Button
-      size="sm"
-      className="w-full sm:w-auto"
-      onClick={() => mutate()}
-      disabled={isPending || isRsvped}
-    >
-      {isPending ? "RSVP'ing..." : isRsvped ? "RSVP’d" : "RSVP"}
-    </Button>
+    <>
+      {user.isPhoneVerified ? (
+        <Button
+          size="sm"
+          className="w-full sm:w-auto"
+          onClick={() => {
+            if (user.isPhoneVerified) {
+              mutate();
+            }
+          }}
+          disabled={isPending || isRsvped}
+        >
+          {isPending ? "RSVP'ing..." : isRsvped ? "RSVP’d" : "RSVP"}
+        </Button>
+      ) : (
+        <CustomModal
+          title="Phone Verification Required"
+          description="Please verify your mobile first to RSVP any event."
+          confirmButtonText="Verify phone"
+          confirmAction={() => navigate("/complete-onboarding")}
+          trigger={
+            <Button size="sm" className="w-full sm:w-auto">
+              RSVP
+            </Button>
+          }
+        />
+      )}
+    </>
   );
 }

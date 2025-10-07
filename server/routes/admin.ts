@@ -7,7 +7,7 @@ import {
   userActivityLogs,
   kavaBars,
 } from "@db/schema";
-import { and, eq, ne } from "drizzle-orm";
+import { and, eq, ne, or } from "drizzle-orm";
 import { requireAdmin } from "../middleware/admin";
 import { crypto } from "../utils/crypto";
 import { fetchKavaBarsByCoordinates } from "../scripts/fetch-by-coordinates";
@@ -49,21 +49,6 @@ const updateUserSchema = z
 // Get all users with complete user information
 router.get("/users", requireAdmin, async (req, res) => {
   try {
-    console.log("Admin users request:", {
-      user: req.user
-        ? {
-            id: req.user.id,
-            username: req.user.username,
-            isAdmin: req.user.isAdmin,
-          }
-        : null,
-      session: req.session?.id,
-      headers: {
-        cookie: req.headers.cookie,
-        authorization: req.headers.authorization,
-      },
-    });
-
     const usersList = await db.query.users.findMany({
       orderBy: (users, { desc }) => [desc(users.createdAt)],
       columns: {
@@ -74,6 +59,7 @@ router.get("/users", requireAdmin, async (req, res) => {
         status: true,
         phoneNumber: true,
         isPhoneVerified: true,
+        provider: true,
         points: true,
         isAdmin: true,
         createdAt: true,
@@ -101,10 +87,15 @@ router.get("/users", requireAdmin, async (req, res) => {
 router.patch("/users/:userId", requireAdmin, async (req, res) => {
   try {
     const { userId } = req.params;
-    console.log("Received PATCH request for userId:", userId);
     const parseResult = updateUserSchema.safeParse(req.body);
+    const [userDetail] = await db
+      .select({ id: users.id, provider: users.provider })
+      .from(users)
+      .where(eq(users.id, Number(userId)))
+      .limit(1);
 
-    console.log("Request body:", req.body);
+    if (!userDetail) return res.status(404).json({ error: "User not found" });
+
     if (!parseResult.success) {
       console.log("Validation failed:", parseResult.error.issues);
       return res.status(400).json({
@@ -113,7 +104,6 @@ router.patch("/users/:userId", requireAdmin, async (req, res) => {
         details: parseResult.error.issues,
       });
     }
-    console.log("Validation succeeded:", parseResult.data);
 
     const updates: Record<string, any> = {};
 
@@ -184,6 +174,11 @@ router.patch("/users/:userId", requireAdmin, async (req, res) => {
       return res
         .status(400)
         .json({ error: "No permitted fields provided for update." });
+    }
+
+    if (userDetail.provider !== "local") {
+      delete updates.email;
+      delete updates.password;
     }
 
     console.log("Performing update with:", updates);
@@ -308,11 +303,13 @@ router.post("/users", requireAdmin, async (req, res) => {
     const [existingUser] = await db
       .select()
       .from(users)
-      .where(eq(users.username, username))
+      .where(or(eq(users.username, username), eq(users.email, email)))
       .limit(1);
 
     if (existingUser) {
-      return res.status(400).json({ error: "Username already exists" });
+      return res
+        .status(400)
+        .json({ error: "Username or email already exists" });
     }
 
     // Check if phone is banned

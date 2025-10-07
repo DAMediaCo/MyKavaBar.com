@@ -15,3 +15,14 @@ export function isAuthenticated(
   }
   next();
 }
+
+export function isPhoneVerifiedMiddleware(
+  req: Request,
+  res: Response,
+  next: NextFunction,
+) {
+  if (req.user && !req.user?.isPhoneVerified && req.user.provider !== "local") {
+    return res.status(401).json({ message: "Phone number not verified" });
+  }
+  next();
+}
