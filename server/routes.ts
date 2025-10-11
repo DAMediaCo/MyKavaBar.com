@@ -3391,11 +3391,17 @@ export function registerRoutes(app: Express, server: Server): void {
     const userId =
       typeof req.user.id === "string" ? parseInt(req.user.id, 10) : req.user.id;
 
-    const [isAuthorized] = await db
-      .select({ id: kavaBars.id })
-      .from(kavaBars)
-      .where(and(eq(kavaBars.id, Number(id)), eq(kavaBars.ownerId, userId)))
-      .limit(1);
+    let isAuthorized = false;
+    if (req.user.isAdmin) {
+      isAuthorized = true;
+    } else {
+      const bar = await db
+        .select({ id: kavaBars.id })
+        .from(kavaBars)
+        .where(and(eq(kavaBars.id, Number(id)), eq(kavaBars.ownerId, userId)))
+        .limit(1);
+      isAuthorized = bar.length > 0;
+    }
     if (!isAuthorized) return res.status(403).json({ error: "Unauthorized" });
 
     let comingSoonBoolean = comingSoon; // use the incoming value directly
