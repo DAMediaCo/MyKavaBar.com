@@ -30,6 +30,7 @@ const step0Schema = z.object({
   termsAccepted: z.boolean().refine((val) => val === true, {
     message: "You must accept the terms",
   }),
+  referralCode: z.string().optional(),
   marketingConsent: z.boolean().default(false),
   ageConfirmed: z.boolean().refine((val) => val === true, {
     message: "Age confirmation is required",
@@ -66,6 +67,11 @@ const CompleteOnboarding: React.FC = () => {
   const { user } = useUser();
   const [_, navigate] = useLocation();
 
+  const referralCode =
+    typeof window !== "undefined"
+      ? localStorage.getItem("referralCode") || undefined
+      : undefined;
+
   // Always guard against missing user
   if (!user) {
     navigate("/");
@@ -89,7 +95,11 @@ const CompleteOnboarding: React.FC = () => {
   // RHF for username
   const formStep0 = useForm<Step0FormValues>({
     resolver: zodResolver(step0Schema),
+    defaultValues: {
+      referralCode: referralCode,
+    },
   });
+
   const {
     register: registerStep0,
     handleSubmit: handleStep0Submit,
@@ -311,6 +321,20 @@ const CompleteOnboarding: React.FC = () => {
                 </div>
               )}
             </div>
+
+            <FormField
+              control={control}
+              name="referralCode"
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel>Referral Code (Optional)</FormLabel>
+                  <FormControl>
+                    <Input type="text" placeholder="K-ABC123" {...field} />
+                  </FormControl>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
             <div className="space-y-6 border-t pt-6">
               <FormField
                 control={control}

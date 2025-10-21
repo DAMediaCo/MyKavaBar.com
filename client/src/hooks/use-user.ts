@@ -1,6 +1,7 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import type { InsertUser, User } from "@db/schema";
 import { fetchApi, postApi } from "@/lib/api";
+import { useLocation } from "wouter";
 
 // Define response types for API calls
 interface UserResponse {
@@ -74,7 +75,7 @@ async function fetchUser(): Promise<User | null> {
 
 export function useUser() {
   const queryClient = useQueryClient();
-
+  const [, setLocation] = useLocation();
   const {
     data: user,
     error,
@@ -97,6 +98,7 @@ export function useUser() {
     mutationFn: () => handleRequest("/api/logout", "POST"),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["user"] });
+      setLocation("/");
       queryClient.clear();
     },
   });

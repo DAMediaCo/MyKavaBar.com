@@ -77,9 +77,18 @@ function Router() {
   if (error) {
     console.error("User authentication error:", error);
   }
+  const rawRef =
+    typeof window !== "undefined"
+      ? new URLSearchParams(window.location.search).get("ref")
+      : null;
+
+  const referralCode = rawRef && rawRef.startsWith("K-") ? rawRef : undefined;
 
   if (user && user.username === null && user.provider !== "local") {
-    setLocation("/complete-onboarding");
+    const refQuery = referralCode?.startsWith("K-")
+      ? `?ref=${referralCode}`
+      : "";
+    setLocation("/complete-onboarding" + refQuery);
   }
 
   return (

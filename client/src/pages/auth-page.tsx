@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { useQueryClient } from "@tanstack/react-query";
@@ -50,8 +50,18 @@ export default function AuthPage() {
     typeof window !== "undefined"
       ? new URLSearchParams(window.location.search).get("ref")
       : null;
+  const rawAuthError =
+    typeof window !== "undefined"
+      ? new URLSearchParams(window.location.search).get("authError")
+      : null;
 
   const tab = rawTab === "register" ? "register" : "login";
+  const authError =
+    rawAuthError &&
+    typeof rawAuthError === "string" &&
+    rawAuthError.trim().length > 0
+      ? rawAuthError
+      : undefined;
   const referralCode = rawRef && rawRef.startsWith("K-") ? rawRef : undefined;
 
   const form = useForm<LoginFormData>({
@@ -88,6 +98,11 @@ export default function AuthPage() {
     }
   }
 
+  useEffect(() => {
+    if (referralCode) {
+      localStorage.setItem("referralCode", referralCode);
+    }
+  }, [referralCode]);
   return (
     <div className="min-h-screen flex items-center justify-center bg-background p-4">
       <Card className="w-full max-w-md">
@@ -98,6 +113,11 @@ export default function AuthPage() {
           </CardDescription>
         </CardHeader>
         <CardContent>
+          {authError && (
+            <div className="mb-4 p-3 rounded border border-red-500 bg-red-100 text-red-700 font-medium text-center">
+              {authError}
+            </div>
+          )}
           <Tabs defaultValue={tab} className="w-full">
             <TabsList className="grid w-full grid-cols-2">
               <TabsTrigger value="login">Login</TabsTrigger>

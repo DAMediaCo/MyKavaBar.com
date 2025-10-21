@@ -48,7 +48,6 @@ export const createReferral = async (
       .from(kavatenderReferralProfiles)
       .where(eq(kavatenderReferralProfiles.referralCode, referralCode))
       .then((res) => res[0]);
-
     if (!referrerProfile) {
       throw new Error("Invalid referral code.");
     }

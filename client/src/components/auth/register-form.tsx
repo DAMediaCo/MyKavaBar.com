@@ -37,6 +37,7 @@ const registerSchema = z.object({
     message: "You must accept the terms and conditions",
   }),
   marketingConsent: z.boolean().default(false),
+
   referralCode: z.string().optional(),
   ageConfirmed: z.boolean().refine((val) => val === true, {
     message: "You must confirm that you are at least 18 years old",

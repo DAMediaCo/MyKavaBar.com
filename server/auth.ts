@@ -277,8 +277,14 @@ export function setupAuth(app: Express) {
             .from(users)
             .where(eq(users.email, email))
             .limit(1);
-
-          if (!user) {
+          if (user) {
+            if (user.provider !== "apple") {
+              return done(null, false, {
+                message: `Email registered with ${user.provider}. Please login using that provider.`,
+                redirectTo: `/auth?authError=Email registered with ${user.provider}. Please login using that provider.`,
+              });
+            }
+          } else {
             // Create new user
             const [newUser] = await db
               .insert(users)
@@ -350,8 +356,14 @@ export function setupAuth(app: Express) {
             .from(users)
             .where(eq(users.email, email))
             .limit(1);
-
-          if (!user) {
+          if (user) {
+            if (user.provider !== "google") {
+              return done(null, false, {
+                message: `Email registered with ${user.provider}. Please login using that provider.`,
+                redirectTo: `/auth?authError=Email registered with ${user.provider}. Please login using that provider.`,
+              });
+            }
+          } else {
             // Create a new user for Google login
             const [newUser] = await db
               .insert(users)
@@ -539,7 +551,7 @@ export function setupAuth(app: Express) {
           typeof req.user.id === "string"
             ? parseInt(req.user.id, 10)
             : req.user.id;
-        const { username, marketingConsent } = req.body;
+        const { username, marketingConsent, referralCode } = req.body;
 
         if (
           !username ||
@@ -549,6 +561,17 @@ export function setupAuth(app: Express) {
           return res
             .status(400)
             .json({ error: "Invalid username or invalid length" });
+        if (referralCode) {
+          try {
+            await createReferral(referralCode, req.user.id);
+          } catch (referralError: any) {
+            console.warn(
+              `Referral warning for user ${req.user.id}: ${referralError.message}`,
+            );
+            return res.status(400).json({ error: "Invalid referral code" });
+            // Optional: Log but don’t block user registration
+          }
+        }
 
         const [user] = await db
           .select({ id: users.id, provider: users.provider })
