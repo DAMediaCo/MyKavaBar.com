@@ -58,6 +58,32 @@ const upload = multer({
   },
 });
 
+function parseBool(val: any): boolean {
+  // Accepts 1, '1', true, 'true', 'on', 'yes' as true; strict.
+  if (
+    val === true ||
+    val === "true" ||
+    val === 1 ||
+    val === "1" ||
+    val === "on" ||
+    val === "yes"
+  ) {
+    return true;
+  }
+  if (
+    val === false ||
+    val === "false" ||
+    val === 0 ||
+    val === "0" ||
+    val === "" ||
+    val === null ||
+    val === undefined
+  ) {
+    return false;
+  }
+  return Boolean(val); // fallback
+}
+
 // Initialize client.
 let redisClient = createClient({ url: process.env.REDIS_URL! });
 redisClient.connect().catch(console.error);
@@ -685,8 +711,11 @@ export function setupAuth(app: Express) {
 
       const result = insertUserSchema.safeParse({
         ...req.body,
+        isPhoneVerified: parseBool(req.body.isPhoneVerified),
+        marketingConsent: parseBool(req.body.marketingConsent),
+        termsAccepted: parseBool(req.body.termsAccepted),
+        ageConfirmed: parseBool(req.body.ageConfirmed),
         profilePhotoUrl,
-        isPhoneVerified,
       });
 
       if (!result.success) {
