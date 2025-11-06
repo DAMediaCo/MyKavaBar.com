@@ -578,7 +578,7 @@ export function setupAuth(app: Express) {
             ? parseInt(req.user.id, 10)
             : req.user.id;
         const { username, marketingConsent, referralCode } = req.body;
-
+        console.log("Ref code", referralCode);
         if (
           !username ||
           typeof username !== "string" ||
