@@ -6,6 +6,13 @@ import { useQuery } from "@tanstack/react-query";
 import { useToast } from "@/hooks/use-toast";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogTrigger,
+} from "@/components/ui/dialog";
 import { RsvpButton } from "@/components/rsvp-button";
 import ShareBar from "@/components/share-bar";
 import ClaimBarDialog from "@/components/claim-bar-dialog";
@@ -30,7 +37,11 @@ import {
   CalendarPlus,
   ChevronDown,
   ChevronUp,
+  ChevronLeft,
+  ChevronRight,
   ExternalLink,
+  Images,
+  X,
 } from "lucide-react";
 import { format, parseISO } from "date-fns";
 
@@ -73,6 +84,8 @@ export default function BarDetails() {
   const [showAllFeatures, setShowAllFeatures] = useState(false);
   const [showAllHappyHours, setShowAllHappyHours] = useState(false);
   const [showAllEvents, setShowAllEvents] = useState(false);
+  const [galleryOpen, setGalleryOpen] = useState(false);
+  const [selectedPhotoIndex, setSelectedPhotoIndex] = useState(0);
 
   const { data: checkIns } = useQuery<any[]>({
     queryKey: [`checkIns/${id}`],
@@ -284,14 +297,82 @@ export default function BarDetails() {
             {/* Gallery */}
             {galleryPhotos && galleryPhotos.length > 0 && (
               <section>
-                <h2 className="text-white font-bold text-xl mb-4 border-l-4 border-[#D35400] pl-3">
-                  Gallery
-                </h2>
+                <div className="flex items-center justify-between mb-4">
+                  <h2 className="text-white font-bold text-xl border-l-4 border-[#D35400] pl-3">
+                    Gallery
+                  </h2>
+                  {galleryPhotos.length > 5 && (
+                    <Dialog open={galleryOpen} onOpenChange={setGalleryOpen}>
+                      <DialogTrigger asChild>
+                        <button className="text-[#D35400] hover:text-[#E67E22] font-medium flex items-center gap-1">
+                          <Images className="h-4 w-4" />
+                          View All ({galleryPhotos.length})
+                        </button>
+                      </DialogTrigger>
+                      <DialogContent className="max-w-4xl bg-[#121212] border-[#333] p-0">
+                        <DialogHeader className="p-4 border-b border-[#333]">
+                          <DialogTitle className="text-white">Photo Gallery</DialogTitle>
+                        </DialogHeader>
+                        <div className="relative">
+                          <div className="aspect-video bg-black flex items-center justify-center">
+                            <img
+                              src={galleryPhotos[selectedPhotoIndex]?.url}
+                              alt={`Photo ${selectedPhotoIndex + 1}`}
+                              className="max-h-full max-w-full object-contain"
+                            />
+                          </div>
+                          {galleryPhotos.length > 1 && (
+                            <>
+                              <button
+                                onClick={() => setSelectedPhotoIndex((prev) => (prev === 0 ? galleryPhotos.length - 1 : prev - 1))}
+                                className="absolute left-2 top-1/2 -translate-y-1/2 bg-black/50 hover:bg-black/70 text-white p-2 rounded-full"
+                              >
+                                <ChevronLeft className="h-6 w-6" />
+                              </button>
+                              <button
+                                onClick={() => setSelectedPhotoIndex((prev) => (prev === galleryPhotos.length - 1 ? 0 : prev + 1))}
+                                className="absolute right-2 top-1/2 -translate-y-1/2 bg-black/50 hover:bg-black/70 text-white p-2 rounded-full"
+                              >
+                                <ChevronRight className="h-6 w-6" />
+                              </button>
+                            </>
+                          )}
+                          <div className="absolute bottom-4 left-1/2 -translate-x-1/2 bg-black/50 text-white text-sm px-3 py-1 rounded-full">
+                            {selectedPhotoIndex + 1} / {galleryPhotos.length}
+                          </div>
+                        </div>
+                        <div className="p-4 border-t border-[#333]">
+                          <div className="flex gap-2 overflow-x-auto pb-2">
+                            {galleryPhotos.map((photo: any, index: number) => (
+                              <button
+                                key={photo.id || index}
+                                onClick={() => setSelectedPhotoIndex(index)}
+                                className={`flex-shrink-0 w-16 h-16 rounded-lg overflow-hidden border-2 transition-colors ${
+                                  index === selectedPhotoIndex ? "border-[#D35400]" : "border-transparent hover:border-[#333]"
+                                }`}
+                              >
+                                <img
+                                  src={photo.url}
+                                  alt={`Thumbnail ${index + 1}`}
+                                  className="w-full h-full object-cover"
+                                />
+                              </button>
+                            ))}
+                          </div>
+                        </div>
+                      </DialogContent>
+                    </Dialog>
+                  )}
+                </div>
                 <div className="grid grid-cols-4 gap-2 h-64 md:h-80">
                   {galleryPhotos.slice(0, 5).map((photo: any, index: number) => (
-                    <div
+                    <button
                       key={photo.id || index}
-                      className={`relative rounded-lg overflow-hidden ${
+                      onClick={() => {
+                        setSelectedPhotoIndex(index);
+                        setGalleryOpen(true);
+                      }}
+                      className={`relative rounded-lg overflow-hidden cursor-pointer ${
                         index === 0 ? "col-span-2 row-span-2" : ""
                       }`}
                     >
@@ -300,7 +381,12 @@ export default function BarDetails() {
                         alt={`Gallery ${index + 1}`}
                         className="w-full h-full object-cover hover:scale-105 transition-transform duration-300"
                       />
-                    </div>
+                      {index === 4 && galleryPhotos.length > 5 && (
+                        <div className="absolute inset-0 bg-black/60 flex items-center justify-center">
+                          <span className="text-white font-bold text-lg">+{galleryPhotos.length - 5}</span>
+                        </div>
+                      )}
+                    </button>
                   ))}
                 </div>
               </section>
