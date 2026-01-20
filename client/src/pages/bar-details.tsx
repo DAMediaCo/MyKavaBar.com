@@ -566,68 +566,16 @@ export default function BarDetails() {
                   <h2 className="text-white font-bold text-xl border-l-4 border-[#D35400] pl-3">
                     Gallery
                   </h2>
-                  {galleryPhotos.length > 5 && (
-                    <Dialog open={galleryOpen} onOpenChange={setGalleryOpen}>
-                      <DialogTrigger asChild>
-                        <button className="text-[#D35400] hover:text-[#E67E22] font-medium flex items-center gap-1">
-                          <Images className="h-4 w-4" />
-                          View All ({galleryPhotos.length})
-                        </button>
-                      </DialogTrigger>
-                      <DialogContent className="w-[95vw] max-w-2xl bg-[#121212] border-[#333] p-0 max-h-[85vh] overflow-hidden">
-                        <DialogHeader className="p-3 border-b border-[#333]">
-                          <DialogTitle className="text-white text-base">Photo Gallery</DialogTitle>
-                        </DialogHeader>
-                        <div className="relative">
-                          <div className="h-[50vh] md:h-[55vh] bg-black flex items-center justify-center">
-                            <img
-                              src={galleryPhotos[selectedPhotoIndex]?.url}
-                              alt={`Photo ${selectedPhotoIndex + 1}`}
-                              className="max-h-full max-w-full object-contain"
-                            />
-                          </div>
-                          {galleryPhotos.length > 1 && (
-                            <>
-                              <button
-                                onClick={() => setSelectedPhotoIndex((prev) => (prev === 0 ? galleryPhotos.length - 1 : prev - 1))}
-                                className="absolute left-2 top-1/2 -translate-y-1/2 bg-black/50 hover:bg-black/70 text-white p-1.5 rounded-full"
-                              >
-                                <ChevronLeft className="h-5 w-5" />
-                              </button>
-                              <button
-                                onClick={() => setSelectedPhotoIndex((prev) => (prev === galleryPhotos.length - 1 ? 0 : prev + 1))}
-                                className="absolute right-2 top-1/2 -translate-y-1/2 bg-black/50 hover:bg-black/70 text-white p-1.5 rounded-full"
-                              >
-                                <ChevronRight className="h-5 w-5" />
-                              </button>
-                            </>
-                          )}
-                          <div className="absolute bottom-2 left-1/2 -translate-x-1/2 bg-black/50 text-white text-xs px-2 py-1 rounded-full">
-                            {selectedPhotoIndex + 1} / {galleryPhotos.length}
-                          </div>
-                        </div>
-                        <div className="hidden md:block p-3 border-t border-[#333]">
-                          <div className="flex gap-1.5 overflow-x-auto">
-                            {galleryPhotos.map((photo: any, index: number) => (
-                              <button
-                                key={photo.id || index}
-                                onClick={() => setSelectedPhotoIndex(index)}
-                                className={`flex-shrink-0 w-12 h-12 rounded overflow-hidden border-2 transition-colors ${
-                                  index === selectedPhotoIndex ? "border-[#D35400]" : "border-transparent hover:border-[#333]"
-                                }`}
-                              >
-                                <img
-                                  src={photo.url}
-                                  alt={`Thumbnail ${index + 1}`}
-                                  className="w-full h-full object-cover"
-                                />
-                              </button>
-                            ))}
-                          </div>
-                        </div>
-                      </DialogContent>
-                    </Dialog>
-                  )}
+                  <button 
+                    onClick={() => {
+                      setSelectedPhotoIndex(0);
+                      setGalleryOpen(true);
+                    }}
+                    className="text-[#D35400] hover:text-[#E67E22] font-medium flex items-center gap-1"
+                  >
+                    <Images className="h-4 w-4" />
+                    View All ({galleryPhotos.length})
+                  </button>
                 </div>
                 <div className="grid grid-cols-4 gap-2 h-64 md:h-80">
                   {galleryPhotos.slice(0, 5).map((photo: any, index: number) => (
@@ -654,6 +602,62 @@ export default function BarDetails() {
                     </button>
                   ))}
                 </div>
+
+                {/* Photo Gallery Dialog - Always available */}
+                <Dialog open={galleryOpen} onOpenChange={setGalleryOpen}>
+                  <DialogContent className="w-[95vw] max-w-2xl bg-[#121212] border-[#333] p-0 max-h-[85vh] overflow-hidden">
+                    <DialogHeader className="p-3 border-b border-[#333]">
+                      <DialogTitle className="text-white text-base">Photo Gallery</DialogTitle>
+                    </DialogHeader>
+                    <div className="relative">
+                      <div className="h-[50vh] md:h-[55vh] bg-black flex items-center justify-center">
+                        <img
+                          src={galleryPhotos[selectedPhotoIndex]?.url}
+                          alt={`Photo ${selectedPhotoIndex + 1}`}
+                          className="max-h-full max-w-full object-contain"
+                        />
+                      </div>
+                      {galleryPhotos.length > 1 && (
+                        <>
+                          <button
+                            onClick={() => setSelectedPhotoIndex((prev) => (prev === 0 ? galleryPhotos.length - 1 : prev - 1))}
+                            className="absolute left-2 top-1/2 -translate-y-1/2 bg-black/50 hover:bg-black/70 text-white p-1.5 rounded-full"
+                          >
+                            <ChevronLeft className="h-5 w-5" />
+                          </button>
+                          <button
+                            onClick={() => setSelectedPhotoIndex((prev) => (prev === galleryPhotos.length - 1 ? 0 : prev + 1))}
+                            className="absolute right-2 top-1/2 -translate-y-1/2 bg-black/50 hover:bg-black/70 text-white p-1.5 rounded-full"
+                          >
+                            <ChevronRight className="h-5 w-5" />
+                          </button>
+                        </>
+                      )}
+                      <div className="absolute bottom-2 left-1/2 -translate-x-1/2 bg-black/50 text-white text-xs px-2 py-1 rounded-full">
+                        {selectedPhotoIndex + 1} / {galleryPhotos.length}
+                      </div>
+                    </div>
+                    <div className="hidden md:block p-3 border-t border-[#333]">
+                      <div className="flex gap-1.5 overflow-x-auto">
+                        {galleryPhotos.map((photo: any, index: number) => (
+                          <button
+                            key={photo.id || index}
+                            onClick={() => setSelectedPhotoIndex(index)}
+                            className={`flex-shrink-0 w-12 h-12 rounded overflow-hidden border-2 transition-colors ${
+                              index === selectedPhotoIndex ? "border-[#D35400]" : "border-transparent hover:border-[#333]"
+                            }`}
+                          >
+                            <img
+                              src={photo.url}
+                              alt={`Thumbnail ${index + 1}`}
+                              className="w-full h-full object-cover"
+                            />
+                          </button>
+                        ))}
+                      </div>
+                    </div>
+                  </DialogContent>
+                </Dialog>
               </section>
             )}
           </div>
