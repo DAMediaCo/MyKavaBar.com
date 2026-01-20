@@ -63,7 +63,7 @@ export default function NavBar() {
     <header className="border-b">
       <div className="container mx-auto px-4 h-16 flex items-center justify-between">
         <div className="flex items-center">
-          <Link href="/" className="text-xl font-bold tracking-tight text-white">
+          <Link href="/" className="text-xl font-bold tracking-tight text-black dark:text-white">
             MyKava<span className="text-[#D35400]">Bar</span>
           </Link>
         </div>
@@ -204,7 +204,7 @@ export default function NavBar() {
             </SheetTrigger>
             <SheetContent side="right" className="w-[250px] p-0">
               <SheetHeader className="border-b p-4 mb-2">
-                <h2 className="text-xl font-bold tracking-tight">
+                <h2 className="text-xl font-bold tracking-tight text-black dark:text-white">
                   MyKava<span className="text-[#D35400]">Bar</span>
                 </h2>
               </SheetHeader>
