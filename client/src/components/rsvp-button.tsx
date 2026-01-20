@@ -2,7 +2,7 @@ import { useToast } from "@/hooks/use-toast";
 import { Button } from "@/components/ui/button";
 import { useState } from "react";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
-import { CustomModal } from "@/components/custom-modal"; // Adjust import as needed
+import { CustomModal } from "@/components/custom-modal";
 import { useLocation } from "wouter";
 
 export function RsvpButton({
@@ -37,7 +37,7 @@ export function RsvpButton({
     onSuccess: async (data) => {
       toast({
         title: "RSVP Submitted",
-        description: `You've RSVP’d to ${event.title}`,
+        description: `You've RSVP'd to ${event.title}`,
       });
 
       setIsRsvped(true);
@@ -53,46 +53,46 @@ export function RsvpButton({
     },
   });
 
-  if (!user) return null;
-  const onRsvpClick = () => {
-    if (!user.isPhoneVerified) {
-      // Show modal by clicking trigger button
-      setShowModal(true);
-      return;
-    }
-    mutate();
-  };
+  if (!user) {
+    return (
+      <CustomModal
+        title="Login Required"
+        description="Please log in to RSVP to this event."
+        confirmButtonText="Log In"
+        confirmAction={() => navigate("/login")}
+        trigger={
+          <Button size="sm" className="w-full sm:w-auto bg-[#D35400] hover:bg-[#E67E22] text-white">
+            RSVP
+          </Button>
+        }
+      />
+    );
+  }
 
-  // Using React state to control modal open is not needed here since CustomModal handles it internally through trigger button
+  if (!user.isPhoneVerified) {
+    return (
+      <CustomModal
+        title="Phone Verification Required"
+        description="Please verify your mobile first to RSVP to any event."
+        confirmButtonText="Verify Phone"
+        confirmAction={() => navigate("/complete-onboarding")}
+        trigger={
+          <Button size="sm" className="w-full sm:w-auto bg-[#D35400] hover:bg-[#E67E22] text-white">
+            RSVP
+          </Button>
+        }
+      />
+    );
+  }
 
   return (
-    <>
-      {user.isPhoneVerified ? (
-        <Button
-          size="sm"
-          className="w-full sm:w-auto"
-          onClick={() => {
-            if (user.isPhoneVerified) {
-              mutate();
-            }
-          }}
-          disabled={isPending || isRsvped}
-        >
-          {isPending ? "RSVP'ing..." : isRsvped ? "RSVP’d" : "RSVP"}
-        </Button>
-      ) : (
-        <CustomModal
-          title="Phone Verification Required"
-          description="Please verify your mobile first to RSVP any event."
-          confirmButtonText="Verify phone"
-          confirmAction={() => navigate("/complete-onboarding")}
-          trigger={
-            <Button size="sm" className="w-full sm:w-auto">
-              RSVP
-            </Button>
-          }
-        />
-      )}
-    </>
+    <Button
+      size="sm"
+      className="w-full sm:w-auto bg-[#D35400] hover:bg-[#E67E22] text-white"
+      onClick={() => mutate()}
+      disabled={isPending || isRsvped}
+    >
+      {isPending ? "RSVP'ing..." : isRsvped ? "RSVP'd" : "RSVP"}
+    </Button>
   );
 }
