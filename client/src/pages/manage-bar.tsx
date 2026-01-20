@@ -34,7 +34,7 @@ import { Features } from "@/components/owner/features";
 import { HappyHours } from "@/components/owner/happy-hours";
 import ComingSoonForm from "@/components/owner/coming-soon-form";
 import { ImageIcon, Sparkles } from "lucide-react";
-import { useAuth } from "@/hooks/use-auth";
+import { useUser } from "@/hooks/use-user";
 
 const daysOfWeek = [
   "Sunday",
@@ -452,7 +452,7 @@ export default function ManageBar() {
   const [heroImagePreview, setHeroImagePreview] = useState<string | null>(null);
   const [isUploadingHeroImage, setIsUploadingHeroImage] = useState(false);
   const [isGeneratingVibe, setIsGeneratingVibe] = useState(false);
-  const { user } = useAuth();
+  const { user } = useUser();
 
   const handleHeroImageChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
