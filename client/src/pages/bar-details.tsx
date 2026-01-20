@@ -195,8 +195,6 @@ export default function BarDetails() {
     "https://images.unsplash.com/photo-1514362545857-3bc16c4c7d1b?w=1200";
 
   const displayFeatures = showAllFeatures ? features : features.slice(0, 5);
-  
-  const vibeText = bar.vibeText || `Welcome to ${bar.name}! We are a new addition to the community.`;
 
   const copyAddress = async () => {
     try {
@@ -298,14 +296,6 @@ export default function BarDetails() {
         <div className="grid grid-cols-1 lg:grid-cols-[1fr_380px] gap-10">
           {/* Left Column - Main Content */}
           <div className="space-y-8">
-            {/* Vibe Section */}
-            <section>
-              <h2 className="text-white font-bold text-xl mb-4 border-l-4 border-[#D35400] pl-3">
-                The Vibe
-              </h2>
-              <p className="text-gray-300 leading-relaxed">{vibeText}</p>
-            </section>
-
             {/* Gallery */}
             {galleryPhotos && galleryPhotos.length > 0 && (
               <section>
