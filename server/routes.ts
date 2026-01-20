@@ -1654,6 +1654,74 @@ export function registerRoutes(app: Express, server: Server): void {
     }
   });
 
+  // Batch AI Vibe Check (Admin only) - Process bars without vibe data
+  app.post("/api/admin/batch-vibe-check", async (req, res) => {
+    if (!req.isAuthenticated()) {
+      return res.status(401).json({ error: "Not authenticated" });
+    }
+
+    if (!req.user.isAdmin) {
+      return res.status(403).json({ error: "Admin access required" });
+    }
+
+    const batchSize = 10;
+
+    try {
+      // Find bars that don't have vibe_text set
+      const barsWithoutVibe = await db
+        .select({
+          id: kavaBars.id,
+          name: kavaBars.name,
+        })
+        .from(kavaBars)
+        .where(isNull(kavaBars.vibeText))
+        .limit(batchSize);
+
+      if (barsWithoutVibe.length === 0) {
+        return res.json({
+          success: true,
+          message: "All bars already have vibe data!",
+          processed: 0,
+          remaining: 0,
+        });
+      }
+
+      // Count total remaining (including current batch)
+      const [{ count: totalRemaining }] = await db
+        .select({ count: sql<number>`count(*)` })
+        .from(kavaBars)
+        .where(isNull(kavaBars.vibeText));
+
+      const results: { id: number; name: string; success: boolean; error?: string }[] = [];
+
+      // Process each bar one at a time, saving after each
+      for (const bar of barsWithoutVibe) {
+        try {
+          await enrichBarData(bar.id);
+          results.push({ id: bar.id, name: bar.name, success: true });
+          console.log(`Vibe check completed for bar ${bar.id}: ${bar.name}`);
+        } catch (error: any) {
+          console.error(`Vibe check failed for bar ${bar.id}:`, error);
+          results.push({ id: bar.id, name: bar.name, success: false, error: error.message });
+        }
+      }
+
+      const successCount = results.filter(r => r.success).length;
+      const remainingAfter = Number(totalRemaining) - successCount;
+
+      res.json({
+        success: true,
+        message: `Processed ${successCount} of ${barsWithoutVibe.length} bars`,
+        processed: successCount,
+        remaining: Math.max(0, remainingAfter),
+        results,
+      });
+    } catch (error: any) {
+      console.error("Batch vibe check error:", error);
+      res.status(500).json({ error: error.message });
+    }
+  });
+
   // Update bar vibe and menu info (Owner Dashboard)
   app.put("/api/kava-bars/:id/details", async (req, res) => {
     if (!req.isAuthenticated()) {
