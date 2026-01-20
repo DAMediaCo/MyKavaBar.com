@@ -991,7 +991,7 @@ export function registerRoutes(app: Express, server: Server): void {
           verificationNotes: req.user?.isAdmin
             ? bar.verification_notes
             : undefined,
-          vibeText: bar.vibe_text || null,
+          vibeText: bar.vibe_text || `Welcome to ${bar.name}! We are a new addition to the kava community. Stop by and check out our atmosphere.`,
           menuHighlights: bar.menu_highlights || null,
           features: bar.features || null,
         };
@@ -1626,6 +1626,62 @@ export function registerRoutes(app: Express, server: Server): void {
       }
     }
   );
+
+  // Update bar vibe and menu info (Owner Dashboard)
+  app.put("/api/kava-bars/:id/details", async (req, res) => {
+    if (!req.isAuthenticated()) {
+      return res.status(401).json({ error: "Not authenticated" });
+    }
+
+    const barId = Number(req.params.id);
+
+    // Verify bar exists and user owns it
+    const [bar] = await db
+      .select()
+      .from(kavaBars)
+      .where(eq(kavaBars.id, barId))
+      .limit(1);
+
+    if (!bar) {
+      return res.status(404).json({ error: "Bar not found" });
+    }
+
+    if (bar.ownerId !== req.user.id && !req.user.isAdmin) {
+      return res.status(403).json({ error: "Not authorized to update this bar" });
+    }
+
+    try {
+      const { vibeText, menuHighlights, features } = req.body;
+      
+      const updateData: Record<string, any> = {};
+      if (vibeText !== undefined) updateData.vibeText = vibeText;
+      if (menuHighlights !== undefined) updateData.menuHighlights = menuHighlights;
+      if (features !== undefined) updateData.features = features;
+
+      if (Object.keys(updateData).length === 0) {
+        return res.status(400).json({ error: "No fields to update" });
+      }
+
+      const [updatedBar] = await db
+        .update(kavaBars)
+        .set(updateData)
+        .where(eq(kavaBars.id, barId))
+        .returning();
+
+      res.json({
+        success: true,
+        bar: {
+          id: updatedBar.id,
+          vibeText: updatedBar.vibeText,
+          menuHighlights: updatedBar.menuHighlights,
+          features: updatedBar.features,
+        }
+      });
+    } catch (error: any) {
+      console.error("Error updating bar details:", error);
+      res.status(500).json({ error: error.message });
+    }
+  });
 
   // Admin endpoints for verification codes
   app.post("/api/admin/verification-codes/:barId", async (req, res) => {
