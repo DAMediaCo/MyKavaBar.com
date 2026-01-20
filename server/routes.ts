@@ -345,7 +345,7 @@ export function registerRoutes(app: Express, server: Server): void {
               CASE 
                 WHEN (SELECT COUNT(*) FROM reviews WHERE bar_id = k.id) >= 3 
                 THEN (SELECT ROUND(AVG(rating)::numeric, 1) FROM reviews WHERE bar_id = k.id)
-                ELSE NULL
+                ELSE k.rating
               END as rating,
               (SELECT url FROM kava_bar_photos WHERE bar_id = k.id ORDER BY created_at DESC LIMIT 1) as latest_gallery_photo
             FROM kava_bars k
@@ -877,7 +877,7 @@ export function registerRoutes(app: Express, server: Server): void {
             CASE 
               WHEN (SELECT COUNT(*) FROM reviews WHERE bar_id = k.id) >= 3 
               THEN (SELECT ROUND(AVG(rating)::numeric, 1) FROM reviews WHERE bar_id = k.id)
-              ELSE NULL
+              ELSE k.rating
             END as rating
           FROM kava_bars k
           WHERE k.id = ${Number(req.params.id)}

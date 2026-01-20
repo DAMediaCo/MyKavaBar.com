@@ -64,9 +64,8 @@ export default function KavaBarCard({ bar, distance }: KavaBarCardProps) {
   if (!bar) return null;
 
   const reviewCount = bar.reviewCount ?? 0;
-  const hasEnoughReviews = reviewCount >= 3;
   const rating = bar.rating ? Number(bar.rating) : null;
-  const displayRating = hasEnoughReviews && rating ? rating.toFixed(1) : "N/A";
+  const displayRating = rating ? rating.toFixed(1) : "N/A";
 
   const rawDateString = bar.grand_opening_date;
   let comingSoonText: string | null = null;
