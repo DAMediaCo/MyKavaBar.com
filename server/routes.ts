@@ -1512,7 +1512,7 @@ export function registerRoutes(app: Express, server: Server): void {
     }
   });
 
-  // Update hero image endpoint for bar owners
+  // Update hero image endpoint for bar owners (URL method)
   app.put("/api/kava-bars/:id/hero-image", async (req, res) => {
     if (!req.isAuthenticated()) {
       return res.status(401).send("Not authenticated");
@@ -1552,6 +1552,73 @@ export function registerRoutes(app: Express, server: Server): void {
       res.status(500).json({ error: error.message });
     }
   });
+
+  // Upload hero image endpoint for bar owners (file upload to R2)
+  app.post(
+    "/api/kava-bars/:id/hero-image",
+    upload.single("heroImage"),
+    async (req, res) => {
+      if (!req.isAuthenticated()) {
+        return res.status(401).json({ error: "Not authenticated" });
+      }
+
+      const barId = Number(req.params.id);
+
+      // Verify bar exists and user owns it
+      const [bar] = await db
+        .select()
+        .from(kavaBars)
+        .where(eq(kavaBars.id, barId))
+        .limit(1);
+
+      if (!bar) {
+        return res.status(404).json({ error: "Bar not found" });
+      }
+
+      if (bar.ownerId !== req.user.id && !req.user.isAdmin) {
+        return res.status(403).json({ error: "Not authorized to update this bar's hero image" });
+      }
+
+      if (!req.file) {
+        return res.status(400).json({ error: "No image file uploaded" });
+      }
+
+      try {
+        // Process the image with Sharp - resize to optimal hero image dimensions
+        const processedImageBuffer = await sharp(req.file.buffer)
+          .resize(1200, 675, {
+            fit: "cover",
+            position: "center",
+          })
+          .jpeg({ quality: 85 })
+          .toBuffer();
+
+        // Generate unique filename
+        const fileName = `hero-images/bar-${barId}-${Date.now()}.jpg`;
+
+        // Upload to R2 storage
+        const { publicUrl } = await uploadImageToStorage(processedImageBuffer, fileName);
+
+        // Update the bar's hero image URL in the database
+        const [updatedBar] = await db
+          .update(kavaBars)
+          .set({
+            heroImageUrl: publicUrl,
+          })
+          .where(eq(kavaBars.id, barId))
+          .returning();
+
+        res.json({ 
+          success: true, 
+          heroImageUrl: publicUrl,
+          bar: updatedBar 
+        });
+      } catch (error: any) {
+        console.error("Error uploading hero image:", error);
+        res.status(500).json({ error: error.message || "Failed to upload hero image" });
+      }
+    }
+  );
 
   // Admin endpoints for verification codes
   app.post("/api/admin/verification-codes/:barId", async (req, res) => {

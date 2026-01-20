@@ -9,7 +9,7 @@ interface KavaBarCardProps {
   distance?: number;
 }
 
-const FALLBACK_IMAGE = "https://images.unsplash.com/photo-1617191518003-5c6cfac8e5c4?auto=format&fit=crop&w=1200&q=80";
+const FALLBACK_IMAGE = "/kava-bar-default-hero.jpg";
 
 function isBarOpenNow(hours: any): boolean {
   if (!hours || !Array.isArray(hours)) return false;

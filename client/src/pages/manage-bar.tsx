@@ -447,41 +447,103 @@ export default function ManageBar() {
   const [grandOpeningDate, setGrandOpeningDate] = useState<Date | undefined>(
     bar?.grandOpeningDate ?? undefined,
   );
-  const [heroImageUrl, setHeroImageUrl] = useState(bar?.heroImageUrl ?? "");
+  const [heroImageFile, setHeroImageFile] = useState<File | null>(null);
+  const [heroImagePreview, setHeroImagePreview] = useState<string | null>(null);
+  const [isUploadingHeroImage, setIsUploadingHeroImage] = useState(false);
 
-  const updateHeroImageMutation = useMutation({
-    mutationFn: async (imageUrl: string) => {
+  const handleHeroImageChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    if (!file.type.startsWith("image/")) {
+      toast({
+        title: "Invalid file type",
+        description: "Please select an image file (JPG, PNG, etc.)",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    if (file.size > 10 * 1024 * 1024) {
+      toast({
+        title: "File too large",
+        description: "Please select an image under 10MB",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    setHeroImageFile(file);
+    setHeroImagePreview(URL.createObjectURL(file));
+  };
+
+  const uploadHeroImage = async () => {
+    if (!heroImageFile) return;
+    
+    setIsUploadingHeroImage(true);
+    try {
+      const formData = new FormData();
+      formData.append("heroImage", heroImageFile);
+
       const response = await fetch(`/api/kava-bars/${id}/hero-image`, {
-        method: "PUT",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({ heroImageUrl: imageUrl }),
+        method: "POST",
+        body: formData,
         credentials: "include",
       });
 
       if (!response.ok) {
         const errorData = await response.json().catch(() => ({}));
-        throw new Error(errorData.message || "Failed to update hero image");
+        throw new Error(errorData.error || "Failed to upload hero image");
       }
 
-      return response.json();
-    },
-    onSuccess: () => {
       toast({
         title: "Success",
-        description: "Hero image updated successfully",
+        description: "Hero image uploaded successfully",
       });
-      queryClient.invalidateQueries([`/api/kava-bars/${id}`]);
-    },
-    onError: (error: Error) => {
+      
+      setHeroImageFile(null);
+      setHeroImagePreview(null);
+      queryClient.invalidateQueries({ queryKey: [`/api/kava-bars/${id}`] });
+    } catch (error: any) {
+      toast({
+        variant: "destructive",
+        title: "Upload failed",
+        description: error.message,
+      });
+    } finally {
+      setIsUploadingHeroImage(false);
+    }
+  };
+
+  const removeHeroImage = async () => {
+    setIsUploadingHeroImage(true);
+    try {
+      const response = await fetch(`/api/kava-bars/${id}/hero-image`, {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ heroImageUrl: "" }),
+        credentials: "include",
+      });
+
+      if (!response.ok) {
+        throw new Error("Failed to remove hero image");
+      }
+
+      toast({
+        title: "Success",
+        description: "Hero image removed",
+      });
+      queryClient.invalidateQueries({ queryKey: [`/api/kava-bars/${id}`] });
+    } catch (error: any) {
       toast({
         variant: "destructive",
         title: "Error",
         description: error.message,
       });
-    },
-  });
+    } finally {
+      setIsUploadingHeroImage(false);
+    }
+  };
 
   const verifyKavatenderMutation = useMutation({
     mutationFn: async () => {
@@ -712,52 +774,75 @@ export default function ManageBar() {
                     Hero Image
                   </h3>
                   <p className="text-sm text-muted-foreground">
-                    Add a hero image that will be displayed on your bar's card in listings. This helps attract customers to your bar.
+                    Upload a hero image that will be displayed on your bar's card in listings. This helps attract customers to your bar.
                   </p>
+                  <div className="bg-muted/50 rounded-lg p-3 text-sm">
+                    <p className="font-medium mb-1">Recommended:</p>
+                    <ul className="text-muted-foreground space-y-1">
+                      <li>• Aspect ratio: 16:9 (landscape orientation)</li>
+                      <li>• Minimum size: 1200 x 675 pixels</li>
+                      <li>• Max file size: 10MB</li>
+                      <li>• Best results: High-quality photo of your bar interior or exterior</li>
+                    </ul>
+                  </div>
                   
-                  {bar.heroImageUrl && (
+                  {(bar.heroImageUrl || heroImagePreview) && (
                     <div className="rounded-lg overflow-hidden border">
                       <img 
-                        src={bar.heroImageUrl} 
+                        src={heroImagePreview || bar.heroImageUrl} 
                         alt={`${bar.name} hero image`}
                         className="w-full h-48 object-cover"
                         onError={(e) => {
-                          (e.target as HTMLImageElement).src = "https://images.unsplash.com/photo-1617191518003-5c6cfac8e5c4?auto=format&fit=crop&w=1200&q=80";
+                          (e.target as HTMLImageElement).src = "/kava-bar-default-hero.jpg";
                         }}
                       />
+                      {heroImagePreview && (
+                        <div className="p-2 bg-amber-500/10 text-amber-600 text-sm text-center">
+                          Preview - Click "Upload" to save
+                        </div>
+                      )}
                     </div>
                   )}
                   
                   <div className="flex flex-col sm:flex-row gap-3">
-                    <Input
-                      placeholder="Enter image URL (e.g., https://example.com/image.jpg)"
-                      value={heroImageUrl}
-                      onChange={(e) => setHeroImageUrl(e.target.value)}
-                      className="flex-1"
+                    <input
+                      type="file"
+                      accept="image/*"
+                      onChange={handleHeroImageChange}
+                      className="hidden"
+                      id="hero-image-upload"
+                      disabled={isUploadingHeroImage}
                     />
-                    <Button 
-                      onClick={() => updateHeroImageMutation.mutate(heroImageUrl)}
-                      disabled={updateHeroImageMutation.isPending}
-                    >
-                      {updateHeroImageMutation.isPending ? (
-                        <>
-                          <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                          Saving...
-                        </>
-                      ) : (
-                        "Save Hero Image"
-                      )}
-                    </Button>
+                    <label htmlFor="hero-image-upload" className="flex-1">
+                      <Button variant="outline" className="w-full" asChild disabled={isUploadingHeroImage}>
+                        <span>
+                          <ImageIcon className="mr-2 h-4 w-4" />
+                          {heroImageFile ? heroImageFile.name : "Choose Image"}
+                        </span>
+                      </Button>
+                    </label>
+                    {heroImageFile && (
+                      <Button 
+                        onClick={uploadHeroImage}
+                        disabled={isUploadingHeroImage}
+                      >
+                        {isUploadingHeroImage ? (
+                          <>
+                            <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                            Uploading...
+                          </>
+                        ) : (
+                          "Upload"
+                        )}
+                      </Button>
+                    )}
                   </div>
                   
-                  {bar.heroImageUrl && (
+                  {bar.heroImageUrl && !heroImagePreview && (
                     <Button 
                       variant="outline"
-                      onClick={() => {
-                        setHeroImageUrl("");
-                        updateHeroImageMutation.mutate("");
-                      }}
-                      disabled={updateHeroImageMutation.isPending}
+                      onClick={removeHeroImage}
+                      disabled={isUploadingHeroImage}
                     >
                       Remove Hero Image
                     </Button>
