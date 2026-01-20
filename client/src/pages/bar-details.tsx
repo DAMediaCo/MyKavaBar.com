@@ -1,17 +1,22 @@
+import { useState, useMemo } from "react";
 import { useLocation, useParams } from "wouter";
 import { useKavaBar } from "@/hooks/use-kava-bars";
 import { useUser } from "@/hooks/use-user";
-import SponsorBarDialog from "@/components/sponsor-bar-dialog";
-import ClaimBarDialog from "@/components/claim-bar-dialog";
+import { useQuery } from "@tanstack/react-query";
+import { useToast } from "@/hooks/use-toast";
+import { Button } from "@/components/ui/button";
+import { Badge } from "@/components/ui/badge";
+import { RsvpButton } from "@/components/rsvp-button";
 import ShareBar from "@/components/share-bar";
-import BarPhotoGallery from "@/components/bar-photo-gallery";
-import BarEvents from "@/components/bar-events";
+import ClaimBarDialog from "@/components/claim-bar-dialog";
+import SponsorBarDialog from "@/components/sponsor-bar-dialog";
 import ReviewList from "@/components/reviews/review-list";
 import ReviewForm from "@/components/reviews/review-form";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Badge } from "@/components/ui/badge";
-import { ComingSoonBanner } from "@/components/coming-soon";
-import { Button } from "@/components/ui/button";
+import { CustomModal } from "@/components/custom-modal";
+import KavatenderCheckin from "@/components/kavatender-checkin";
+import BarOwnershipControls from "@/components/admin/bar-ownership-controls";
+import CheckInCarousel from "@/components/check-in-carousal";
+import { FavoriteBarDesktop, FavoriteBarMobile } from "@/components/favorite-bar";
 import {
   MapPin,
   Phone,
@@ -20,80 +25,42 @@ import {
   User,
   AlertCircle,
   Copy,
+  Star,
+  Calendar,
+  CalendarPlus,
+  ChevronDown,
+  ChevronUp,
+  ExternalLink,
 } from "lucide-react";
-import { useToast } from "@/hooks/use-toast";
-import KavatenderCheckin from "@/components/kavatender-checkin";
-import BarOwnershipControls from "@/components/admin/bar-ownership-controls";
-import { useQuery } from "@tanstack/react-query";
-import CheckInCarousel from "@/components/check-in-carousal";
-import {
-  FavoriteBarDesktop,
-  FavoriteBarMobile,
-} from "@/components/favorite-bar";
-import { BarFeatures } from "@/components/bar-features";
-import { BarHappyHours } from "@/components/bar-happy-hours";
-import { CustomModal } from "@/components/custom-modal";
-interface Hours {
-  weekday_text: string[];
-  open_now: boolean;
-  periods: Array<{
-    close: { day: number; time: string };
-    open: { day: number; time: string };
-  }>;
-  hours_available: boolean;
+import { format, parseISO } from "date-fns";
+
+const daysOfWeek = ["Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"];
+
+interface MenuHighlight {
+  name: string;
+  price: number | null;
+  description: string;
 }
-const HoursDisplay = ({
-  hours,
-  businessStatus,
-}: {
-  hours: Hours | null;
-  businessStatus?: string;
-}) => {
-  // Debug log to check actual received data
-  console.log("HoursDisplay Props:", { hours, businessStatus });
-
-  if (businessStatus === "PERMANENTLY_CLOSED") {
-    return (
-      <div className="flex items-start gap-2">
-        <Clock className="h-4 w-4 mt-1 shrink-0" />
-        <div className="text-sm text-destructive font-medium">
-          Permanently Closed
-        </div>
-      </div>
-    );
-  }
-
-  // Ensure hours.weekday_text exists and is an array
-  if (
-    !hours ||
-    !Array.isArray(hours.weekday_text) ||
-    hours.weekday_text.length === 0
-  ) {
-    console.warn("Hours data is missing or incorrect format:", hours);
-    return (
-      <div className="flex items-start gap-2">
-        <Clock className="h-4 w-4 mt-1 shrink-0" />
-        <div className="text-sm text-muted-foreground">Hours not available</div>
-      </div>
-    );
-  }
-
-  return (
-    <div className="flex items-start gap-2">
-      <Clock className="h-4 w-4 mt-1 shrink-0" />
-      <div className="space-y-1">
-        {hours.weekday_text.map((text, index) => (
-          <div key={index} className="text-sm text-foreground">
-            {text}
-          </div>
-        ))}
-      </div>
-    </div>
-  );
-};
 
 function getApiUrl(path: string) {
   return path.startsWith("/") ? path : `/${path}`;
+}
+
+function generateGoogleCalendarLink(event: any, barAddress: string) {
+  const startDate = event.startDate ? parseISO(event.startDate) : new Date();
+  const dateStr = format(startDate, "yyyyMMdd");
+  const startTime = event.startTime?.replace(":", "") + "00";
+  const endTime = event.endTime?.replace(":", "") + "00";
+  
+  const params = new URLSearchParams({
+    action: "TEMPLATE",
+    text: event.title,
+    dates: `${dateStr}T${startTime}/${dateStr}T${endTime}`,
+    location: barAddress,
+    details: event.description || "",
+  });
+  
+  return `https://calendar.google.com/calendar/render?${params.toString()}`;
 }
 
 export default function BarDetails() {
@@ -102,47 +69,78 @@ export default function BarDetails() {
   const { user } = useUser();
   const { toast } = useToast();
   const [_, navigate] = useLocation();
+  
+  const [showAllFeatures, setShowAllFeatures] = useState(false);
+  const [showAllHappyHours, setShowAllHappyHours] = useState(false);
+  const [showAllEvents, setShowAllEvents] = useState(false);
 
   const { data: checkIns } = useQuery<any[]>({
     queryKey: [`checkIns/${id}`],
     queryFn: async () => {
-      try {
-        const response = await fetch(getApiUrl(`/api/bars/${id}/check-ins`), {
-          headers: {
-            Accept: "application/json",
-          },
-        });
-
-        if (!response.ok) {
-          const errorText = await response.text();
-          console.error(`Error fetching check-ins:`, errorText);
-          throw new Error(errorText);
-        }
-
-        const data = await response.json();
-        return data || [];
-      } catch (error) {
-        console.error("Error fetching check-ins:", error);
-        throw error || [];
-      }
+      const response = await fetch(getApiUrl(`/api/bars/${id}/check-ins`), {
+        headers: { Accept: "application/json" },
+      });
+      if (!response.ok) throw new Error(await response.text());
+      return response.json();
     },
   });
 
-  // // Add debug logging
-  // console.log("Bar details:", {
-  //   hasHours: !!bar?.hours,
-  //   hoursData: bar?.hours,
-  //   businessStatus: bar?.businessStatus,
-  // });
+  const { data: eventsData } = useQuery<any[]>({
+    queryKey: [`/api/bars/${id}/events`],
+    queryFn: async () => {
+      const response = await fetch(getApiUrl(`/api/bars/${id}/events`));
+      if (!response.ok) throw new Error(await response.text());
+      return response.json();
+    },
+  });
+
+  const { data: happyHoursData } = useQuery<{ happyHours: Record<string, any[]> }>({
+    queryKey: ["happyHours", id],
+    queryFn: async () => {
+      const res = await fetch(`/api/bar/${id}/happy-hours`);
+      if (!res.ok) throw new Error("Failed to fetch happy hours");
+      return res.json();
+    },
+  });
+
+  const { data: galleryPhotos } = useQuery<any[]>({
+    queryKey: [`/api/bars/${id}/photos`],
+    queryFn: async () => {
+      const response = await fetch(getApiUrl(`/api/bars/${id}/photos`));
+      if (!response.ok) return [];
+      return response.json();
+    },
+  });
+
+  const todayDay = daysOfWeek[new Date().getDay()];
+  
+  const happyHourSchedules = useMemo(() => {
+    if (!happyHoursData?.happyHours) return {};
+    const result: Record<string, string[]> = {};
+    daysOfWeek.forEach((day) => {
+      const slots = happyHoursData.happyHours?.[day] ?? [];
+      if (slots.length > 0) {
+        result[day] = slots.map((s: any) => `${s.start} ${s.startPeriod} - ${s.end} ${s.endPeriod}`);
+      }
+    });
+    return result;
+  }, [happyHoursData]);
+
+  const upcomingEvents = useMemo(() => {
+    if (!eventsData) return [];
+    return eventsData.filter((e: any) => {
+      if (!e.startDate) return true;
+      return new Date(e.startDate) >= new Date();
+    }).slice(0, showAllEvents ? 10 : 1);
+  }, [eventsData, showAllEvents]);
 
   if (isLoading) {
     return (
-      <div className="animate-pulse space-y-4 p-4">
-        <div className="h-8 bg-muted rounded w-1/3" />
-        <div className="h-40 bg-muted rounded" />
-        <div className="space-y-2">
-          <div className="h-4 bg-muted rounded w-2/3" />
-          <div className="h-4 bg-muted rounded w-1/2" />
+      <div className="min-h-screen bg-[#121212] animate-pulse">
+        <div className="h-[45vh] bg-[#1E1E1E]" />
+        <div className="max-w-7xl mx-auto px-4 py-8 space-y-4">
+          <div className="h-8 bg-[#1E1E1E] rounded w-1/3" />
+          <div className="h-40 bg-[#1E1E1E] rounded" />
         </div>
       </div>
     );
@@ -150,184 +148,420 @@ export default function BarDetails() {
 
   if (error || !bar) {
     return (
-      <div className="text-center py-8">
-        <AlertCircle className="mx-auto h-12 w-12 text-destructive mb-4" />
-        <h2 className="text-xl font-semibold mb-2">
-          Error Loading Bar Details
-        </h2>
-        <p className="text-muted-foreground">
-          {error ? error.toString() : "Bar not found"}
-        </p>
+      <div className="min-h-screen bg-[#121212] flex items-center justify-center">
+        <div className="text-center">
+          <AlertCircle className="mx-auto h-12 w-12 text-red-500 mb-4" />
+          <h2 className="text-xl font-bold text-white mb-2">Error Loading Bar Details</h2>
+          <p className="text-gray-400">{error ? error.toString() : "Bar not found"}</p>
+        </div>
       </div>
     );
   }
 
   const isOwner = user?.id === bar.ownerId;
   const canClaim = user && !bar.ownerId;
+  const isOpen = bar.hours?.open_now;
+  
+  const heroImage = bar.heroImageUrl || 
+    (galleryPhotos && galleryPhotos.length > 0 ? galleryPhotos[0].url : null) ||
+    "https://images.unsplash.com/photo-1514362545857-3bc16c4c7d1b?w=1200";
+
+  const features: string[] = bar.features || [];
+  const displayFeatures = showAllFeatures ? features : features.slice(0, 5);
+  
+  const menuHighlights: MenuHighlight[] = bar.menuHighlights || [];
+  
+  const vibeText = bar.vibeText || `Welcome to ${bar.name}! We are a new addition to the community.`;
 
   const copyAddress = async () => {
     try {
       await navigator.clipboard.writeText(bar.address);
-      toast({
-        title: "Address Copied",
-        description: "The address has been copied to your clipboard.",
-      });
-    } catch (error) {
-      toast({
-        variant: "destructive",
-        title: "Failed to Copy",
-        description: "Could not copy the address to clipboard.",
-      });
+      toast({ title: "Address Copied", description: "The address has been copied to your clipboard." });
+    } catch {
+      toast({ variant: "destructive", title: "Failed to Copy", description: "Could not copy the address." });
     }
   };
 
   return (
-    <div className="space-y-6 p-4" id="bar-details-content">
-      <div className="flex flex-col sm:flex-row justify-between items-start gap-4">
-        <div>
-          <h1 className="text-2xl font-bold flex items-center gap-2">
-            {bar.name}
-            {bar.isSponsored && <Badge variant="secondary">Certified</Badge>}
-            {bar.businessStatus === "PERMANENTLY_CLOSED" && (
-              <Badge variant="destructive">Permanently Closed</Badge>
-            )}
-            <FavoriteBarDesktop barId={Number(id)} />
-          </h1>
-          {user &&
-            bar.isBarStaff &&
-            (user.role === "kavatender" ||
-              user.role === "admin" ||
-              user.role === "bar_owner") && (
-              <div className="mb-4">
-                <KavatenderCheckin barId={bar.id} />
+    <div className="min-h-screen bg-[#121212]">
+      {/* Hero Section */}
+      <div className="relative h-[45vh] min-h-[400px] w-full">
+        <div 
+          className="absolute inset-0 bg-cover bg-center"
+          style={{ backgroundImage: `url(${heroImage})` }}
+        />
+        <div className="absolute inset-0 bg-gradient-to-t from-[#121212] via-[#121212]/60 to-transparent" />
+        
+        <div className="absolute bottom-0 left-0 right-0 p-6 md:p-10">
+          <div className="max-w-7xl mx-auto">
+            <div className="flex items-center gap-3 mb-3">
+              {isOpen && (
+                <span className="bg-green-500 text-black font-bold uppercase text-xs px-3 py-1 rounded-full">
+                  Open Now
+                </span>
+              )}
+              {bar.isSponsored && (
+                <Badge className="bg-[#D35400] text-white">Certified</Badge>
+              )}
+              {bar.businessStatus === "PERMANENTLY_CLOSED" && (
+                <Badge variant="destructive">Permanently Closed</Badge>
+              )}
+            </div>
+            
+            <h1 className="text-3xl md:text-5xl font-bold text-white mb-2">{bar.name}</h1>
+            
+            <div className="flex items-center gap-2 text-gray-300">
+              <MapPin className="h-4 w-4 text-[#D35400]" />
+              <span>{bar.address}</span>
+            </div>
+            
+            {bar.rating && (
+              <div className="flex items-center gap-2 mt-2">
+                <Star className="h-5 w-5 text-[#F1C40F] fill-[#F1C40F]" />
+                <span className="text-white font-bold">{bar.rating}</span>
+                <span className="text-gray-400">rating</span>
               </div>
             )}
-
-          {checkIns && checkIns.length > 0 && (
-            <CheckInCarousel checkIns={checkIns} />
-          )}
+          </div>
         </div>
-        {bar.comingSoon && (
-          <ComingSoonBanner grandOpeningDate={bar.grandOpeningDate} />
-        )}
-        <div className="flex gap-2">
-          <ShareBar bar={bar} />
-          <FavoriteBarMobile barId={Number(id)} />
-          {/* <Button
-            variant="outline"
-            className="hidden flex items-center justify-center md:hidden"
-            size="icon"
-          >
-            <FaHeart className="h-4 w-4 " />
-          </Button> */}
+      </div>
 
+      {/* Main Content */}
+      <div className="max-w-7xl mx-auto px-4 py-8">
+        {/* Action Bar */}
+        <div className="flex flex-wrap gap-3 mb-8">
+          <ShareBar bar={bar} />
+          <FavoriteBarDesktop barId={Number(id)} />
+          <FavoriteBarMobile barId={Number(id)} />
+          
           {canClaim && (
             <ClaimBarDialog
               bar={bar}
               trigger={
-                <Button variant="outline" className="flex items-center gap-2">
+                <Button variant="outline" className="gap-2 border-[#333] text-gray-300 hover:bg-[#252525]">
                   <User className="h-4 w-4" />
                   Claim This Bar
                 </Button>
               }
             />
           )}
+          
           {isOwner && !bar.isSponsored && (
             <SponsorBarDialog
               bar={bar}
               trigger={
-                <Button className="gap-2">
+                <Button className="gap-2 bg-[#D35400] hover:bg-[#E67E22] text-white font-bold rounded-xl shadow-lg">
                   <Sparkles className="h-4 w-4" />
                   Get Certified
                 </Button>
               }
             />
           )}
+          
+          {user && bar.isBarStaff && (user.role === "kavatender" || user.role === "admin" || user.role === "bar_owner") && (
+            <KavatenderCheckin barId={bar.id} />
+          )}
         </div>
-      </div>
 
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-        {/* Left column - Public Information */}
-        <div className="space-y-6">
-          <Card>
-            <CardHeader>
-              <CardTitle>Information</CardTitle>
-            </CardHeader>
-            <CardContent className="space-y-4">
-              <div className="flex items-start justify-between gap-2 group">
-                <div className="flex items-start gap-2">
-                  <MapPin className="h-4 w-4 mt-1 shrink-0" />
-                  <span>{bar.address}</span>
+        {checkIns && checkIns.length > 0 && (
+          <div className="mb-8">
+            <CheckInCarousel checkIns={checkIns} />
+          </div>
+        )}
+
+        {/* Two Column Layout */}
+        <div className="grid grid-cols-1 lg:grid-cols-[1fr_380px] gap-10">
+          {/* Left Column - Main Content */}
+          <div className="space-y-8">
+            {/* Vibe Section */}
+            <section>
+              <h2 className="text-white font-bold text-xl mb-4 border-l-4 border-[#D35400] pl-3">
+                The Vibe
+              </h2>
+              <p className="text-gray-300 leading-relaxed">{vibeText}</p>
+            </section>
+
+            {/* Gallery */}
+            {galleryPhotos && galleryPhotos.length > 0 && (
+              <section>
+                <h2 className="text-white font-bold text-xl mb-4 border-l-4 border-[#D35400] pl-3">
+                  Gallery
+                </h2>
+                <div className="grid grid-cols-4 gap-2 h-64 md:h-80">
+                  {galleryPhotos.slice(0, 5).map((photo: any, index: number) => (
+                    <div
+                      key={photo.id || index}
+                      className={`relative rounded-lg overflow-hidden ${
+                        index === 0 ? "col-span-2 row-span-2" : ""
+                      }`}
+                    >
+                      <img
+                        src={photo.url}
+                        alt={`Gallery ${index + 1}`}
+                        className="w-full h-full object-cover hover:scale-105 transition-transform duration-300"
+                      />
+                    </div>
+                  ))}
                 </div>
-                <Button
-                  variant="ghost"
-                  size="sm"
-                  className="opacity-0 group-hover:opacity-100 transition-opacity"
-                  onClick={copyAddress}
-                >
-                  <Copy className="h-4 w-4" />
-                  <span className="sr-only">Copy address</span>
-                </Button>
+              </section>
+            )}
+
+            {/* Menu Highlights */}
+            {menuHighlights.length > 0 && (
+              <section>
+                <h2 className="text-white font-bold text-xl mb-4 border-l-4 border-[#D35400] pl-3">
+                  Menu Highlights
+                </h2>
+                <div className="space-y-3">
+                  {menuHighlights.map((item, index) => (
+                    <div key={index} className="bg-[#1E1E1E] p-4 rounded-xl border border-[#333]">
+                      <div className="flex justify-between items-start">
+                        <h3 className="text-white font-semibold">{item.name}</h3>
+                        {item.price && (
+                          <span className="text-[#D35400] font-bold">${item.price}</span>
+                        )}
+                      </div>
+                      <p className="text-gray-400 text-sm mt-1">{item.description}</p>
+                    </div>
+                  ))}
+                </div>
+              </section>
+            )}
+
+            {/* Features */}
+            {features.length > 0 && (
+              <section>
+                <h2 className="text-white font-bold text-xl mb-4 border-l-4 border-[#D35400] pl-3">
+                  Features & Amenities
+                </h2>
+                <div className="flex flex-wrap gap-2">
+                  {displayFeatures.map((feature, index) => (
+                    <span
+                      key={index}
+                      className="bg-[#1E1E1E] border border-[#333] text-gray-300 px-4 py-2 rounded-lg"
+                    >
+                      {feature}
+                    </span>
+                  ))}
+                  {features.length > 5 && (
+                    <button
+                      onClick={() => setShowAllFeatures(!showAllFeatures)}
+                      className="text-[#D35400] hover:text-[#E67E22] font-medium flex items-center gap-1"
+                    >
+                      {showAllFeatures ? (
+                        <>View Less <ChevronUp className="h-4 w-4" /></>
+                      ) : (
+                        <>View More ({features.length - 5}) <ChevronDown className="h-4 w-4" /></>
+                      )}
+                    </button>
+                  )}
+                </div>
+              </section>
+            )}
+
+            {/* Happy Hours */}
+            {Object.keys(happyHourSchedules).length > 0 && (
+              <section>
+                <h2 className="text-white font-bold text-xl mb-4 border-l-4 border-[#D35400] pl-3">
+                  Happy Hours
+                </h2>
+                <div className="space-y-3">
+                  {!showAllHappyHours ? (
+                    <div className="bg-[#1E1E1E] p-4 rounded-xl border-l-2 border-[#D35400]/50">
+                      <div className="font-semibold text-white mb-2">{todayDay}</div>
+                      {happyHourSchedules[todayDay] ? (
+                        <div className="flex flex-wrap gap-2">
+                          {happyHourSchedules[todayDay].map((slot, idx) => (
+                            <Badge key={idx} variant="secondary" className="bg-[#252525] text-gray-300">
+                              {slot}
+                            </Badge>
+                          ))}
+                        </div>
+                      ) : (
+                        <p className="text-gray-400">No happy hours today</p>
+                      )}
+                      <button
+                        onClick={() => setShowAllHappyHours(true)}
+                        className="text-[#D35400] hover:text-[#E67E22] font-medium flex items-center gap-1 mt-3"
+                      >
+                        View Full Week <ChevronDown className="h-4 w-4" />
+                      </button>
+                    </div>
+                  ) : (
+                    <>
+                      {daysOfWeek.map((day) => {
+                        const slots = happyHourSchedules[day];
+                        if (!slots) return null;
+                        return (
+                          <div key={day} className="bg-[#1E1E1E] p-4 rounded-xl border-l-2 border-[#D35400]/50">
+                            <div className="font-semibold text-white mb-2">{day}</div>
+                            <div className="flex flex-wrap gap-2">
+                              {slots.map((slot, idx) => (
+                                <Badge key={idx} variant="secondary" className="bg-[#252525] text-gray-300">
+                                  {slot}
+                                </Badge>
+                              ))}
+                            </div>
+                          </div>
+                        );
+                      })}
+                      <button
+                        onClick={() => setShowAllHappyHours(false)}
+                        className="text-[#D35400] hover:text-[#E67E22] font-medium flex items-center gap-1"
+                      >
+                        Show Less <ChevronUp className="h-4 w-4" />
+                      </button>
+                    </>
+                  )}
+                </div>
+              </section>
+            )}
+
+            {/* Events */}
+            {upcomingEvents.length > 0 && (
+              <section>
+                <h2 className="text-white font-bold text-xl mb-4 border-l-4 border-[#D35400] pl-3">
+                  Upcoming Events
+                </h2>
+                <div className="space-y-4">
+                  {upcomingEvents.map((event: any) => (
+                    <div key={event.id} className="bg-[#1E1E1E] p-5 rounded-xl border border-[#333]">
+                      <div className="flex justify-between items-start mb-3">
+                        <div>
+                          <h3 className="text-white font-semibold text-lg">{event.title}</h3>
+                          <div className="flex items-center gap-2 text-gray-400 text-sm mt-1">
+                            <Calendar className="h-4 w-4" />
+                            <span>
+                              {event.startDate ? format(parseISO(event.startDate), "EEEE, MMM d") : daysOfWeek[event.dayOfWeek]}
+                            </span>
+                            <span>•</span>
+                            <span>{event.startTime} - {event.endTime}</span>
+                          </div>
+                        </div>
+                      </div>
+                      {event.description && (
+                        <p className="text-gray-400 text-sm mb-4">{event.description}</p>
+                      )}
+                      <div className="flex gap-3">
+                        <RsvpButton user={user} event={event} barId={Number(id)} />
+                        <a
+                          href={generateGoogleCalendarLink(event, bar.address)}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="inline-flex items-center gap-2 px-4 py-2 border border-[#333] text-gray-300 rounded-lg hover:bg-[#252525] transition-colors"
+                        >
+                          <CalendarPlus className="h-4 w-4" />
+                          Add to Calendar
+                        </a>
+                      </div>
+                    </div>
+                  ))}
+                  {eventsData && eventsData.length > 1 && (
+                    <button
+                      onClick={() => setShowAllEvents(!showAllEvents)}
+                      className="text-[#D35400] hover:text-[#E67E22] font-medium flex items-center gap-1"
+                    >
+                      {showAllEvents ? (
+                        <>Show Less <ChevronUp className="h-4 w-4" /></>
+                      ) : (
+                        <>View All Events ({eventsData.length}) <ChevronDown className="h-4 w-4" /></>
+                      )}
+                    </button>
+                  )}
+                </div>
+              </section>
+            )}
+
+            {/* Reviews */}
+            <section>
+              <h2 className="text-white font-bold text-xl mb-4 border-l-4 border-[#D35400] pl-3">
+                Reviews
+              </h2>
+              <div className="bg-[#1E1E1E] p-5 rounded-xl border border-[#333]">
+                {user && (
+                  user.isPhoneVerified ? (
+                    <div className="mb-6">
+                      <ReviewForm barId={bar.id} />
+                    </div>
+                  ) : (
+                    <CustomModal
+                      title="Phone Verification Required"
+                      description="Phone verification is required to post reviews."
+                      confirmButtonText="Complete onboarding"
+                      confirmAction={() => navigate("/complete-onboarding")}
+                      trigger={
+                        <Button className="mb-6 bg-[#D35400] hover:bg-[#E67E22] text-white font-bold rounded-xl">
+                          Write a Review
+                        </Button>
+                      }
+                    />
+                  )
+                )}
+                <ReviewList barId={bar.id} />
               </div>
-              {bar.phone && (
-                <div className="flex items-center gap-2">
-                  <Phone className="h-4 w-4" />
-                  <span>{bar.phone}</span>
+            </section>
+          </div>
+
+          {/* Right Column - Sidebar */}
+          <div className="space-y-6">
+            <div className="sticky top-6 space-y-6">
+              {/* Contact Card */}
+              <div className="bg-[#1E1E1E] p-5 rounded-xl border border-[#333]">
+                <h3 className="text-white font-bold text-lg mb-4">Contact & Hours</h3>
+                
+                <div className="space-y-4">
+                  <div className="flex items-start gap-3 group">
+                    <MapPin className="h-5 w-5 text-[#D35400] mt-0.5 shrink-0" />
+                    <div className="flex-1">
+                      <p className="text-gray-300">{bar.address}</p>
+                      <button
+                        onClick={copyAddress}
+                        className="text-[#D35400] text-sm flex items-center gap-1 mt-1 hover:text-[#E67E22]"
+                      >
+                        <Copy className="h-3 w-3" /> Copy Address
+                      </button>
+                    </div>
+                  </div>
+
+                  {bar.phone && (
+                    <div className="flex items-center gap-3">
+                      <Phone className="h-5 w-5 text-[#D35400] shrink-0" />
+                      <a href={`tel:${bar.phone}`} className="text-gray-300 hover:text-white">
+                        {bar.phone}
+                      </a>
+                    </div>
+                  )}
+
+                  <div className="flex items-start gap-3">
+                    <Clock className="h-5 w-5 text-[#D35400] mt-0.5 shrink-0" />
+                    <div className="space-y-1">
+                      {bar.hours?.weekday_text?.map((text: string, index: number) => (
+                        <p key={index} className="text-gray-300 text-sm">{text}</p>
+                      )) || <p className="text-gray-400">Hours not available</p>}
+                    </div>
+                  </div>
+                </div>
+
+                <a
+                  href={`https://www.google.com/maps/dir/?api=1&destination=${encodeURIComponent(bar.address)}`}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="mt-6 w-full inline-flex items-center justify-center gap-2 bg-[#D35400] hover:bg-[#E67E22] text-white font-bold py-3 rounded-xl shadow-lg transition-colors"
+                >
+                  <ExternalLink className="h-4 w-4" />
+                  Get Directions
+                </a>
+              </div>
+
+              {/* Admin Controls */}
+              {user?.isAdmin && (
+                <div className="bg-[#1E1E1E] p-5 rounded-xl border border-[#333]">
+                  <h3 className="text-white font-bold text-lg mb-4">Admin Controls</h3>
+                  <BarOwnershipControls bar={bar} />
                 </div>
               )}
-              <HoursDisplay
-                hours={bar.hours}
-                businessStatus={bar.businessStatus}
-              />
-            </CardContent>
-          </Card>
-          <BarFeatures barId={Number(bar.id)} />
-          <BarHappyHours barId={Number(bar.id)} />
-
-          {/* Events section - visible to all users */}
-          <BarEvents
-            barId={Number(bar.id)}
-            ownerId={Number(bar.ownerId)}
-            address={bar.address}
-          />
-          {/* Reviews section - visible to all users */}
-          <Card>
-            <CardHeader>
-              <CardTitle>Reviews</CardTitle>
-            </CardHeader>
-            <CardContent className="space-y-6">
-              {user &&
-                (user.isPhoneVerified ? (
-                  <ReviewForm barId={bar.id} />
-                ) : (
-                  <CustomModal
-                    title="Phone Verification Required"
-                    description="Phone verification is required to post reviews."
-                    confirmButtonText="Complete onboarding"
-                    confirmAction={() => navigate("/complete-onboarding")}
-                    trigger={<Button size="sm">Write a Review</Button>}
-                  />
-                ))}
-              <ReviewList barId={bar.id} />
-            </CardContent>
-          </Card>
-        </div>
-
-        {/* Right column - Authenticated Content */}
-        <div className="space-y-6">
-          {user?.isAdmin && (
-            <Card className="mb-6">
-              <CardHeader>
-                <CardTitle>Admin Controls</CardTitle>
-              </CardHeader>
-              <CardContent>
-                <BarOwnershipControls bar={bar} />
-              </CardContent>
-            </Card>
-          )}
-
-          {/* Show photo gallery to all users */}
-          <BarPhotoGallery bar={bar} />
+            </div>
+          </div>
         </div>
       </div>
     </div>
