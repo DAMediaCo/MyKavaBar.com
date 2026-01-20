@@ -126,6 +126,15 @@ export default function BarDetails() {
     },
   });
 
+  const { data: barFeaturesData } = useQuery<any[]>({
+    queryKey: [`/api/bar/${id}/features`],
+    queryFn: async () => {
+      const response = await fetch(`/api/bar/${id}/features`);
+      if (!response.ok) return [];
+      return response.json();
+    },
+  });
+
   const todayDay = daysOfWeek[new Date().getDay()];
   
   const happyHourSchedules = useMemo(() => {
@@ -180,7 +189,12 @@ export default function BarDetails() {
     (galleryPhotos && galleryPhotos.length > 0 ? galleryPhotos[0].url : null) ||
     "https://images.unsplash.com/photo-1514362545857-3bc16c4c7d1b?w=1200";
 
-  const features: string[] = bar.features || [];
+  const features: string[] = useMemo(() => {
+    if (barFeaturesData && barFeaturesData.length > 0) {
+      return barFeaturesData.map((f: any) => f.name || f.featureName || f);
+    }
+    return bar.features || [];
+  }, [barFeaturesData, bar.features]);
   const displayFeatures = showAllFeatures ? features : features.slice(0, 5);
   
   const menuHighlights: MenuHighlight[] = bar.menuHighlights || [];
