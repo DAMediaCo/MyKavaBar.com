@@ -158,8 +158,13 @@ export default function BarDetails() {
   }, [eventsData, showAllEvents]);
 
   const features: string[] = useMemo(() => {
-    if (barFeaturesData && barFeaturesData.length > 0) {
-      return barFeaturesData.map((f: any) => f.name || f.featureName || f);
+    if (barFeaturesData) {
+      const master = barFeaturesData.masterFeatures || [];
+      const custom = barFeaturesData.customFeatures || [];
+      const allFeatures = [...master, ...custom];
+      if (allFeatures.length > 0) {
+        return allFeatures.map((f: any) => f.name || f.featureName || f);
+      }
     }
     return bar?.features || [];
   }, [barFeaturesData, bar?.features]);
