@@ -1,7 +1,6 @@
 import { Link } from "wouter";
 import { useState } from "react";
 import { MapPin } from "lucide-react";
-import ShareBar from "./share-bar";
 import { format, isBefore, startOfDay } from "date-fns";
 
 interface KavaBarCardProps {
@@ -176,10 +175,6 @@ export default function KavaBarCard({ bar, distance }: KavaBarCardProps) {
           </div>
         </div>
       </Link>
-      
-      <div className="px-4 pb-4">
-        <ShareBar bar={bar} />
-      </div>
     </div>
   );
 }
