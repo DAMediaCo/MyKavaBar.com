@@ -407,6 +407,7 @@ export const barEvents = pgTable("bar_events", {
   isRecurring: boolean("is_recurring").default(true).notNull(),
   startDate: date("start_date"),
   endDate: date("end_date"),
+  photoUrl: text("photo_url"),
   createdBy: integer("created_by").references(() => users.id),
   createdAt: timestamp("created_at").defaultNow().notNull(),
   updatedAt: timestamp("updated_at"),

@@ -4,6 +4,25 @@ import { db } from "@db";
 import { barEvents, eventRsvps, kavaBars } from "@db/schema";
 import { isAuthenticated } from "../middleware/auth";
 import { getNextOccurrence, convertEstToUtcDateTime } from "@utils/time-utils";
+import multer from "multer";
+import sharp from "sharp";
+import { uploadImageToStorage } from "../upload-to-storage";
+import { randomUUID } from "crypto";
+
+const upload = multer({
+  storage: multer.memoryStorage(),
+  limits: {
+    fileSize: 10 * 1024 * 1024, // 10MB limit for event photos
+  },
+  fileFilter: (req, file, cb) => {
+    const allowedMimeTypes = ["image/jpeg", "image/png", "image/webp", "image/gif"];
+    if (allowedMimeTypes.includes(file.mimetype)) {
+      cb(null, true);
+    } else {
+      cb(new Error("Invalid file type. Only JPEG, PNG, WebP, and GIF images are allowed."));
+    }
+  },
+});
 
 // Array of day of week names for logging
 const daysOfWeek = [
@@ -150,6 +169,7 @@ export function registerEventRoutes(app: Express) {
   app.post(
     "/api/bars/:barId/events",
     isAuthenticated,
+    upload.single("photo"),
     async (req: Request, res: Response) => {
       try {
         const { barId } = req.params;
@@ -292,6 +312,26 @@ export function registerEventRoutes(app: Express) {
           }
         }
 
+        // Handle photo upload if provided
+        let photoUrl: string | null = null;
+        let photoUploadWarning: string | null = null;
+        if (req.file) {
+          try {
+            const processedImageBuffer = await sharp(req.file.buffer)
+              .resize(1200, 800, { fit: "cover", withoutEnlargement: true })
+              .jpeg({ quality: 85 })
+              .toBuffer();
+
+            const fileName = `event-photos/${barId}-${randomUUID()}.jpg`;
+            const { publicUrl } = await uploadImageToStorage(processedImageBuffer, fileName);
+            photoUrl = publicUrl;
+            console.log("Event photo uploaded to R2:", photoUrl);
+          } catch (uploadError: any) {
+            console.error("Error uploading event photo:", uploadError);
+            photoUploadWarning = "Event created but photo upload failed. Please try uploading the photo again.";
+          }
+        }
+
         // Insert event using table field names
         const [event] = await db
           .insert(barEvents)
@@ -305,6 +345,7 @@ export function registerEventRoutes(app: Express) {
             isRecurring,
             startDate: formattedStartDate,
             endDate: formattedEndDate,
+            photoUrl,
             createdBy: userId,
             createdAt: new Date(),
             updatedAt: new Date(),
@@ -314,8 +355,9 @@ export function registerEventRoutes(app: Express) {
         console.log("Created event with id:", event.id);
 
         res.status(200).json({
-          message: "Event created successfully",
+          message: photoUploadWarning || "Event created successfully",
           event,
+          ...(photoUploadWarning && { warning: photoUploadWarning }),
         });
       } catch (error: any) {
         console.error("Error adding event:", error);
@@ -328,6 +370,7 @@ export function registerEventRoutes(app: Express) {
   app.put(
     "/api/bars/:barId/events/:eventId",
     isAuthenticated,
+    upload.single("photo"),
     async (req: Request, res: Response) => {
       try {
         const { barId, eventId } = req.params;
@@ -451,20 +494,46 @@ export function registerEventRoutes(app: Express) {
           }
         }
 
+        // Handle photo upload if provided
+        let photoUrl: string | undefined = undefined;
+        let photoUploadWarning: string | null = null;
+        if (req.file) {
+          try {
+            const processedImageBuffer = await sharp(req.file.buffer)
+              .resize(1200, 800, { fit: "cover", withoutEnlargement: true })
+              .jpeg({ quality: 85 })
+              .toBuffer();
+
+            const fileName = `event-photos/${barId}-${randomUUID()}.jpg`;
+            const { publicUrl } = await uploadImageToStorage(processedImageBuffer, fileName);
+            photoUrl = publicUrl;
+            console.log("Event photo uploaded to R2:", photoUrl);
+          } catch (uploadError: any) {
+            console.error("Error uploading event photo:", uploadError);
+            photoUploadWarning = "Event updated but photo upload failed. Please try uploading the photo again.";
+          }
+        }
+
+        // Build update object - only include photoUrl if a new photo was uploaded
+        const updateData: Record<string, any> = {
+          title,
+          description,
+          startTime,
+          endTime,
+          isRecurring,
+          dayOfWeek: effectiveDayOfWeek,
+          startDate: formattedStartDate,
+          endDate: formattedEndDate,
+          updatedAt: new Date(),
+        };
+        if (photoUrl !== undefined) {
+          updateData.photoUrl = photoUrl;
+        }
+
         // Update the event
         const [updatedEvent] = await db
           .update(barEvents)
-          .set({
-            title,
-            description,
-            startTime,
-            endTime,
-            isRecurring,
-            dayOfWeek: effectiveDayOfWeek, // Always ensure a valid day of week
-            startDate: formattedStartDate,
-            endDate: formattedEndDate,
-            updatedAt: new Date(),
-          })
+          .set(updateData)
           .where(
             and(
               eq(barEvents.id, parseInt(eventId)),
@@ -478,8 +547,9 @@ export function registerEventRoutes(app: Express) {
         }
 
         res.json({
-          message: "Event updated successfully",
+          message: photoUploadWarning || "Event updated successfully",
           event: updatedEvent,
+          ...(photoUploadWarning && { warning: photoUploadWarning }),
         });
       } catch (error: any) {
         console.error("Error updating event:", error);
