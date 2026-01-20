@@ -363,12 +363,19 @@ export function setupAuth(app: Express) {
       },
     ),
   );
+  // Use absolute callback URL for production to ensure OAuth works correctly
+  const googleCallbackURL = process.env.NODE_ENV === "production" 
+    ? "https://mykavabar.com/api/auth/google/callback"
+    : "/api/auth/google/callback";
+  
+  console.log("Google OAuth callback URL:", googleCallbackURL);
+  
   passport.use(
     new GoogleStrategy(
       {
         clientID: process.env.GOOGLE_CLIENT_ID!,
         clientSecret: process.env.GOOGLE_CLIENT_SECRET!,
-        callbackURL: "/api/auth/google/callback",
+        callbackURL: googleCallbackURL,
       },
       async (accessToken: string, refreshToken: string, profile: any, done) => {
         try {
@@ -502,10 +509,29 @@ export function setupAuth(app: Express) {
 
   app.get(
     "/api/auth/google/callback",
-    passport.authenticate("google", { failureRedirect: "/auth" }),
-    (req, res) => {
-      // Successful authentication
-      res.redirect("/"); // Or send custom response if API
+    (req, res, next) => {
+      console.log("Google OAuth callback received");
+      console.log("Query params:", req.query);
+      passport.authenticate("google", (err: any, user: any, info: any) => {
+        console.log("Google auth result - Error:", err, "User:", user ? user.id : null, "Info:", info);
+        if (err) {
+          console.error("Google OAuth error:", err);
+          return res.redirect("/auth?authError=" + encodeURIComponent(err.message || "Authentication failed"));
+        }
+        if (!user) {
+          console.log("Google OAuth: No user returned, info:", info);
+          const errorMsg = info?.message || "Authentication failed";
+          return res.redirect("/auth?authError=" + encodeURIComponent(errorMsg));
+        }
+        req.logIn(user, (loginErr) => {
+          if (loginErr) {
+            console.error("Session login error:", loginErr);
+            return res.redirect("/auth?authError=" + encodeURIComponent("Session error"));
+          }
+          console.log("Google OAuth successful, user logged in:", user.id);
+          res.redirect("/");
+        });
+      })(req, res, next);
     },
   );
   app.post(
