@@ -50,6 +50,14 @@ function getApiUrl(path: string) {
   return path.startsWith("/") ? path : `/${path}`;
 }
 
+function formatTimeTo12Hour(time: string): string {
+  if (!time) return "";
+  const [hours, minutes] = time.split(":").map(Number);
+  const period = hours >= 12 ? "PM" : "AM";
+  const hour12 = hours % 12 || 12;
+  return `${hour12}:${minutes.toString().padStart(2, "0")} ${period}`;
+}
+
 function generateGoogleCalendarLink(event: any, barAddress: string) {
   const startDate = event.startDate ? parseISO(event.startDate) : new Date();
   const dateStr = format(startDate, "yyyyMMdd");
@@ -511,7 +519,7 @@ export default function BarDetails() {
                               {event.startDate ? format(parseISO(event.startDate), "EEEE, MMM d") : daysOfWeek[event.dayOfWeek]}
                             </span>
                             <span>•</span>
-                            <span>{event.startTime} - {event.endTime}</span>
+                            <span>{formatTimeTo12Hour(event.startTime)} - {formatTimeTo12Hour(event.endTime)}</span>
                           </div>
                         </div>
                       </div>
