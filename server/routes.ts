@@ -991,6 +991,9 @@ export function registerRoutes(app: Express, server: Server): void {
           verificationNotes: req.user?.isAdmin
             ? bar.verification_notes
             : undefined,
+          vibeText: bar.vibe_text || null,
+          menuHighlights: bar.menu_highlights || null,
+          features: bar.features || null,
         };
         console.log("Full bar data: ", fullBarData);
         console.log("Sending bar details response:", {
