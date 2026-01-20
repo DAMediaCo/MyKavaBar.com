@@ -33,7 +33,8 @@ import { EventRsvpTab } from "@/components/owner/events-rsvp-tab";
 import { Features } from "@/components/owner/features";
 import { HappyHours } from "@/components/owner/happy-hours";
 import ComingSoonForm from "@/components/owner/coming-soon-form";
-import { ImageIcon } from "lucide-react";
+import { ImageIcon, Sparkles } from "lucide-react";
+import { useAuth } from "@/hooks/use-auth";
 
 const daysOfWeek = [
   "Sunday",
@@ -450,6 +451,8 @@ export default function ManageBar() {
   const [heroImageFile, setHeroImageFile] = useState<File | null>(null);
   const [heroImagePreview, setHeroImagePreview] = useState<string | null>(null);
   const [isUploadingHeroImage, setIsUploadingHeroImage] = useState(false);
+  const [isGeneratingVibe, setIsGeneratingVibe] = useState(false);
+  const { user } = useAuth();
 
   const handleHeroImageChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
@@ -542,6 +545,35 @@ export default function ManageBar() {
       });
     } finally {
       setIsUploadingHeroImage(false);
+    }
+  };
+
+  const regenerateVibe = async () => {
+    setIsGeneratingVibe(true);
+    try {
+      const response = await fetch(`/api/kava-bars/${id}/regenerate-vibe`, {
+        method: "POST",
+        credentials: "include",
+      });
+
+      if (!response.ok) {
+        const errorData = await response.json().catch(() => ({}));
+        throw new Error(errorData.error || "Failed to regenerate vibe");
+      }
+
+      toast({
+        title: "Vibe Check Complete!",
+        description: "AI has generated new atmosphere and menu data.",
+      });
+      queryClient.invalidateQueries({ queryKey: [`/api/kava-bars/${id}`] });
+    } catch (error: any) {
+      toast({
+        variant: "destructive",
+        title: "Generation failed",
+        description: error.message,
+      });
+    } finally {
+      setIsGeneratingVibe(false);
     }
   };
 
@@ -848,6 +880,39 @@ export default function ManageBar() {
                     </Button>
                   )}
                 </div>
+                
+                {user?.isAdmin && (
+                  <>
+                    <Separator />
+                    
+                    <div className="space-y-4">
+                      <h3 className="font-medium flex items-center gap-2">
+                        <Sparkles className="h-5 w-5" />
+                        AI Vibe Check
+                      </h3>
+                      <p className="text-sm text-muted-foreground">
+                        Generate AI-powered atmosphere descriptions and menu highlights for this bar.
+                      </p>
+                      <Button 
+                        onClick={regenerateVibe}
+                        disabled={isGeneratingVibe}
+                        className="w-full sm:w-auto"
+                      >
+                        {isGeneratingVibe ? (
+                          <>
+                            <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                            Generating...
+                          </>
+                        ) : (
+                          <>
+                            <Sparkles className="mr-2 h-4 w-4" />
+                            Run AI Vibe Check
+                          </>
+                        )}
+                      </Button>
+                    </div>
+                  </>
+                )}
                 
                 <Separator />
                 

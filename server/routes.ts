@@ -65,6 +65,7 @@ import sharp from "sharp";
 import { randomUUID } from "crypto";
 import express from "express";
 import { uploadImageToStorage } from "./upload-to-storage";
+import { enrichBarData } from "./services/ai-enrichment";
 import { parseHours } from "./utils/parse-hours";
 import { getUserReferralDetails } from "@utils/referrals";
 import { generateUniqueReferralCode } from "@utils/generate-referralcode";
@@ -1626,6 +1627,32 @@ export function registerRoutes(app: Express, server: Server): void {
       }
     }
   );
+
+  // Regenerate AI Vibe Check (Admin only)
+  app.post("/api/kava-bars/:id/regenerate-vibe", async (req, res) => {
+    if (!req.isAuthenticated()) {
+      return res.status(401).json({ error: "Not authenticated" });
+    }
+
+    if (!req.user.isAdmin) {
+      return res.status(403).json({ error: "Admin access required" });
+    }
+
+    const barId = Number(req.params.id);
+
+    try {
+      const result = await enrichBarData(barId);
+      res.json({
+        success: true,
+        vibeText: result.vibeText,
+        menuHighlights: result.menuHighlights,
+        features: result.features,
+      });
+    } catch (error: any) {
+      console.error("Error regenerating vibe:", error);
+      res.status(500).json({ error: error.message });
+    }
+  });
 
   // Update bar vibe and menu info (Owner Dashboard)
   app.put("/api/kava-bars/:id/details", async (req, res) => {
