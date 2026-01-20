@@ -90,11 +90,11 @@ export default function ManageBar() {
   const { toast } = useToast();
   const queryClient = useQueryClient();
   const [isModalOpen, setIsModalOpen] = useState(false);
-  const [selectedEvent, setSelectedEvent] = useState<EventFormValues | null>(
+  const [selectedEvent, setSelectedEvent] = useState<(EventFormValues & { id: number; photoUrl?: string | null }) | null>(
     null,
   );
 
-  const handleEdit = (event: EventFormValues) => {
+  const handleEdit = (event: EventFormValues & { id: number; photoUrl?: string | null }) => {
     setSelectedEvent(event); // Store event data
     setIsModalOpen(true); // Open modal
   };
@@ -342,13 +342,21 @@ export default function ManageBar() {
   });
 
   const createEventMutation = useMutation({
-    mutationFn: async (data: EventFormValues) => {
+    mutationFn: async ({ data, photo }: { data: EventFormValues; photo?: File }) => {
+      const formData = new FormData();
+      formData.append("title", data.title);
+      if (data.description) formData.append("description", data.description);
+      formData.append("dayOfWeek", String(data.dayOfWeek));
+      formData.append("startTime", data.startTime);
+      formData.append("endTime", data.endTime);
+      formData.append("isRecurring", String(data.isRecurring));
+      if (data.startDate) formData.append("startDate", data.startDate);
+      if (data.endDate) formData.append("endDate", data.endDate);
+      if (photo) formData.append("photo", photo);
+
       const response = await fetch(`/api/bars/${id}/events`, {
         method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify(data),
+        body: formData,
         credentials: "include",
       });
 
@@ -359,10 +367,10 @@ export default function ManageBar() {
 
       return response.json();
     },
-    onSuccess: () => {
+    onSuccess: (result) => {
       toast({
         title: "Success",
-        description: "Event created successfully",
+        description: result.warning || "Event created successfully",
       });
       queryClient.invalidateQueries([`/api/bars/${id}/events`]);
     },
@@ -376,15 +384,24 @@ export default function ManageBar() {
   });
   const updateEventMutation = useMutation({
     mutationFn: async ({
-      barId,
-      ...data
-    }: EventFormValues & { barId: number }) => {
-      const response = await fetch(`/api/bars/${id}/events/${barId}`, {
-        method: "PUT", // Ensure this matches your backend method
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify(data),
+      eventId,
+      data,
+      photo,
+    }: { eventId: number; data: EventFormValues; photo?: File }) => {
+      const formData = new FormData();
+      formData.append("title", data.title);
+      if (data.description) formData.append("description", data.description);
+      formData.append("dayOfWeek", String(data.dayOfWeek));
+      formData.append("startTime", data.startTime);
+      formData.append("endTime", data.endTime);
+      formData.append("isRecurring", String(data.isRecurring));
+      if (data.startDate) formData.append("startDate", data.startDate);
+      if (data.endDate) formData.append("endDate", data.endDate);
+      if (photo) formData.append("photo", photo);
+
+      const response = await fetch(`/api/bars/${id}/events/${eventId}`, {
+        method: "PUT",
+        body: formData,
         credentials: "include",
       });
 
@@ -395,10 +412,10 @@ export default function ManageBar() {
 
       return response.json();
     },
-    onSuccess: () => {
+    onSuccess: (result) => {
       toast({
         title: "Success",
-        description: "Event updated successfully",
+        description: result.warning || "Event updated successfully",
       });
       queryClient.invalidateQueries([`/api/bars/${id}/events`]);
     },
@@ -409,7 +426,6 @@ export default function ManageBar() {
         description: error.message,
       });
     },
-    enabled: !!selectedEvent,
   });
 
   const deleteEventMutation = useMutation({
@@ -622,8 +638,8 @@ export default function ManageBar() {
     updateHoursMutation.mutate(data);
   }
 
-  function handleCreateEvent(data: EventFormValues) {
-    createEventMutation.mutate(data, {
+  function handleCreateEvent(data: EventFormValues, photo?: File) {
+    createEventMutation.mutate({ data, photo }, {
       onSuccess: () => {
         setOpen(false); // Close the dialog on successful creation
       },
@@ -969,10 +985,13 @@ export default function ManageBar() {
                   <DialogHeader>
                     <DialogTitle>Add New Event</DialogTitle>
                   </DialogHeader>
-                  <EventForm
-                    onSubmit={handleCreateEvent}
-                    isSubmitting={createEventMutation.isPending}
-                  />
+                  {open && (
+                    <EventForm
+                      key="create-event-form"
+                      onSubmit={handleCreateEvent}
+                      isSubmitting={createEventMutation.isPending}
+                    />
+                  )}
                 </DialogContent>
               </Dialog>
             </CardHeader>
@@ -1034,18 +1053,22 @@ export default function ManageBar() {
                       <DialogHeader>
                         <DialogTitle>Edit Event</DialogTitle>
                       </DialogHeader>
-                      <EventForm
-                        onSubmit={(data) => {
-                          console.log("Event update data ", data);
-                          updateEventMutation.mutate({
-                            barId: selectedEvent.id,
-                            ...data,
-                          }); // Use form data, not selectedEvent
-                          handleCloseModal();
-                        }}
-                        defaultValues={selectedEvent}
-                        isSubmitting={updateEventMutation.isPending}
-                      />
+                      {selectedEvent && (
+                        <EventForm
+                          onSubmit={(data, photo) => {
+                            console.log("Event update data ", data);
+                            updateEventMutation.mutate({
+                              eventId: selectedEvent.id,
+                              data,
+                              photo,
+                            });
+                            handleCloseModal();
+                          }}
+                          defaultValues={selectedEvent}
+                          existingPhotoUrl={selectedEvent.photoUrl}
+                          isSubmitting={updateEventMutation.isPending}
+                        />
+                      )}
                     </DialogContent>
                   </Dialog>
                 </div>

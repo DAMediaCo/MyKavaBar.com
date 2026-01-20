@@ -2,7 +2,7 @@ import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
 import { Button } from "@/components/ui/button";
-import { Loader2 } from "lucide-react";
+import { Loader2, ImageIcon, X } from "lucide-react";
 import {
   Form,
   FormControl,
@@ -14,7 +14,7 @@ import {
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Checkbox } from "@/components/ui/checkbox";
-import { useEffect } from "react";
+import { useEffect, useState, useRef } from "react";
 
 const eventFormSchema = z
   .object({
@@ -36,9 +36,10 @@ const eventFormSchema = z
 export type EventFormValues = z.infer<typeof eventFormSchema>;
 
 interface EventFormProps {
-  onSubmit: (data: EventFormValues) => void;
+  onSubmit: (data: EventFormValues, photo?: File) => void;
   isSubmitting?: boolean;
   defaultValues?: Partial<EventFormValues>;
+  existingPhotoUrl?: string | null;
 }
 
 const daysOfWeek = [
@@ -55,6 +56,7 @@ export function EventForm({
   onSubmit,
   isSubmitting,
   defaultValues,
+  existingPhotoUrl,
 }: EventFormProps) {
   const form = useForm<EventFormValues>({
     resolver: zodResolver(eventFormSchema),
@@ -65,9 +67,42 @@ export function EventForm({
     },
   });
 
+  const [selectedPhoto, setSelectedPhoto] = useState<File | null>(null);
+  const [photoPreview, setPhotoPreview] = useState<string | null>(existingPhotoUrl || null);
+  const fileInputRef = useRef<HTMLInputElement>(null);
+
+  // Reset photo state when existingPhotoUrl changes (switching between events or opening fresh dialog)
+  useEffect(() => {
+    setSelectedPhoto(null);
+    setPhotoPreview(existingPhotoUrl || null);
+    if (fileInputRef.current) {
+      fileInputRef.current.value = "";
+    }
+  }, [existingPhotoUrl]);
+
   useEffect(() => {
     console.log("Form error: ", form.formState.errors);
   }, [form.formState.errors]);
+
+  const handlePhotoChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (file) {
+      setSelectedPhoto(file);
+      const reader = new FileReader();
+      reader.onloadend = () => {
+        setPhotoPreview(reader.result as string);
+      };
+      reader.readAsDataURL(file);
+    }
+  };
+
+  const handleRemovePhoto = () => {
+    setSelectedPhoto(null);
+    setPhotoPreview(existingPhotoUrl || null);
+    if (fileInputRef.current) {
+      fileInputRef.current.value = "";
+    }
+  };
 
   const handleSubmit = (data: EventFormValues) => {
     // Create a fixed copy of the data to prevent unexpected mutations
@@ -89,8 +124,8 @@ export function EventForm({
       console.log("Non-recurring event - preserving exact date strings");
     }
 
-    // Submit the data without any date manipulation
-    onSubmit(formData);
+    // Submit the data with optional photo
+    onSubmit(formData, selectedPhoto || undefined);
   };
 
   return (
@@ -123,6 +158,45 @@ export function EventForm({
             </FormItem>
           )}
         />
+
+        {/* Event Photo Upload */}
+        <div className="space-y-2">
+          <label className="text-sm font-medium">Event Photo (Optional)</label>
+          <div className="flex flex-col gap-3">
+            {photoPreview ? (
+              <div className="relative w-full h-32 rounded-lg overflow-hidden border border-input">
+                <img
+                  src={photoPreview}
+                  alt="Event photo preview"
+                  className="w-full h-full object-cover"
+                />
+                <button
+                  type="button"
+                  onClick={handleRemovePhoto}
+                  className="absolute top-2 right-2 bg-black/50 text-white rounded-full p-1 hover:bg-black/70 transition-colors"
+                >
+                  <X className="h-4 w-4" />
+                </button>
+              </div>
+            ) : (
+              <div
+                onClick={() => fileInputRef.current?.click()}
+                className="w-full h-32 border-2 border-dashed border-input rounded-lg flex flex-col items-center justify-center cursor-pointer hover:border-primary transition-colors"
+              >
+                <ImageIcon className="h-8 w-8 text-muted-foreground mb-2" />
+                <span className="text-sm text-muted-foreground">Click to upload photo</span>
+                <span className="text-xs text-muted-foreground mt-1">JPG, PNG, WebP (max 10MB)</span>
+              </div>
+            )}
+            <input
+              ref={fileInputRef}
+              type="file"
+              accept="image/jpeg,image/png,image/webp"
+              onChange={handlePhotoChange}
+              className="hidden"
+            />
+          </div>
+        </div>
 
         <FormField
           control={form.control}

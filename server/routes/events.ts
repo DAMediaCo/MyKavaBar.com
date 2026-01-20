@@ -178,12 +178,16 @@ export function registerEventRoutes(app: Express) {
           description,
           startTime,
           endTime,
-          isRecurring,
-          dayOfWeek,
+          isRecurring: isRecurringRaw,
+          dayOfWeek: dayOfWeekRaw,
           startDate,
           endDate,
           timezone,
         } = req.body;
+
+        // Convert FormData string values to proper types
+        const isRecurring = isRecurringRaw === "true" || isRecurringRaw === true;
+        const dayOfWeek = typeof dayOfWeekRaw === "string" ? parseInt(dayOfWeekRaw, 10) : dayOfWeekRaw;
 
         const userId = req.user?.id;
 
@@ -398,11 +402,15 @@ export function registerEventRoutes(app: Express) {
           description,
           startTime,
           endTime,
-          isRecurring,
-          dayOfWeek,
+          isRecurring: isRecurringRaw,
+          dayOfWeek: dayOfWeekRaw,
           startDate,
           endDate,
         } = req.body;
+
+        // Convert FormData string values to proper types
+        const isRecurring = isRecurringRaw === "true" || isRecurringRaw === true;
+        const dayOfWeek = typeof dayOfWeekRaw === "string" ? parseInt(dayOfWeekRaw, 10) : dayOfWeekRaw;
 
         // Debug logging - incoming date values
         console.log("Updating event - Raw incoming dates:", {
