@@ -21,7 +21,6 @@ import {
   AlertCircle,
   Copy,
 } from "lucide-react";
-import MapView from "@/components/map-view";
 import { useToast } from "@/hooks/use-toast";
 import KavatenderCheckin from "@/components/kavatender-checkin";
 import BarOwnershipControls from "@/components/admin/bar-ownership-controls";
@@ -331,12 +330,6 @@ export default function BarDetails() {
           <BarPhotoGallery bar={bar} />
         </div>
       </div>
-
-      {bar.location && (
-        <div className="h-[400px] rounded-lg overflow-hidden border border-border">
-          <MapView bars={[bar]} center={bar.location} zoom={15} />
-        </div>
-      )}
     </div>
   );
 }
