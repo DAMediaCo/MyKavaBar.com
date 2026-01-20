@@ -1,55 +1,43 @@
-import React, { useEffect } from "react";
+import { useEffect, useRef } from 'react';
 
 export default function TermsOfService() {
+  const containerRef = useRef<HTMLDivElement>(null);
+
   useEffect(() => {
-    // Load the Termly embed script
-    const script = document.createElement("script");
-    script.src = "https://app.termly.io/embed-policy.min.js";
-    script.id = "termly-jssdk";
+    const existingScript = document.getElementById('termly-jssdk');
+    if (existingScript) {
+      existingScript.remove();
+    }
+
+    if (containerRef.current) {
+      containerRef.current.innerHTML = '';
+      const embedDiv = document.createElement('div');
+      embedDiv.setAttribute('name', 'termly-embed');
+      embedDiv.setAttribute('data-id', '402e9d0b-6f44-40e3-a9fe-d2e87c5abab2');
+      containerRef.current.appendChild(embedDiv);
+    }
+
+    const script = document.createElement('script');
+    script.src = 'https://app.termly.io/embed-policy.min.js';
+    script.id = 'termly-jssdk';
+    script.async = true;
     document.body.appendChild(script);
 
-    // Function to apply dark mode styles
-    const applyDarkMode = () => {
-      const embed = document.querySelector("[name='termly-embed']");
-      if (embed) {
-        embed.querySelectorAll("*").forEach((el) => {
-          (el as HTMLElement).style.color = "white";
-          (el as HTMLElement).style.backgroundColor = "transparent";
-        });
-      }
-    };
-
-    // Polling interval to wait until the embed is loaded
-    const interval = setInterval(() => {
-      const embed = document.querySelector("[name='termly-embed']");
-      if (embed && embed.children.length > 0) {
-        if (document.documentElement.classList.contains("dark")) {
-          applyDarkMode();
-        }
-        clearInterval(interval);
-      }
-    }, 500);
-
-    // Clear on unmount
     return () => {
-      const existingScript = document.getElementById("termly-jssdk");
-      if (existingScript) {
-        existingScript.remove();
+      const scriptToRemove = document.getElementById('termly-jssdk');
+      if (scriptToRemove) {
+        scriptToRemove.remove();
       }
-      clearInterval(interval);
     };
   }, []);
 
   return (
-    <div className="container mx-auto px-4 py-8 max-w-4xl">
-      <div className="prose prose-sm sm:prose lg:prose-lg mx-auto">
-        <h1 className="text-3xl font-bold mb-8 dark:text-white">
-          TERMS OF SERVICE
-        </h1>
-        <div
-          name="termly-embed"
-          data-id="402e9d0b-6f44-40e3-a9fe-d2e87c5abab2"
-          className="termly-wrapper"
+    <div className="min-h-screen bg-[#121212] py-8">
+      <div className="container mx-auto px-4 max-w-4xl">
+        <h1 className="text-3xl font-bold mb-8 text-white">Terms of Service</h1>
+        <div 
+          ref={containerRef}
+          className="termly-embed-container bg-white rounded-lg p-6"
         />
       </div>
     </div>
