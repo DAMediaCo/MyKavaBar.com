@@ -314,103 +314,56 @@ export default function BarDetails() {
         <div className="grid grid-cols-1 lg:grid-cols-[1fr_380px] gap-10">
           {/* Left Column - Main Content */}
           <div className="space-y-8">
-            {/* Gallery */}
-            {galleryPhotos && galleryPhotos.length > 0 && (
-              <section>
-                <div className="flex items-center justify-between mb-4">
-                  <h2 className="text-white font-bold text-xl border-l-4 border-[#D35400] pl-3">
-                    Gallery
-                  </h2>
-                  {galleryPhotos.length > 5 && (
-                    <Dialog open={galleryOpen} onOpenChange={setGalleryOpen}>
-                      <DialogTrigger asChild>
-                        <button className="text-[#D35400] hover:text-[#E67E22] font-medium flex items-center gap-1">
-                          <Images className="h-4 w-4" />
-                          View All ({galleryPhotos.length})
-                        </button>
-                      </DialogTrigger>
-                      <DialogContent className="w-[95vw] max-w-2xl bg-[#121212] border-[#333] p-0 max-h-[85vh] overflow-hidden">
-                        <DialogHeader className="p-3 border-b border-[#333]">
-                          <DialogTitle className="text-white text-base">Photo Gallery</DialogTitle>
-                        </DialogHeader>
-                        <div className="relative">
-                          <div className="h-[50vh] md:h-[55vh] bg-black flex items-center justify-center">
-                            <img
-                              src={galleryPhotos[selectedPhotoIndex]?.url}
-                              alt={`Photo ${selectedPhotoIndex + 1}`}
-                              className="max-h-full max-w-full object-contain"
-                            />
-                          </div>
-                          {galleryPhotos.length > 1 && (
-                            <>
-                              <button
-                                onClick={() => setSelectedPhotoIndex((prev) => (prev === 0 ? galleryPhotos.length - 1 : prev - 1))}
-                                className="absolute left-2 top-1/2 -translate-y-1/2 bg-black/50 hover:bg-black/70 text-white p-1.5 rounded-full"
-                              >
-                                <ChevronLeft className="h-5 w-5" />
-                              </button>
-                              <button
-                                onClick={() => setSelectedPhotoIndex((prev) => (prev === galleryPhotos.length - 1 ? 0 : prev + 1))}
-                                className="absolute right-2 top-1/2 -translate-y-1/2 bg-black/50 hover:bg-black/70 text-white p-1.5 rounded-full"
-                              >
-                                <ChevronRight className="h-5 w-5" />
-                              </button>
-                            </>
-                          )}
-                          <div className="absolute bottom-2 left-1/2 -translate-x-1/2 bg-black/50 text-white text-xs px-2 py-1 rounded-full">
-                            {selectedPhotoIndex + 1} / {galleryPhotos.length}
-                          </div>
-                        </div>
-                        <div className="hidden md:block p-3 border-t border-[#333]">
-                          <div className="flex gap-1.5 overflow-x-auto">
-                            {galleryPhotos.map((photo: any, index: number) => (
-                              <button
-                                key={photo.id || index}
-                                onClick={() => setSelectedPhotoIndex(index)}
-                                className={`flex-shrink-0 w-12 h-12 rounded overflow-hidden border-2 transition-colors ${
-                                  index === selectedPhotoIndex ? "border-[#D35400]" : "border-transparent hover:border-[#333]"
-                                }`}
-                              >
-                                <img
-                                  src={photo.url}
-                                  alt={`Thumbnail ${index + 1}`}
-                                  className="w-full h-full object-cover"
-                                />
-                              </button>
-                            ))}
-                          </div>
-                        </div>
-                      </DialogContent>
-                    </Dialog>
+            {/* Contact & Hours */}
+            <section>
+              <h2 className="text-white font-bold text-xl mb-4 border-l-4 border-[#D35400] pl-3">
+                Contact & Hours
+              </h2>
+              <div className="bg-[#1E1E1E] p-5 rounded-xl border border-[#333]">
+                <div className="space-y-4">
+                  <div className="flex items-start gap-3 group">
+                    <MapPin className="h-5 w-5 text-[#D35400] mt-0.5 shrink-0" />
+                    <div className="flex-1">
+                      <p className="text-gray-300">{bar.address}</p>
+                      <button
+                        onClick={copyAddress}
+                        className="text-[#D35400] text-sm flex items-center gap-1 mt-1 hover:text-[#E67E22]"
+                      >
+                        <Copy className="h-3 w-3" /> Copy Address
+                      </button>
+                    </div>
+                  </div>
+
+                  {bar.phone && (
+                    <div className="flex items-center gap-3">
+                      <Phone className="h-5 w-5 text-[#D35400] shrink-0" />
+                      <a href={`tel:${bar.phone}`} className="text-gray-300 hover:text-white">
+                        {bar.phone}
+                      </a>
+                    </div>
                   )}
+
+                  <div className="flex items-start gap-3">
+                    <Clock className="h-5 w-5 text-[#D35400] mt-0.5 shrink-0" />
+                    <div className="space-y-1">
+                      {bar.hours?.weekday_text?.map((text: string, index: number) => (
+                        <p key={index} className="text-gray-300 text-sm">{text}</p>
+                      )) || <p className="text-gray-400">Hours not available</p>}
+                    </div>
+                  </div>
                 </div>
-                <div className="grid grid-cols-4 gap-2 h-64 md:h-80">
-                  {galleryPhotos.slice(0, 5).map((photo: any, index: number) => (
-                    <button
-                      key={photo.id || index}
-                      onClick={() => {
-                        setSelectedPhotoIndex(index);
-                        setGalleryOpen(true);
-                      }}
-                      className={`relative rounded-lg overflow-hidden cursor-pointer ${
-                        index === 0 ? "col-span-2 row-span-2" : ""
-                      }`}
-                    >
-                      <img
-                        src={photo.url}
-                        alt={`Gallery ${index + 1}`}
-                        className="w-full h-full object-cover hover:scale-105 transition-transform duration-300"
-                      />
-                      {index === 4 && galleryPhotos.length > 5 && (
-                        <div className="absolute inset-0 bg-black/60 flex items-center justify-center">
-                          <span className="text-white font-bold text-lg">+{galleryPhotos.length - 5}</span>
-                        </div>
-                      )}
-                    </button>
-                  ))}
-                </div>
-              </section>
-            )}
+
+                <a
+                  href={`https://www.google.com/maps/dir/?api=1&destination=${encodeURIComponent(bar.address)}`}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="mt-6 w-full inline-flex items-center justify-center gap-2 bg-[#D35400] hover:bg-[#E67E22] text-white font-bold py-3 rounded-xl shadow-lg transition-colors"
+                >
+                  <ExternalLink className="h-4 w-4" />
+                  Get Directions
+                </a>
+              </div>
+            </section>
 
             {/* Features */}
             {features.length > 0 && (
@@ -438,64 +391,6 @@ export default function BarDetails() {
                         <>View More ({features.length - 5}) <ChevronDown className="h-4 w-4" /></>
                       )}
                     </button>
-                  )}
-                </div>
-              </section>
-            )}
-
-            {/* Happy Hours */}
-            {Object.keys(happyHourSchedules).length > 0 && (
-              <section>
-                <h2 className="text-white font-bold text-xl mb-4 border-l-4 border-[#D35400] pl-3">
-                  Happy Hours
-                </h2>
-                <div className="space-y-3">
-                  {!showAllHappyHours ? (
-                    <div className="bg-[#1E1E1E] p-4 rounded-xl border-l-2 border-[#D35400]/50">
-                      <div className="font-semibold text-white mb-2">{todayDay}</div>
-                      {happyHourSchedules[todayDay] ? (
-                        <div className="flex flex-wrap gap-2">
-                          {happyHourSchedules[todayDay].map((slot, idx) => (
-                            <Badge key={idx} variant="secondary" className="bg-[#252525] text-gray-300">
-                              {slot}
-                            </Badge>
-                          ))}
-                        </div>
-                      ) : (
-                        <p className="text-gray-400">No happy hours today</p>
-                      )}
-                      <button
-                        onClick={() => setShowAllHappyHours(true)}
-                        className="text-[#D35400] hover:text-[#E67E22] font-medium flex items-center gap-1 mt-3"
-                      >
-                        View Full Week <ChevronDown className="h-4 w-4" />
-                      </button>
-                    </div>
-                  ) : (
-                    <>
-                      {daysOfWeek.map((day) => {
-                        const slots = happyHourSchedules[day];
-                        if (!slots) return null;
-                        return (
-                          <div key={day} className="bg-[#1E1E1E] p-4 rounded-xl border-l-2 border-[#D35400]/50">
-                            <div className="font-semibold text-white mb-2">{day}</div>
-                            <div className="flex flex-wrap gap-2">
-                              {slots.map((slot, idx) => (
-                                <Badge key={idx} variant="secondary" className="bg-[#252525] text-gray-300">
-                                  {slot}
-                                </Badge>
-                              ))}
-                            </div>
-                          </div>
-                        );
-                      })}
-                      <button
-                        onClick={() => setShowAllHappyHours(false)}
-                        className="text-[#D35400] hover:text-[#E67E22] font-medium flex items-center gap-1"
-                      >
-                        Show Less <ChevronUp className="h-4 w-4" />
-                      </button>
-                    </>
                   )}
                 </div>
               </section>
@@ -661,59 +556,109 @@ export default function BarDetails() {
                 </div>
               )}
             </section>
+
+            {/* Gallery */}
+            {galleryPhotos && galleryPhotos.length > 0 && (
+              <section>
+                <div className="flex items-center justify-between mb-4">
+                  <h2 className="text-white font-bold text-xl border-l-4 border-[#D35400] pl-3">
+                    Gallery
+                  </h2>
+                  {galleryPhotos.length > 5 && (
+                    <Dialog open={galleryOpen} onOpenChange={setGalleryOpen}>
+                      <DialogTrigger asChild>
+                        <button className="text-[#D35400] hover:text-[#E67E22] font-medium flex items-center gap-1">
+                          <Images className="h-4 w-4" />
+                          View All ({galleryPhotos.length})
+                        </button>
+                      </DialogTrigger>
+                      <DialogContent className="w-[95vw] max-w-2xl bg-[#121212] border-[#333] p-0 max-h-[85vh] overflow-hidden">
+                        <DialogHeader className="p-3 border-b border-[#333]">
+                          <DialogTitle className="text-white text-base">Photo Gallery</DialogTitle>
+                        </DialogHeader>
+                        <div className="relative">
+                          <div className="h-[50vh] md:h-[55vh] bg-black flex items-center justify-center">
+                            <img
+                              src={galleryPhotos[selectedPhotoIndex]?.url}
+                              alt={`Photo ${selectedPhotoIndex + 1}`}
+                              className="max-h-full max-w-full object-contain"
+                            />
+                          </div>
+                          {galleryPhotos.length > 1 && (
+                            <>
+                              <button
+                                onClick={() => setSelectedPhotoIndex((prev) => (prev === 0 ? galleryPhotos.length - 1 : prev - 1))}
+                                className="absolute left-2 top-1/2 -translate-y-1/2 bg-black/50 hover:bg-black/70 text-white p-1.5 rounded-full"
+                              >
+                                <ChevronLeft className="h-5 w-5" />
+                              </button>
+                              <button
+                                onClick={() => setSelectedPhotoIndex((prev) => (prev === galleryPhotos.length - 1 ? 0 : prev + 1))}
+                                className="absolute right-2 top-1/2 -translate-y-1/2 bg-black/50 hover:bg-black/70 text-white p-1.5 rounded-full"
+                              >
+                                <ChevronRight className="h-5 w-5" />
+                              </button>
+                            </>
+                          )}
+                          <div className="absolute bottom-2 left-1/2 -translate-x-1/2 bg-black/50 text-white text-xs px-2 py-1 rounded-full">
+                            {selectedPhotoIndex + 1} / {galleryPhotos.length}
+                          </div>
+                        </div>
+                        <div className="hidden md:block p-3 border-t border-[#333]">
+                          <div className="flex gap-1.5 overflow-x-auto">
+                            {galleryPhotos.map((photo: any, index: number) => (
+                              <button
+                                key={photo.id || index}
+                                onClick={() => setSelectedPhotoIndex(index)}
+                                className={`flex-shrink-0 w-12 h-12 rounded overflow-hidden border-2 transition-colors ${
+                                  index === selectedPhotoIndex ? "border-[#D35400]" : "border-transparent hover:border-[#333]"
+                                }`}
+                              >
+                                <img
+                                  src={photo.url}
+                                  alt={`Thumbnail ${index + 1}`}
+                                  className="w-full h-full object-cover"
+                                />
+                              </button>
+                            ))}
+                          </div>
+                        </div>
+                      </DialogContent>
+                    </Dialog>
+                  )}
+                </div>
+                <div className="grid grid-cols-4 gap-2 h-64 md:h-80">
+                  {galleryPhotos.slice(0, 5).map((photo: any, index: number) => (
+                    <button
+                      key={photo.id || index}
+                      onClick={() => {
+                        setSelectedPhotoIndex(index);
+                        setGalleryOpen(true);
+                      }}
+                      className={`relative rounded-lg overflow-hidden cursor-pointer ${
+                        index === 0 ? "col-span-2 row-span-2" : ""
+                      }`}
+                    >
+                      <img
+                        src={photo.url}
+                        alt={`Gallery ${index + 1}`}
+                        className="w-full h-full object-cover hover:scale-105 transition-transform duration-300"
+                      />
+                      {index === 4 && galleryPhotos.length > 5 && (
+                        <div className="absolute inset-0 bg-black/60 flex items-center justify-center">
+                          <span className="text-white font-bold text-lg">+{galleryPhotos.length - 5}</span>
+                        </div>
+                      )}
+                    </button>
+                  ))}
+                </div>
+              </section>
+            )}
           </div>
 
           {/* Right Column - Sidebar */}
           <div className="space-y-6">
             <div className="sticky top-6 space-y-6">
-              {/* Contact Card */}
-              <div className="bg-[#1E1E1E] p-5 rounded-xl border border-[#333]">
-                <h3 className="text-white font-bold text-lg mb-4">Contact & Hours</h3>
-                
-                <div className="space-y-4">
-                  <div className="flex items-start gap-3 group">
-                    <MapPin className="h-5 w-5 text-[#D35400] mt-0.5 shrink-0" />
-                    <div className="flex-1">
-                      <p className="text-gray-300">{bar.address}</p>
-                      <button
-                        onClick={copyAddress}
-                        className="text-[#D35400] text-sm flex items-center gap-1 mt-1 hover:text-[#E67E22]"
-                      >
-                        <Copy className="h-3 w-3" /> Copy Address
-                      </button>
-                    </div>
-                  </div>
-
-                  {bar.phone && (
-                    <div className="flex items-center gap-3">
-                      <Phone className="h-5 w-5 text-[#D35400] shrink-0" />
-                      <a href={`tel:${bar.phone}`} className="text-gray-300 hover:text-white">
-                        {bar.phone}
-                      </a>
-                    </div>
-                  )}
-
-                  <div className="flex items-start gap-3">
-                    <Clock className="h-5 w-5 text-[#D35400] mt-0.5 shrink-0" />
-                    <div className="space-y-1">
-                      {bar.hours?.weekday_text?.map((text: string, index: number) => (
-                        <p key={index} className="text-gray-300 text-sm">{text}</p>
-                      )) || <p className="text-gray-400">Hours not available</p>}
-                    </div>
-                  </div>
-                </div>
-
-                <a
-                  href={`https://www.google.com/maps/dir/?api=1&destination=${encodeURIComponent(bar.address)}`}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="mt-6 w-full inline-flex items-center justify-center gap-2 bg-[#D35400] hover:bg-[#E67E22] text-white font-bold py-3 rounded-xl shadow-lg transition-colors"
-                >
-                  <ExternalLink className="h-4 w-4" />
-                  Get Directions
-                </a>
-              </div>
-
               {/* Admin Controls */}
               {user?.isAdmin && (
                 <div className="bg-[#1E1E1E] p-5 rounded-xl border border-[#333]">
