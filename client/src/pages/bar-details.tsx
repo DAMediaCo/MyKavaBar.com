@@ -89,6 +89,7 @@ export default function BarDetails() {
   const [selectedPhotoIndex, setSelectedPhotoIndex] = useState(0);
   const [showReviewForm, setShowReviewForm] = useState(false);
   const [showReviews, setShowReviews] = useState(false);
+  const [eventPhotoLightbox, setEventPhotoLightbox] = useState<string | null>(null);
   
   const { data: checkIns } = useQuery<any[]>({
     queryKey: [`checkIns/${id}`],
@@ -407,33 +408,49 @@ export default function BarDetails() {
                 <div className="space-y-4">
                   {upcomingEvents.map((event: any) => (
                     <div key={event.id} className="bg-[#1E1E1E] p-5 rounded-xl border border-[#333]">
-                      <div className="flex justify-between items-start mb-3">
-                        <div>
-                          <h3 className="text-white font-semibold text-lg">{event.title}</h3>
-                          <div className="flex items-center gap-2 text-gray-400 text-sm mt-1">
-                            <Calendar className="h-4 w-4" />
-                            <span>
-                              {event.startDate ? format(parseISO(event.startDate), "EEEE, MMM d") : daysOfWeek[event.dayOfWeek]}
-                            </span>
-                            <span>•</span>
-                            <span>{formatTimeTo12Hour(event.startTime)} - {formatTimeTo12Hour(event.endTime)}</span>
+                      <div className="flex gap-4">
+                        <div className="flex-1">
+                          <div className="flex justify-between items-start mb-3">
+                            <div>
+                              <h3 className="text-white font-semibold text-lg">{event.title}</h3>
+                              <div className="flex items-center gap-2 text-gray-400 text-sm mt-1">
+                                <Calendar className="h-4 w-4" />
+                                <span>
+                                  {event.startDate ? format(parseISO(event.startDate), "EEEE, MMM d") : daysOfWeek[event.dayOfWeek]}
+                                </span>
+                                <span>•</span>
+                                <span>{formatTimeTo12Hour(event.startTime)} - {formatTimeTo12Hour(event.endTime)}</span>
+                              </div>
+                            </div>
+                          </div>
+                          {event.description && (
+                            <p className="text-gray-400 text-sm mb-4">{event.description}</p>
+                          )}
+                          <div className="flex gap-3">
+                            <RsvpButton user={user} event={event} barId={Number(id)} />
+                            <a
+                              href={generateGoogleCalendarLink(event, bar.address)}
+                              target="_blank"
+                              rel="noopener noreferrer"
+                              className="inline-flex items-center gap-2 px-4 py-2 border border-[#333] text-gray-300 rounded-lg hover:bg-[#252525] transition-colors"
+                            >
+                              <CalendarPlus className="h-4 w-4" />
+                              Add to Calendar
+                            </a>
                           </div>
                         </div>
-                      </div>
-                      {event.description && (
-                        <p className="text-gray-400 text-sm mb-4">{event.description}</p>
-                      )}
-                      <div className="flex gap-3">
-                        <RsvpButton user={user} event={event} barId={Number(id)} />
-                        <a
-                          href={generateGoogleCalendarLink(event, bar.address)}
-                          target="_blank"
-                          rel="noopener noreferrer"
-                          className="inline-flex items-center gap-2 px-4 py-2 border border-[#333] text-gray-300 rounded-lg hover:bg-[#252525] transition-colors"
-                        >
-                          <CalendarPlus className="h-4 w-4" />
-                          Add to Calendar
-                        </a>
+                        {event.photoUrl && (
+                          <button
+                            onClick={() => setEventPhotoLightbox(event.photoUrl)}
+                            className="flex-shrink-0 w-20 h-20 sm:w-24 sm:h-24 rounded-lg overflow-hidden border border-[#333] hover:border-[#D35400] transition-colors cursor-pointer"
+                          >
+                            <img
+                              src={event.photoUrl}
+                              alt={`${event.title} event photo`}
+                              className="w-full h-full object-cover"
+                            />
+                          </button>
+                        )}
                       </div>
                     </div>
                   ))}
@@ -676,6 +693,26 @@ export default function BarDetails() {
           </div>
         </div>
       </div>
+
+      {eventPhotoLightbox && (
+        <div
+          className="fixed inset-0 z-50 bg-black/90 flex items-center justify-center p-4"
+          onClick={() => setEventPhotoLightbox(null)}
+        >
+          <button
+            onClick={() => setEventPhotoLightbox(null)}
+            className="absolute top-4 right-4 bg-black/50 hover:bg-black/70 text-white p-2 rounded-full z-10"
+          >
+            <X className="h-6 w-6" />
+          </button>
+          <img
+            src={eventPhotoLightbox}
+            alt="Event photo"
+            className="max-w-full max-h-[90vh] object-contain rounded-lg"
+            onClick={(e) => e.stopPropagation()}
+          />
+        </div>
+      )}
     </div>
   );
 }
