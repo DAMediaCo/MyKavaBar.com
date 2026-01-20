@@ -3,7 +3,7 @@ import { db } from "../../db";
 import { kavaBars } from "../../db/schema";
 import { eq } from "drizzle-orm";
 
-// the newest OpenAI model is "gpt-5" which was released August 7, 2025. do not change this unless explicitly requested by the user
+// Using gpt-4o for reliable JSON responses
 let openaiClient: OpenAI | null = null;
 
 function getOpenAIClient(): OpenAI {
@@ -68,7 +68,7 @@ Respond with JSON in this exact format:
   try {
     const openai = getOpenAIClient();
     const response = await openai.chat.completions.create({
-      model: "gpt-5",
+      model: "gpt-4o",
       messages: [
         {
           role: "system",
