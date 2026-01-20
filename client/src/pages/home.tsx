@@ -14,7 +14,6 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { Slider } from "@/components/ui/slider";
 import { Search, MapPin, List, Crosshair } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { useUser } from "@/hooks/use-user";
@@ -26,7 +25,7 @@ export default function Home() {
   const { data: kavaBars, isLoading } = useKavaBars();
   const [view, setView] = useState<"list" | "map">("list");
   const [sortBy, setSortBy] = useState<SortOption>("distance");
-  const [radius, setRadius] = useState<number>(500);
+  const [radius] = useState<number>(5000);
   const { user } = useUser();
   const {
     coordinates,
@@ -253,23 +252,6 @@ export default function Home() {
                   : "Use my location"}
             </Button>
 
-            {coordinates && (
-              <div className="flex-1 space-y-2">
-                <div className="flex justify-between items-center">
-                  <span className="text-sm text-muted-foreground">
-                    Search radius: {radius} miles
-                  </span>
-                </div>
-                <Slider
-                  value={[radius]}
-                  onValueChange={(value) => setRadius(value[0])}
-                  min={1}
-                  max={view === "map" ? 3000 : 500} // Larger radius for map view
-                  step={view === "map" ? 10 : 5}
-                  className="w-full"
-                />
-              </div>
-            )}
           </div>
         </div>
 
