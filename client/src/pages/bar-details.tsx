@@ -163,10 +163,18 @@ export default function BarDetails() {
 
   const upcomingEvents = useMemo(() => {
     if (!eventsData) return [];
-    return eventsData.filter((e: any) => {
-      if (!e.startDate) return true;
-      return new Date(e.startDate) >= new Date();
-    }).slice(0, showAllEvents ? 10 : 1);
+    const now = new Date();
+    return eventsData
+      .filter((e: any) => {
+        if (!e.startDate) return true;
+        return new Date(e.startDate) >= now;
+      })
+      .sort((a: any, b: any) => {
+        if (!a.startDate) return 1;
+        if (!b.startDate) return -1;
+        return new Date(a.startDate).getTime() - new Date(b.startDate).getTime();
+      })
+      .slice(0, showAllEvents ? 10 : 1);
   }, [eventsData, showAllEvents]);
 
   const features: string[] = useMemo(() => {
