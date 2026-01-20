@@ -164,15 +164,40 @@ export default function BarDetails() {
   const upcomingEvents = useMemo(() => {
     if (!eventsData) return [];
     const now = new Date();
+    
+    const getNextOccurrence = (event: any): Date => {
+      if (event.startDate) {
+        return new Date(event.startDate);
+      }
+      if (event.isRecurring && event.dayOfWeek !== null && event.dayOfWeek !== undefined) {
+        const today = new Date();
+        const currentDay = today.getDay();
+        let daysUntil = event.dayOfWeek - currentDay;
+        if (daysUntil < 0) daysUntil += 7;
+        if (daysUntil === 0) {
+          const eventTime = event.startTime?.split(':').map(Number) || [0, 0];
+          const eventDateTime = new Date(today);
+          eventDateTime.setHours(eventTime[0], eventTime[1], 0, 0);
+          if (eventDateTime < now) {
+            daysUntil = 7;
+          }
+        }
+        const nextDate = new Date(today);
+        nextDate.setDate(today.getDate() + daysUntil);
+        return nextDate;
+      }
+      return new Date(now.getTime() + 365 * 24 * 60 * 60 * 1000);
+    };
+
     return eventsData
       .filter((e: any) => {
         if (!e.startDate) return true;
         return new Date(e.startDate) >= now;
       })
       .sort((a: any, b: any) => {
-        if (!a.startDate) return 1;
-        if (!b.startDate) return -1;
-        return new Date(a.startDate).getTime() - new Date(b.startDate).getTime();
+        const aDate = getNextOccurrence(a);
+        const bDate = getNextOccurrence(b);
+        return aDate.getTime() - bDate.getTime();
       })
       .slice(0, showAllEvents ? 10 : 1);
   }, [eventsData, showAllEvents]);
