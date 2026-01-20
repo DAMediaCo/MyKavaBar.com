@@ -334,6 +334,7 @@ export function registerRoutes(app: Express, server: Server): void {
               hours: string | null;
               grandOpeningDate: string | null;
               hours_json?: string;
+              latest_gallery_photo?: string | null;
             }>(sql`
             SELECT 
               k.*, 
@@ -344,7 +345,8 @@ export function registerRoutes(app: Express, server: Server): void {
                   WHEN k.verification_status = 'verified_kava_bar' THEN 4.0
                   ELSE 3.5 
                 END
-              ) as rating
+              ) as rating,
+              (SELECT url FROM kava_bar_photos WHERE bar_id = k.id ORDER BY created_at DESC LIMIT 1) as latest_gallery_photo
             FROM kava_bars k
             LEFT JOIN users u ON k.owner_id = u.id
             WHERE k.verification_status != 'not_kava_bar'
@@ -406,6 +408,7 @@ export function registerRoutes(app: Express, server: Server): void {
               hours_json: undefined,
               rating: Number(bar.rating) || 0,
               heroImageUrl: (bar as any).hero_image_url || null,
+              latestGalleryPhoto: (bar as any).latest_gallery_photo || null,
             };
           } catch (err) {
             console.error(`Error parsing data for bar ${bar.name}:`, err);
@@ -423,6 +426,7 @@ export function registerRoutes(app: Express, server: Server): void {
               },
               rating: Number(bar.rating) || 0,
               heroImageUrl: (bar as any).hero_image_url || null,
+              latestGalleryPhoto: (bar as any).latest_gallery_photo || null,
             };
           }
         });

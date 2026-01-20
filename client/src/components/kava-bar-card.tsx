@@ -86,9 +86,14 @@ export default function KavaBarCard({ bar, distance }: KavaBarCardProps) {
   }
 
   const isOpen = isBarOpenNow(bar.hours);
-  const heroImage = (!imageError && bar.heroImageUrl) ? bar.heroImageUrl : 
-                    (!imageError && bar.googlePhotos?.[0]) ? bar.googlePhotos[0] : 
-                    FALLBACK_IMAGE;
+  
+  const getHeroImage = () => {
+    if (imageError) return FALLBACK_IMAGE;
+    if (bar.heroImageUrl) return bar.heroImageUrl;
+    if (bar.latestGalleryPhoto) return bar.latestGalleryPhoto;
+    return FALLBACK_IMAGE;
+  };
+  const heroImage = getHeroImage();
 
   const vibes = bar.vibes || bar.amenities || bar.tags || [];
   const displayVibes = Array.isArray(vibes) ? vibes.slice(0, 2) : [];
