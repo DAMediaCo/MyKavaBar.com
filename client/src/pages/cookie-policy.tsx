@@ -37,7 +37,7 @@ export default function CookiePolicy() {
         <h1 className="text-3xl font-bold mb-8 text-white">Cookie Policy</h1>
         <div 
           ref={containerRef}
-          className="termly-embed-container bg-white rounded-lg p-6"
+          className="termly-embed-container bg-[#1E1E1E] dark:bg-[#1E1E1E] rounded-lg p-6 [&_*]:!text-gray-200 [&_a]:!text-[#D35400] [&_h1]:!text-white [&_h2]:!text-white [&_h3]:!text-white [&_strong]:!text-white"
         />
       </div>
     </div>
