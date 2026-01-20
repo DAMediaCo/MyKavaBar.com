@@ -157,6 +157,13 @@ export default function BarDetails() {
     }).slice(0, showAllEvents ? 10 : 1);
   }, [eventsData, showAllEvents]);
 
+  const features: string[] = useMemo(() => {
+    if (barFeaturesData && barFeaturesData.length > 0) {
+      return barFeaturesData.map((f: any) => f.name || f.featureName || f);
+    }
+    return bar?.features || [];
+  }, [barFeaturesData, bar?.features]);
+
   if (isLoading) {
     return (
       <div className="min-h-screen bg-[#121212] animate-pulse">
@@ -189,12 +196,6 @@ export default function BarDetails() {
     (galleryPhotos && galleryPhotos.length > 0 ? galleryPhotos[0].url : null) ||
     "https://images.unsplash.com/photo-1514362545857-3bc16c4c7d1b?w=1200";
 
-  const features: string[] = useMemo(() => {
-    if (barFeaturesData && barFeaturesData.length > 0) {
-      return barFeaturesData.map((f: any) => f.name || f.featureName || f);
-    }
-    return bar.features || [];
-  }, [barFeaturesData, bar.features]);
   const displayFeatures = showAllFeatures ? features : features.slice(0, 5);
   
   const menuHighlights: MenuHighlight[] = bar.menuHighlights || [];
