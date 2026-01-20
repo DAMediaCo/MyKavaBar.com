@@ -26,7 +26,8 @@ interface PublicKavaBar {
   address: string;
   phone: string | null;
   businessStatus: string;
-  rating: number;
+  rating: number | null;
+  reviewCount: number;
   isSponsored: boolean;
   verificationStatus: string;
   placeId: string | null;
@@ -126,12 +127,14 @@ const clientFallbackBars: KavaBar[] = [
     address: "123 Beach Drive, Miami, FL 33139",
     phone: "555-123-4567",
     businessStatus: "OPERATIONAL",
-    rating: 4.7,
+    rating: null,
+    reviewCount: 0,
     isSponsored: true,
     verificationStatus: "verified",
     placeId: null,
     location: { lat: 25.7617, lng: -80.1918 },
     isBarStaff: false,
+    comingSoon: false,
     hours: {
       weekday_text: [
         "Monday: 11:00 AM – 10:00 PM",
@@ -151,13 +154,14 @@ const clientFallbackBars: KavaBar[] = [
     address: "456 Relaxation Ave, Orlando, FL 32801",
     phone: "555-789-0123",
     businessStatus: "OPERATIONAL",
-    rating: 4.5,
+    rating: null,
+    reviewCount: 0,
     isBarStaff: false,
-
     isSponsored: false,
     verificationStatus: "verified",
     placeId: null,
     location: { lat: 28.5384, lng: -81.3789 },
+    comingSoon: false,
     hours: {
       weekday_text: [
         "Monday: 12:00 PM – 11:00 PM",
@@ -217,7 +221,8 @@ export function useKavaBars() {
               ...bar,
               id: bar.id || Math.floor(Math.random() * 10000),
               hours: parseHours(bar.hours),
-              rating: rating,
+              rating: rating || null,
+              reviewCount: bar.reviewCount || 0,
               location: location,
               businessStatus: bar.businessStatus || "OPERATIONAL",
               verificationStatus: bar.verificationStatus || "pending",
@@ -231,7 +236,8 @@ export function useKavaBars() {
               address: bar.address || "Address unavailable",
               phone: bar.phone || null,
               businessStatus: "OPERATIONAL",
-              rating: 0,
+              rating: null,
+              reviewCount: 0,
               grandOpeningDate: bar.grandOpeningDate
                 ? bar.grandOpeningDate
                 : null,
@@ -240,6 +246,8 @@ export function useKavaBars() {
               placeId: null,
               location: null,
               hours: null,
+              isBarStaff: false,
+              comingSoon: false,
             };
           }
         });
@@ -294,9 +302,9 @@ export function useKavaBar(id: string) {
         }
 
         // Ensure rating is properly handled
-        let rating = 0;
+        let rating: number | null = null;
         if (typeof data.rating === "string") {
-          rating = parseFloat(data.rating);
+          rating = parseFloat(data.rating) || null;
         } else if (typeof data.rating === "number") {
           rating = data.rating;
         }
@@ -316,6 +324,7 @@ export function useKavaBar(id: string) {
           ...data,
           hours: parseHours(data.hours),
           rating: rating,
+          reviewCount: (data as any).reviewCount || 0,
           location: location,
         };
       } catch (error) {

@@ -256,13 +256,15 @@ export default function BarDetails() {
               <span>{bar.address}</span>
             </div>
             
-            {bar.rating && (
-              <div className="flex items-center gap-2 mt-2">
-                <Star className="h-5 w-5 text-[#F1C40F] fill-[#F1C40F]" />
-                <span className="text-white font-bold">{bar.rating}</span>
-                <span className="text-gray-400">rating</span>
-              </div>
-            )}
+            <div className="flex items-center gap-2 mt-2">
+              <Star className="h-5 w-5 text-[#F1C40F] fill-[#F1C40F]" />
+              <span className="text-white font-bold">
+                {bar.reviewCount >= 3 && bar.rating ? bar.rating : "N/A"}
+              </span>
+              <span className="text-gray-400">
+                {bar.reviewCount >= 3 ? "rating" : `(${bar.reviewCount || 0}/3 reviews needed)`}
+              </span>
+            </div>
           </div>
         </div>
       </div>

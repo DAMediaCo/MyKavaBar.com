@@ -329,6 +329,7 @@ export function registerRoutes(app: Express, server: Server): void {
               address: string;
               location: string;
               rating: number | null;
+              review_count: number;
               verification_status: string;
               owner_id: number | null;
               is_sponsored: boolean;
@@ -340,13 +341,12 @@ export function registerRoutes(app: Express, server: Server): void {
             SELECT 
               k.*, 
               k.hours::text as hours_json,
-              COALESCE(k.rating, 
-                CASE 
-                  WHEN k.place_id IS NOT NULL THEN CAST(k.rating AS DECIMAL)
-                  WHEN k.verification_status = 'verified_kava_bar' THEN 4.0
-                  ELSE 3.5 
-                END
-              ) as rating,
+              (SELECT COUNT(*) FROM reviews WHERE bar_id = k.id) as review_count,
+              CASE 
+                WHEN (SELECT COUNT(*) FROM reviews WHERE bar_id = k.id) >= 3 
+                THEN (SELECT ROUND(AVG(rating)::numeric, 1) FROM reviews WHERE bar_id = k.id)
+                ELSE NULL
+              END as rating,
               (SELECT url FROM kava_bar_photos WHERE bar_id = k.id ORDER BY created_at DESC LIMIT 1) as latest_gallery_photo
             FROM kava_bars k
             LEFT JOIN users u ON k.owner_id = u.id
@@ -407,7 +407,8 @@ export function registerRoutes(app: Express, server: Server): void {
               location: parsedLocation,
               hours: parsedHours,
               hours_json: undefined,
-              rating: Number(bar.rating) || 0,
+              rating: bar.rating ? Number(bar.rating) : null,
+              reviewCount: Number((bar as any).review_count) || 0,
               heroImageUrl: (bar as any).hero_image_url || null,
               latestGalleryPhoto: (bar as any).latest_gallery_photo || null,
             };
@@ -425,7 +426,8 @@ export function registerRoutes(app: Express, server: Server): void {
                 periods: [],
                 hours_available: false,
               },
-              rating: Number(bar.rating) || 0,
+              rating: bar.rating ? Number(bar.rating) : null,
+              reviewCount: Number((bar as any).review_count) || 0,
               heroImageUrl: (bar as any).hero_image_url || null,
               latestGalleryPhoto: (bar as any).latest_gallery_photo || null,
             };
@@ -871,13 +873,12 @@ export function registerRoutes(app: Express, server: Server): void {
           SELECT 
             k.*,
             k.hours::text as hours_json,
-            COALESCE(k.rating, 
-              CASE 
-                WHEN k.place_id IS NOT NULL THEN CAST(k.rating AS DECIMAL)
-                WHEN k.verification_status = 'verified_kava_bar' THEN 4.5
-                ELSE 3.5 
-              END
-            ) as rating
+            (SELECT COUNT(*) FROM reviews WHERE bar_id = k.id) as review_count,
+            CASE 
+              WHEN (SELECT COUNT(*) FROM reviews WHERE bar_id = k.id) >= 3 
+              THEN (SELECT ROUND(AVG(rating)::numeric, 1) FROM reviews WHERE bar_id = k.id)
+              ELSE NULL
+            END as rating
           FROM kava_bars k
           WHERE k.id = ${Number(req.params.id)}
           LIMIT 1;
@@ -916,7 +917,8 @@ export function registerRoutes(app: Express, server: Server): void {
           grandOpeningDate: bar.grand_opening_date || undefined,
           phone: bar.phone,
           businessStatus: bar.business_status,
-          rating: Number(bar.rating) || 0,
+          rating: bar.rating ? Number(bar.rating) : null,
+          reviewCount: Number(bar.review_count) || 0,
           isSponsored: bar.is_sponsored,
           verificationStatus: bar.verification_status,
           placeId: bar.place_id,

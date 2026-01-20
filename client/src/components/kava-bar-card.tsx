@@ -63,9 +63,10 @@ export default function KavaBarCard({ bar, distance }: KavaBarCardProps) {
   
   if (!bar) return null;
 
-  const rating = Number(bar.rating) || 0;
-  const hasRating = rating > 0;
-  const displayRating = hasRating ? rating.toFixed(1) : "N/A";
+  const reviewCount = bar.reviewCount ?? 0;
+  const hasEnoughReviews = reviewCount >= 3;
+  const rating = bar.rating ? Number(bar.rating) : null;
+  const displayRating = hasEnoughReviews && rating ? rating.toFixed(1) : "N/A";
 
   const rawDateString = bar.grand_opening_date;
   let comingSoonText: string | null = null;
@@ -135,7 +136,7 @@ export default function KavaBarCard({ bar, distance }: KavaBarCardProps) {
             </h3>
             <div 
               className={`w-8 h-8 rounded-full flex items-center justify-center font-bold text-sm shrink-0 ${
-                hasRating 
+                hasEnoughReviews && rating 
                   ? "bg-amber-400 text-[#121212]" 
                   : "bg-gray-600 text-gray-300"
               }`}
