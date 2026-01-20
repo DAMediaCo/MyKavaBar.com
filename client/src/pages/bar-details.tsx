@@ -17,7 +17,6 @@ import { RsvpButton } from "@/components/rsvp-button";
 import ShareBar from "@/components/share-bar";
 import ClaimBarDialog from "@/components/claim-bar-dialog";
 import SponsorBarDialog from "@/components/sponsor-bar-dialog";
-import ReviewList from "@/components/reviews/review-list";
 import ReviewForm from "@/components/reviews/review-form";
 import { CustomModal } from "@/components/custom-modal";
 import KavatenderCheckin from "@/components/kavatender-checkin";
@@ -80,6 +79,7 @@ export default function BarDetails() {
   const [showAllEvents, setShowAllEvents] = useState(false);
   const [galleryOpen, setGalleryOpen] = useState(false);
   const [selectedPhotoIndex, setSelectedPhotoIndex] = useState(0);
+  const [showReviewForm, setShowReviewForm] = useState(false);
   
   const { data: checkIns } = useQuery<any[]>({
     queryKey: [`checkIns/${id}`],
@@ -123,6 +123,15 @@ export default function BarDetails() {
     queryKey: [`/api/bar/${id}/features`],
     queryFn: async () => {
       const response = await fetch(`/api/bar/${id}/features`);
+      if (!response.ok) return [];
+      return response.json();
+    },
+  });
+
+  const { data: reviewsData } = useQuery<any[]>({
+    queryKey: [`/api/reviews/${id}`],
+    queryFn: async () => {
+      const response = await fetch(`/api/reviews/${id}`, { credentials: 'include' });
       if (!response.ok) return [];
       return response.json();
     },
@@ -540,15 +549,18 @@ export default function BarDetails() {
 
             {/* Reviews */}
             <section>
-              <h2 className="text-white font-bold text-xl mb-4 border-l-4 border-[#D35400] pl-3">
-                Reviews
-              </h2>
-              <div className="bg-[#1E1E1E] p-5 rounded-xl border border-[#333]">
-                {user && (
+              <div className="flex items-center justify-between mb-6">
+                <h2 className="text-white font-bold text-xl border-l-4 border-[#D35400] pl-3">
+                  What People Say
+                </h2>
+                {user ? (
                   user.isPhoneVerified ? (
-                    <div className="mb-6">
-                      <ReviewForm barId={bar.id} />
-                    </div>
+                    <button
+                      onClick={() => setShowReviewForm(!showReviewForm)}
+                      className="border border-[#333] px-4 py-2 rounded-lg text-sm hover:bg-[#333] text-white transition-colors"
+                    >
+                      Write a Review
+                    </button>
                   ) : (
                     <CustomModal
                       title="Phone Verification Required"
@@ -556,15 +568,68 @@ export default function BarDetails() {
                       confirmButtonText="Complete onboarding"
                       confirmAction={() => navigate("/complete-onboarding")}
                       trigger={
-                        <Button className="mb-6 bg-[#D35400] hover:bg-[#E67E22] text-white font-bold rounded-xl">
+                        <button className="border border-[#333] px-4 py-2 rounded-lg text-sm hover:bg-[#333] text-white transition-colors">
                           Write a Review
-                        </Button>
+                        </button>
                       }
                     />
                   )
+                ) : (
+                  <button
+                    onClick={() => navigate("/auth")}
+                    className="border border-[#333] px-4 py-2 rounded-lg text-sm hover:bg-[#333] text-white transition-colors"
+                  >
+                    Write a Review
+                  </button>
                 )}
-                <ReviewList barId={bar.id} />
               </div>
+
+              {showReviewForm && user?.isPhoneVerified && (
+                <div className="bg-[#1E1E1E] p-6 rounded-xl border border-[#333] mb-4">
+                  <ReviewForm barId={bar.id} />
+                </div>
+              )}
+
+              {reviewsData && reviewsData.length > 0 ? (
+                <div className="space-y-4">
+                  {reviewsData.map((review: any) => (
+                    <div key={review.id} className="bg-[#1E1E1E] p-6 rounded-xl border border-[#333]">
+                      <div className="flex items-start gap-4">
+                        <div className="w-10 h-10 rounded-full bg-gradient-to-br from-orange-500 to-purple-600 flex items-center justify-center flex-shrink-0">
+                          <span className="text-white font-semibold text-sm">
+                            {review.user?.username?.charAt(0)?.toUpperCase() || "?"}
+                          </span>
+                        </div>
+                        <div className="flex-1 min-w-0">
+                          <div className="flex items-center justify-between gap-2">
+                            <span className="font-semibold text-white">{review.user?.username || "Anonymous"}</span>
+                            <span className="text-xs text-gray-500">
+                              {review.createdAt ? format(new Date(review.createdAt), "MMM d, yyyy") : ""}
+                            </span>
+                          </div>
+                          <div className="flex items-center gap-0.5 mt-1">
+                            {[1, 2, 3, 4, 5].map((star) => (
+                              <Star
+                                key={star}
+                                className={`h-4 w-4 ${
+                                  star <= review.rating
+                                    ? "text-yellow-400 fill-yellow-400"
+                                    : "text-gray-600"
+                                }`}
+                              />
+                            ))}
+                          </div>
+                          <p className="text-gray-300 text-sm leading-relaxed mt-4">{review.content}</p>
+                        </div>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              ) : (
+                <div className="bg-[#1E1E1E] p-6 rounded-xl border border-[#333] text-center">
+                  <p className="text-gray-400">No reviews yet. Be the first!</p>
+                </div>
+              )}
             </section>
           </div>
 
