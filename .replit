@@ -51,3 +51,8 @@ waitForPort = 5000
 
 [agent]
 integrations = ["javascript_openai:1.0.0"]
+
+[userenv]
+
+[userenv.shared]
+GOOGLE_MAPS_API_KEY = "AIzaSyAMlioGjt0M1QHjw9C7Mpv-OVSFxRN5HMc"
