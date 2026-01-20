@@ -80,6 +80,7 @@ export default function BarDetails() {
   const [galleryOpen, setGalleryOpen] = useState(false);
   const [selectedPhotoIndex, setSelectedPhotoIndex] = useState(0);
   const [showReviewForm, setShowReviewForm] = useState(false);
+  const [showReviews, setShowReviews] = useState(false);
   
   const { data: checkIns } = useQuery<any[]>({
     queryKey: [`checkIns/${id}`],
@@ -591,40 +592,61 @@ export default function BarDetails() {
               )}
 
               {reviewsData && reviewsData.length > 0 ? (
-                <div className="space-y-4">
-                  {reviewsData.map((review: any) => (
-                    <div key={review.id} className="bg-[#1E1E1E] p-6 rounded-xl border border-[#333]">
-                      <div className="flex items-start gap-4">
-                        <div className="w-10 h-10 rounded-full bg-gradient-to-br from-orange-500 to-purple-600 flex items-center justify-center flex-shrink-0">
-                          <span className="text-white font-semibold text-sm">
-                            {review.user?.username?.charAt(0)?.toUpperCase() || "?"}
-                          </span>
-                        </div>
-                        <div className="flex-1 min-w-0">
-                          <div className="flex items-center justify-between gap-2">
-                            <span className="font-semibold text-white">{review.user?.username || "Anonymous"}</span>
-                            <span className="text-xs text-gray-500">
-                              {review.createdAt ? format(new Date(review.createdAt), "MMM d, yyyy") : ""}
-                            </span>
+                <>
+                  {!showReviews ? (
+                    <button
+                      onClick={() => setShowReviews(true)}
+                      className="w-full bg-[#1E1E1E] p-4 rounded-xl border border-[#333] text-[#D35400] hover:bg-[#252525] transition-colors flex items-center justify-center gap-2"
+                    >
+                      <span>View Reviews ({reviewsData.length})</span>
+                      <ChevronDown className="h-4 w-4" />
+                    </button>
+                  ) : (
+                    <>
+                      <div className="space-y-4">
+                        {reviewsData.map((review: any) => (
+                          <div key={review.id} className="bg-[#1E1E1E] p-6 rounded-xl border border-[#333]">
+                            <div className="flex items-start gap-4">
+                              <div className="w-10 h-10 rounded-full bg-gradient-to-br from-orange-500 to-purple-600 flex items-center justify-center flex-shrink-0">
+                                <span className="text-white font-semibold text-sm">
+                                  {review.user?.username?.charAt(0)?.toUpperCase() || "?"}
+                                </span>
+                              </div>
+                              <div className="flex-1 min-w-0">
+                                <div className="flex items-center justify-between gap-2">
+                                  <span className="font-semibold text-white">{review.user?.username || "Anonymous"}</span>
+                                  <span className="text-xs text-gray-500">
+                                    {review.createdAt ? format(new Date(review.createdAt), "MMM d, yyyy") : ""}
+                                  </span>
+                                </div>
+                                <div className="flex items-center gap-0.5 mt-1">
+                                  {[1, 2, 3, 4, 5].map((star) => (
+                                    <Star
+                                      key={star}
+                                      className={`h-4 w-4 ${
+                                        star <= review.rating
+                                          ? "text-yellow-400 fill-yellow-400"
+                                          : "text-gray-600"
+                                      }`}
+                                    />
+                                  ))}
+                                </div>
+                                <p className="text-gray-300 text-sm leading-relaxed mt-4">{review.content}</p>
+                              </div>
+                            </div>
                           </div>
-                          <div className="flex items-center gap-0.5 mt-1">
-                            {[1, 2, 3, 4, 5].map((star) => (
-                              <Star
-                                key={star}
-                                className={`h-4 w-4 ${
-                                  star <= review.rating
-                                    ? "text-yellow-400 fill-yellow-400"
-                                    : "text-gray-600"
-                                }`}
-                              />
-                            ))}
-                          </div>
-                          <p className="text-gray-300 text-sm leading-relaxed mt-4">{review.content}</p>
-                        </div>
+                        ))}
                       </div>
-                    </div>
-                  ))}
-                </div>
+                      <button
+                        onClick={() => setShowReviews(false)}
+                        className="w-full mt-4 text-[#D35400] hover:text-[#E67E22] font-medium flex items-center justify-center gap-1"
+                      >
+                        <span>Hide Reviews</span>
+                        <ChevronUp className="h-4 w-4" />
+                      </button>
+                    </>
+                  )}
+                </>
               ) : (
                 <div className="bg-[#1E1E1E] p-6 rounded-xl border border-[#333] text-center">
                   <p className="text-gray-400">No reviews yet. Be the first!</p>
