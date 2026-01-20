@@ -309,12 +309,12 @@ export default function BarDetails() {
                           View All ({galleryPhotos.length})
                         </button>
                       </DialogTrigger>
-                      <DialogContent className="max-w-4xl bg-[#121212] border-[#333] p-0">
-                        <DialogHeader className="p-4 border-b border-[#333]">
-                          <DialogTitle className="text-white">Photo Gallery</DialogTitle>
+                      <DialogContent className="w-[95vw] max-w-2xl bg-[#121212] border-[#333] p-0 max-h-[85vh] overflow-hidden">
+                        <DialogHeader className="p-3 border-b border-[#333]">
+                          <DialogTitle className="text-white text-base">Photo Gallery</DialogTitle>
                         </DialogHeader>
                         <div className="relative">
-                          <div className="aspect-video bg-black flex items-center justify-center">
+                          <div className="h-[50vh] md:h-[55vh] bg-black flex items-center justify-center">
                             <img
                               src={galleryPhotos[selectedPhotoIndex]?.url}
                               alt={`Photo ${selectedPhotoIndex + 1}`}
@@ -325,29 +325,29 @@ export default function BarDetails() {
                             <>
                               <button
                                 onClick={() => setSelectedPhotoIndex((prev) => (prev === 0 ? galleryPhotos.length - 1 : prev - 1))}
-                                className="absolute left-2 top-1/2 -translate-y-1/2 bg-black/50 hover:bg-black/70 text-white p-2 rounded-full"
+                                className="absolute left-2 top-1/2 -translate-y-1/2 bg-black/50 hover:bg-black/70 text-white p-1.5 rounded-full"
                               >
-                                <ChevronLeft className="h-6 w-6" />
+                                <ChevronLeft className="h-5 w-5" />
                               </button>
                               <button
                                 onClick={() => setSelectedPhotoIndex((prev) => (prev === galleryPhotos.length - 1 ? 0 : prev + 1))}
-                                className="absolute right-2 top-1/2 -translate-y-1/2 bg-black/50 hover:bg-black/70 text-white p-2 rounded-full"
+                                className="absolute right-2 top-1/2 -translate-y-1/2 bg-black/50 hover:bg-black/70 text-white p-1.5 rounded-full"
                               >
-                                <ChevronRight className="h-6 w-6" />
+                                <ChevronRight className="h-5 w-5" />
                               </button>
                             </>
                           )}
-                          <div className="absolute bottom-4 left-1/2 -translate-x-1/2 bg-black/50 text-white text-sm px-3 py-1 rounded-full">
+                          <div className="absolute bottom-2 left-1/2 -translate-x-1/2 bg-black/50 text-white text-xs px-2 py-1 rounded-full">
                             {selectedPhotoIndex + 1} / {galleryPhotos.length}
                           </div>
                         </div>
-                        <div className="p-4 border-t border-[#333]">
-                          <div className="flex gap-2 overflow-x-auto pb-2">
+                        <div className="hidden md:block p-3 border-t border-[#333]">
+                          <div className="flex gap-1.5 overflow-x-auto">
                             {galleryPhotos.map((photo: any, index: number) => (
                               <button
                                 key={photo.id || index}
                                 onClick={() => setSelectedPhotoIndex(index)}
-                                className={`flex-shrink-0 w-16 h-16 rounded-lg overflow-hidden border-2 transition-colors ${
+                                className={`flex-shrink-0 w-12 h-12 rounded overflow-hidden border-2 transition-colors ${
                                   index === selectedPhotoIndex ? "border-[#D35400]" : "border-transparent hover:border-[#333]"
                                 }`}
                               >
