@@ -269,6 +269,7 @@ export const kavaBars = pgTable("kava_bars", {
   verificationNotes: text("verification_notes"),
   comingSoon: boolean("coming_soon").default(false),
   grandOpeningDate: date("grand_opening_date"),
+  heroImageUrl: text("hero_image_url"),
   createdAt: timestamp("created_at").defaultNow().notNull(),
 });
 

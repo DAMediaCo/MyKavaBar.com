@@ -405,6 +405,7 @@ export function registerRoutes(app: Express, server: Server): void {
               hours: parsedHours,
               hours_json: undefined,
               rating: Number(bar.rating) || 0,
+              heroImageUrl: (bar as any).hero_image_url || null,
             };
           } catch (err) {
             console.error(`Error parsing data for bar ${bar.name}:`, err);
@@ -421,6 +422,7 @@ export function registerRoutes(app: Express, server: Server): void {
                 hours_available: false,
               },
               rating: Number(bar.rating) || 0,
+              heroImageUrl: (bar as any).hero_image_url || null,
             };
           }
         });
@@ -915,6 +917,7 @@ export function registerRoutes(app: Express, server: Server): void {
           placeId: bar.place_id,
           website: bar.website,
           location: bar.location,
+          heroImageUrl: bar.hero_image_url || null,
         };
 
         // Parse hours data with enhanced error handling and logging
@@ -1505,6 +1508,47 @@ export function registerRoutes(app: Express, server: Server): void {
       res.json(updatedBar);
     } catch (error: any) {
       console.error("Error updating hours:", error);
+      res.status(500).json({ error: error.message });
+    }
+  });
+
+  // Update hero image endpoint for bar owners
+  app.put("/api/kava-bars/:id/hero-image", async (req, res) => {
+    if (!req.isAuthenticated()) {
+      return res.status(401).send("Not authenticated");
+    }
+
+    const barId = Number(req.params.id);
+
+    // Verify bar exists and user owns it
+    const [bar] = await db
+      .select()
+      .from(kavaBars)
+      .where(eq(kavaBars.id, barId))
+      .limit(1);
+
+    if (!bar) {
+      return res.status(404).send("Bar not found");
+    }
+
+    if (bar.ownerId !== req.user.id && !req.user.isAdmin) {
+      return res.status(403).send("Not authorized to update this bar's hero image");
+    }
+
+    try {
+      const { heroImageUrl } = req.body;
+      
+      const [updatedBar] = await db
+        .update(kavaBars)
+        .set({
+          heroImageUrl: heroImageUrl || null,
+        })
+        .where(eq(kavaBars.id, barId))
+        .returning();
+
+      res.json(updatedBar);
+    } catch (error: any) {
+      console.error("Error updating hero image:", error);
       res.status(500).json({ error: error.message });
     }
   });

@@ -33,6 +33,7 @@ import { EventRsvpTab } from "@/components/owner/events-rsvp-tab";
 import { Features } from "@/components/owner/features";
 import { HappyHours } from "@/components/owner/happy-hours";
 import ComingSoonForm from "@/components/owner/coming-soon-form";
+import { ImageIcon } from "lucide-react";
 
 const daysOfWeek = [
   "Sunday",
@@ -446,6 +447,41 @@ export default function ManageBar() {
   const [grandOpeningDate, setGrandOpeningDate] = useState<Date | undefined>(
     bar?.grandOpeningDate ?? undefined,
   );
+  const [heroImageUrl, setHeroImageUrl] = useState(bar?.heroImageUrl ?? "");
+
+  const updateHeroImageMutation = useMutation({
+    mutationFn: async (imageUrl: string) => {
+      const response = await fetch(`/api/kava-bars/${id}/hero-image`, {
+        method: "PUT",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({ heroImageUrl: imageUrl }),
+        credentials: "include",
+      });
+
+      if (!response.ok) {
+        const errorData = await response.json().catch(() => ({}));
+        throw new Error(errorData.message || "Failed to update hero image");
+      }
+
+      return response.json();
+    },
+    onSuccess: () => {
+      toast({
+        title: "Success",
+        description: "Hero image updated successfully",
+      });
+      queryClient.invalidateQueries([`/api/kava-bars/${id}`]);
+    },
+    onError: (error: Error) => {
+      toast({
+        variant: "destructive",
+        title: "Error",
+        description: error.message,
+      });
+    },
+  });
 
   const verifyKavatenderMutation = useMutation({
     mutationFn: async () => {
@@ -656,7 +692,7 @@ export default function ManageBar() {
               <CardTitle>Bar Details</CardTitle>
             </CardHeader>
             <CardContent>
-              <div className="space-y-4">
+              <div className="space-y-6">
                 <div>
                   <h3 className="font-medium">Address</h3>
                   <p className="text-muted-foreground">{bar.address}</p>
@@ -667,6 +703,69 @@ export default function ManageBar() {
                     {bar.phone || "Not provided"}
                   </p>
                 </div>
+                
+                <Separator />
+                
+                <div className="space-y-4">
+                  <h3 className="font-medium flex items-center gap-2">
+                    <ImageIcon className="h-5 w-5" />
+                    Hero Image
+                  </h3>
+                  <p className="text-sm text-muted-foreground">
+                    Add a hero image that will be displayed on your bar's card in listings. This helps attract customers to your bar.
+                  </p>
+                  
+                  {bar.heroImageUrl && (
+                    <div className="rounded-lg overflow-hidden border">
+                      <img 
+                        src={bar.heroImageUrl} 
+                        alt={`${bar.name} hero image`}
+                        className="w-full h-48 object-cover"
+                        onError={(e) => {
+                          (e.target as HTMLImageElement).src = "https://images.unsplash.com/photo-1617191518003-5c6cfac8e5c4?auto=format&fit=crop&w=1200&q=80";
+                        }}
+                      />
+                    </div>
+                  )}
+                  
+                  <div className="flex flex-col sm:flex-row gap-3">
+                    <Input
+                      placeholder="Enter image URL (e.g., https://example.com/image.jpg)"
+                      value={heroImageUrl}
+                      onChange={(e) => setHeroImageUrl(e.target.value)}
+                      className="flex-1"
+                    />
+                    <Button 
+                      onClick={() => updateHeroImageMutation.mutate(heroImageUrl)}
+                      disabled={updateHeroImageMutation.isPending}
+                    >
+                      {updateHeroImageMutation.isPending ? (
+                        <>
+                          <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                          Saving...
+                        </>
+                      ) : (
+                        "Save Hero Image"
+                      )}
+                    </Button>
+                  </div>
+                  
+                  {bar.heroImageUrl && (
+                    <Button 
+                      variant="outline"
+                      onClick={() => {
+                        setHeroImageUrl("");
+                        updateHeroImageMutation.mutate("");
+                      }}
+                      disabled={updateHeroImageMutation.isPending}
+                    >
+                      Remove Hero Image
+                    </Button>
+                  )}
+                </div>
+                
+                <Separator />
+                
                 <ComingSoonForm bar={bar} />
               </div>
             </CardContent>
