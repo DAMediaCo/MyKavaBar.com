@@ -39,7 +39,6 @@ import {
   CheckCircle2,
   AlertCircle,
   Search,
-  Sparkles,
 } from "lucide-react";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { useForm } from "react-hook-form";
@@ -256,44 +255,6 @@ export default function ManageBars() {
     },
   });
 
-  const [batchVibeRemaining, setBatchVibeRemaining] = useState<number | null>(null);
-  
-  const batchVibeCheckMutation = useMutation({
-    mutationFn: async () => {
-      const response = await fetch("/api/admin/batch-vibe-check", {
-        method: "POST",
-        credentials: "include",
-      });
-      if (!response.ok) {
-        const errorData = await response.json().catch(() => ({}));
-        throw new Error(errorData.error || "Batch vibe check failed");
-      }
-      return response.json();
-    },
-    onSuccess: (data) => {
-      setBatchVibeRemaining(data.remaining);
-      if (data.processed === 0) {
-        toast({
-          title: "All Done!",
-          description: "All bars already have vibe data.",
-        });
-      } else {
-        toast({
-          title: "Batch Complete",
-          description: `Processed ${data.processed} bars. ${data.remaining} remaining.`,
-        });
-      }
-      queryClient.invalidateQueries({ queryKey: ["admin-bars", sortBy] });
-    },
-    onError: (error: Error) => {
-      toast({
-        variant: "destructive",
-        title: "Batch Vibe Check Failed",
-        description: error.message,
-      });
-    },
-  });
-
   const onSubmit = (values: BarFormValues) => {
     if (selectedBar) {
       editBarMutation.mutate({ ...values, id: selectedBar.id });
@@ -417,25 +378,7 @@ export default function ManageBars() {
               Update from Google Maps
             </Button>
             
-            <Button
-              variant="outline"
-              className="gap-2"
-              onClick={() => batchVibeCheckMutation.mutate()}
-              disabled={batchVibeCheckMutation.isPending}
-            >
-              {batchVibeCheckMutation.isPending ? (
-                <Loader2 className="h-4 w-4 animate-spin" />
-              ) : (
-                <Sparkles className="h-4 w-4" />
-              )}
-              Batch Vibe Check
-              {batchVibeRemaining !== null && batchVibeRemaining > 0 && (
-                <span className="ml-1 text-xs bg-primary/20 px-1.5 py-0.5 rounded">
-                  {batchVibeRemaining} left
-                </span>
-              )}
-            </Button>
-          </div>
+            </div>
 
           {/* Add New Bar Dialog */}
           <Dialog open={isAddDialogOpen} onOpenChange={setIsAddDialogOpen}>

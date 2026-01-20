@@ -47,12 +47,6 @@ import { format, parseISO } from "date-fns";
 
 const daysOfWeek = ["Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"];
 
-interface MenuHighlight {
-  name: string;
-  price: number | null;
-  description: string;
-}
-
 function getApiUrl(path: string) {
   return path.startsWith("/") ? path : `/${path}`;
 }
@@ -86,8 +80,7 @@ export default function BarDetails() {
   const [showAllEvents, setShowAllEvents] = useState(false);
   const [galleryOpen, setGalleryOpen] = useState(false);
   const [selectedPhotoIndex, setSelectedPhotoIndex] = useState(0);
-  const [showMenuHighlights, setShowMenuHighlights] = useState(false);
-
+  
   const { data: checkIns } = useQuery<any[]>({
     queryKey: [`checkIns/${id}`],
     queryFn: async () => {
@@ -202,8 +195,6 @@ export default function BarDetails() {
     "https://images.unsplash.com/photo-1514362545857-3bc16c4c7d1b?w=1200";
 
   const displayFeatures = showAllFeatures ? features : features.slice(0, 5);
-  
-  const menuHighlights: MenuHighlight[] = bar.menuHighlights || [];
   
   const vibeText = bar.vibeText || `Welcome to ${bar.name}! We are a new addition to the community.`;
 
@@ -410,42 +401,6 @@ export default function BarDetails() {
                     </button>
                   ))}
                 </div>
-              </section>
-            )}
-
-            {/* Menu Highlights */}
-            {menuHighlights.length > 0 && (
-              <section>
-                <div className="flex items-center justify-between mb-4">
-                  <h2 className="text-white font-bold text-xl border-l-4 border-[#D35400] pl-3">
-                    Menu Highlights
-                  </h2>
-                  <button
-                    onClick={() => setShowMenuHighlights(!showMenuHighlights)}
-                    className="bg-[#D35400] hover:bg-[#E67E22] text-white font-bold px-4 py-2 rounded-xl text-sm flex items-center gap-1"
-                  >
-                    {showMenuHighlights ? (
-                      <>Hide <ChevronUp className="h-4 w-4" /></>
-                    ) : (
-                      <>View <ChevronDown className="h-4 w-4" /></>
-                    )}
-                  </button>
-                </div>
-                {showMenuHighlights && (
-                  <div className="space-y-3">
-                    {menuHighlights.map((item, index) => (
-                      <div key={index} className="bg-[#1E1E1E] p-4 rounded-xl border border-[#333]">
-                        <div className="flex justify-between items-start">
-                          <h3 className="text-white font-semibold">{item.name}</h3>
-                          {item.price && (
-                            <span className="text-[#D35400] font-bold">${item.price}</span>
-                          )}
-                        </div>
-                        <p className="text-gray-400 text-sm mt-1">{item.description}</p>
-                      </div>
-                    ))}
-                  </div>
-                )}
               </section>
             )}
 
