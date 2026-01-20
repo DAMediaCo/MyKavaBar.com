@@ -3,7 +3,6 @@ import { useKavaBars } from "@/hooks/use-kava-bars";
 import { useLocation, calculateDistance } from "@/hooks/use-location";
 import KavaBarCard from "@/components/kava-bar-card";
 import { Input } from "@/components/ui/input";
-import { Button } from "@/components/ui/button";
 import { useQuery } from "@tanstack/react-query";
 
 import {
@@ -13,7 +12,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { Search, Crosshair } from "lucide-react";
+import { Search, MapPin } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { useUser } from "@/hooks/use-user";
 
@@ -50,8 +49,6 @@ export default function Home() {
     handleLocationRequest();
   }, [requestLocation, toast]);
 
-  // Log total number of bars received
-  // Fetch favorite bars only when sortBy is "favorite"
   const { data: favoriteBars, isLoading: isLoadingFavorites } = useQuery({
     queryKey: ["favoriteBars"],
     queryFn: async () => {
@@ -59,12 +56,11 @@ export default function Home() {
         credentials: "include",
       });
       if (!res.ok) throw new Error("Failed to fetch favorite bars");
-      return res.json(); // Expecting an array of favorite bars
+      return res.json();
     },
-    enabled: sortBy === "favorite", // Only run when sorting by favorite
+    enabled: sortBy === "favorite",
   });
 
-  // Log Melbourne area bars for debugging
   const melbourneBars = kavaBars?.filter(
     (bar) =>
       bar.address.toLowerCase().includes("melbourne") ||
@@ -76,14 +72,12 @@ export default function Home() {
       bar.address.toLowerCase().includes("merritt island"),
   );
 
-  // Filter bars based on search and location
   const filteredBars = kavaBars?.filter((bar) => {
     const matchesSearch =
-      !search || // Show all bars when search is empty
+      !search ||
       bar.name.toLowerCase().includes(search.toLowerCase()) ||
       bar.address.toLowerCase().includes(search.toLowerCase());
 
-    // Apply distance filter if location is available
     if (coordinates && radius && bar.location?.lat && bar.location?.lng) {
       const distance = calculateDistance(
         coordinates.latitude,
@@ -94,11 +88,8 @@ export default function Home() {
       return matchesSearch && distance <= radius;
     }
 
-    // If no location or missing coordinates, just use search filter
     return matchesSearch;
   });
-
-  // Log filtered results
 
   let sortedBars = filteredBars
     ?.map((bar) => {
@@ -128,23 +119,10 @@ export default function Home() {
           return 0;
       }
     });
-  // If sorting by favorite, use favoriteBars instead
+
   if (sortBy === "favorite" && favoriteBars) {
     sortedBars = favoriteBars;
   }
-  // Log sorted results and map markers
-
-  // if (view === "map") {
-  //   console.log(
-  //     "Map markers:",
-  //     sortedBars?.map((bar) => ({
-  //       name: bar.name,
-  //       address: bar.address,
-  //       location: bar.location,
-  //       verificationStatus: bar.verificationStatus,
-  //     })),
-  //   );
-  // }
 
   const handleSortChange = (value: string) => {
     setSortBy(value as SortOption);
@@ -170,70 +148,59 @@ export default function Home() {
   }
 
   return (
-    <div className="container mx-auto px-4 py-8" id="home-content">
-      <div className="space-y-8">
-        <div className="space-y-4">
-          {/* SpinningWheel component temporarily removed */}
-
-          <div className="text-center my-3">
-            <a
-              href="mailto:info@mykavabar.com"
-              className="text-blue-500 hover:underline"
-            >
-              Is your Kava Bar missing? Contact us at info@mykavabar.com
-            </a>
-          </div>
-
-          <div className="flex flex-col sm:flex-row gap-4 items-center">
-            <div className="relative flex-1">
-              <Search className="absolute left-3 top-3 h-4 w-4 text-muted-foreground" />
-              <Input
-                placeholder="Search Kava Bars by Name, State, or City."
-                value={search}
-                onChange={(e) => setSearch(e.target.value)}
-                className="pl-9"
-              />
-            </div>
-            <div className="flex gap-2 items-center">
-              <Select value={sortBy} onValueChange={handleSortChange}>
-                <SelectTrigger className="w-[140px]">
-                  <SelectValue placeholder="Sort by..." />
-                </SelectTrigger>
-                <SelectContent>
-                  {user && <SelectItem value="favorite">Favorites</SelectItem>}
-                  <SelectItem value="rating">Rating</SelectItem>
-                  <SelectItem value="distance" disabled={isLoadingLocation}>
-                    Distance{" "}
-                    {isLoadingLocation
-                      ? "(Loading...)"
-                      : !coordinates
-                        ? "(Enable location)"
-                        : ""}
-                  </SelectItem>
-                  <SelectItem value="name">Name</SelectItem>
-                </SelectContent>
-              </Select>
-            </div>
-          </div>
-
-          <div className="flex flex-col sm:flex-row gap-4 items-center">
-            <Button
-              variant="outline"
-              className="gap-2"
-              onClick={requestLocation}
-              disabled={isLoadingLocation}
-            >
-              <Crosshair className="h-4 w-4" />
-              {isLoadingLocation
-                ? "Getting location..."
-                : coordinates
-                  ? "Update location"
-                  : "Use my location"}
-            </Button>
-
-          </div>
+    <div className="min-h-screen bg-[#121212]" id="home-content">
+      {/* Sticky Search Header */}
+      <div className="sticky top-0 z-20 bg-[#121212] pt-4 pb-2 px-4 shadow-md">
+        {/* Search Input with GPS Icon */}
+        <div className="relative w-full">
+          <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400" />
+          <Input
+            placeholder="Search by name, city, or state..."
+            value={search}
+            onChange={(e) => setSearch(e.target.value)}
+            className="w-full pl-10 pr-12 bg-[#1E1E1E] border-[#333] text-white placeholder:text-gray-500 rounded-xl h-12"
+          />
+          <button
+            onClick={requestLocation}
+            disabled={isLoadingLocation}
+            className={`absolute right-3 top-1/2 -translate-y-1/2 p-1.5 rounded-full transition-colors ${
+              coordinates 
+                ? "text-[#D35400] hover:bg-[#333]" 
+                : "text-gray-400 hover:text-[#D35400] hover:bg-[#333]"
+            } ${isLoadingLocation ? "animate-pulse" : ""}`}
+            title={coordinates ? "Location enabled" : "Enable location"}
+          >
+            <MapPin className="h-5 w-5" />
+          </button>
         </div>
 
+        {/* Filter Chips Row */}
+        <div className="flex gap-3 mt-3 overflow-x-auto pb-1 scrollbar-hide">
+          <Select value={sortBy} onValueChange={handleSortChange}>
+            <SelectTrigger className="bg-[#1E1E1E] border border-[#333] rounded-full px-4 py-1 text-sm text-gray-300 h-8 w-auto min-w-[120px]">
+              <SelectValue placeholder="Sort by..." />
+            </SelectTrigger>
+            <SelectContent className="bg-[#1E1E1E] border-[#333]">
+              {user && <SelectItem value="favorite">Favorites</SelectItem>}
+              <SelectItem value="rating">Rating</SelectItem>
+              <SelectItem value="distance" disabled={isLoadingLocation}>
+                Distance
+              </SelectItem>
+              <SelectItem value="name">Name</SelectItem>
+            </SelectContent>
+          </Select>
+
+          {coordinates && (
+            <span className="bg-[#1E1E1E] border border-[#333] rounded-full px-4 py-1 text-sm text-gray-300 flex items-center gap-2 whitespace-nowrap">
+              <MapPin className="h-3 w-3 text-[#D35400]" />
+              Near you
+            </span>
+          )}
+        </div>
+      </div>
+
+      {/* Bar Listings */}
+      <div className="container mx-auto px-4 py-6">
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
           {sortedBars?.map((bar) => (
             <KavaBarCard
