@@ -59,7 +59,7 @@ export function RsvpButton({
         title="Login Required"
         description="Please log in to RSVP to this event."
         confirmButtonText="Log In"
-        confirmAction={() => navigate("/login")}
+        confirmAction={() => navigate("/auth")}
         trigger={
           <Button size="sm" className="w-full sm:w-auto bg-[#D35400] hover:bg-[#E67E22] text-white">
             RSVP
