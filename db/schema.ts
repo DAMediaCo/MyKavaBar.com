@@ -270,6 +270,9 @@ export const kavaBars = pgTable("kava_bars", {
   comingSoon: boolean("coming_soon").default(false),
   grandOpeningDate: date("grand_opening_date"),
   heroImageUrl: text("hero_image_url"),
+  vibeText: text("vibe_text"),
+  menuHighlights: jsonb("menu_highlights"),
+  features: jsonb("features"),
   createdAt: timestamp("created_at").defaultNow().notNull(),
 });
 
@@ -704,6 +707,7 @@ export const eventRsvps = pgTable(
     eventId: integer("event_id")
       .references(() => barEvents.id, { onDelete: "cascade" })
       .notNull(),
+    status: text("status").default("going").notNull(),
     eventDate: date("event_date").notNull(),
     isActive: boolean("is_active").default(true).notNull(),
     eventDateTime: timestamp("event_date_time").notNull(), // full datetime
