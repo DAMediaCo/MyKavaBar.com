@@ -363,12 +363,10 @@ export function setupAuth(app: Express) {
       },
     ),
   );
-  // Use absolute callback URL for production to ensure OAuth works correctly
-  const googleCallbackURL = process.env.NODE_ENV === "production" 
-    ? "https://mykavabar.com/api/auth/google/callback"
-    : "/api/auth/google/callback";
+  // Always use absolute callback URL to match Google Cloud Console configuration
+  const googleCallbackURL = "https://mykavabar.com/api/auth/google/callback";
   
-  console.log("Google OAuth callback URL:", googleCallbackURL);
+  console.log("Google OAuth callbackURL:", googleCallbackURL);
   
   passport.use(
     new GoogleStrategy(
