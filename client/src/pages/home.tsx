@@ -2,7 +2,6 @@ import { useState, useEffect } from "react";
 import { useKavaBars } from "@/hooks/use-kava-bars";
 import { useLocation, calculateDistance } from "@/hooks/use-location";
 import KavaBarCard from "@/components/kava-bar-card";
-import MapView from "@/components/map-view";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { useQuery } from "@tanstack/react-query";
@@ -14,7 +13,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { Search, MapPin, List, Crosshair } from "lucide-react";
+import { Search, Crosshair } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { useUser } from "@/hooks/use-user";
 
@@ -23,7 +22,6 @@ type SortOption = "favorite" | "rating" | "distance" | "name";
 export default function Home() {
   const [search, setSearch] = useState("");
   const { data: kavaBars, isLoading } = useKavaBars();
-  const [view, setView] = useState<"list" | "map">("list");
   const [sortBy, setSortBy] = useState<SortOption>("distance");
   const [radius] = useState<number>(5000);
   const { user } = useUser();
@@ -85,12 +83,7 @@ export default function Home() {
       bar.name.toLowerCase().includes(search.toLowerCase()) ||
       bar.address.toLowerCase().includes(search.toLowerCase());
 
-    // In map view, only apply search filter
-    if (view === "map") {
-      return matchesSearch;
-    }
-
-    // For list view, apply distance filter if location is available
+    // Apply distance filter if location is available
     if (coordinates && radius && bar.location?.lat && bar.location?.lng) {
       const distance = calculateDistance(
         coordinates.latitude,
@@ -220,20 +213,6 @@ export default function Home() {
                   <SelectItem value="name">Name</SelectItem>
                 </SelectContent>
               </Select>
-              <Button
-                variant={view === "list" ? "default" : "outline"}
-                size="icon"
-                onClick={() => setView("list")}
-              >
-                <List className="h-4 w-4" />
-              </Button>
-              <Button
-                variant={view === "map" ? "default" : "outline"}
-                size="icon"
-                onClick={() => setView("map")}
-              >
-                <MapPin className="h-4 w-4" />
-              </Button>
             </div>
           </div>
 
@@ -255,48 +234,17 @@ export default function Home() {
           </div>
         </div>
 
-        {view === "list" ? (
-          <div className="space-y-8">
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-              {sortedBars?.map((bar) => (
-                <KavaBarCard
-                  key={bar.id}
-                  bar={bar}
-                  distance={
-                    bar.distance !== Infinity ? bar.distance : undefined
-                  }
-                />
-              ))}
-            </div>
-          </div>
-        ) : (
-          <div className="h-[600px] rounded-lg overflow-hidden">
-            <MapView
-              bars={sortedBars || []}
-              userLocation={
-                coordinates
-                  ? {
-                      lat: coordinates.latitude,
-                      lng: coordinates.longitude,
-                    }
-                  : undefined
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+          {sortedBars?.map((bar) => (
+            <KavaBarCard
+              key={bar.id}
+              bar={bar}
+              distance={
+                bar.distance !== Infinity ? bar.distance : undefined
               }
-              center={
-                coordinates
-                  ? {
-                      lat: coordinates.latitude,
-                      lng: coordinates.longitude,
-                    }
-                  : {
-                      // Default center to Melbourne, FL
-                      lat: 28.0836,
-                      lng: -80.6081,
-                    }
-              }
-              zoom={coordinates ? 11 : 10}
             />
-          </div>
-        )}
+          ))}
+        </div>
       </div>
     </div>
   );
