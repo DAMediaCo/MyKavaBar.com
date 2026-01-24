@@ -23,6 +23,8 @@ import KavatenderCheckin from "@/components/kavatender-checkin";
 import BarOwnershipControls from "@/components/admin/bar-ownership-controls";
 import CheckInCarousel from "@/components/check-in-carousal";
 import { FavoriteBarDesktop, FavoriteBarMobile } from "@/components/favorite-bar";
+import { PhotoUploader } from "@/components/photo-uploader";
+import { useQueryClient } from "@tanstack/react-query";
 import {
   MapPin,
   Phone,
@@ -81,6 +83,7 @@ export default function BarDetails() {
   const { user } = useUser();
   const { toast } = useToast();
   const [_, navigate] = useLocation();
+  const queryClient = useQueryClient();
   
   const [showAllFeatures, setShowAllFeatures] = useState(false);
   const [showAllHappyHours, setShowAllHappyHours] = useState(false);
@@ -710,6 +713,51 @@ export default function BarDetails() {
                 </Dialog>
               </section>
             )}
+
+            {/* Photo Upload Section */}
+            <section className="bg-[#1E1E1E] p-6 rounded-xl border border-[#333]">
+              <h2 className="text-white font-bold text-xl border-l-4 border-[#D35400] pl-3 mb-4">
+                Share Your Photos
+              </h2>
+              {!user ? (
+                <div className="text-center">
+                  <p className="text-gray-400 mb-4">
+                    Log in or create an account to upload photos of this bar.
+                  </p>
+                  <Button 
+                    onClick={() => navigate("/auth")}
+                    className="bg-[#D35400] hover:bg-[#E67E22] text-white"
+                  >
+                    <Images className="h-4 w-4 mr-2" />
+                    Log In to Upload Photos
+                  </Button>
+                </div>
+              ) : user.isPhoneVerified ? (
+                <div className="text-center">
+                  <p className="text-gray-400 mb-4">
+                    Have photos from your visit? Share them with the community!
+                  </p>
+                  <PhotoUploader 
+                    barId={bar.id} 
+                    onSuccess={() => {
+                      queryClient.invalidateQueries({ queryKey: [`/api/bars/${id}/photos`] });
+                    }} 
+                  />
+                </div>
+              ) : (
+                <div className="text-center">
+                  <p className="text-gray-400 mb-4">
+                    Complete your profile to upload photos.
+                  </p>
+                  <Button 
+                    onClick={() => navigate("/complete-onboarding")}
+                    className="bg-[#D35400] hover:bg-[#E67E22] text-white"
+                  >
+                    Complete Profile
+                  </Button>
+                </div>
+              )}
+            </section>
           </div>
 
           {/* Right Column - Sidebar */}
