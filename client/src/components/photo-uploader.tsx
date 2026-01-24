@@ -128,9 +128,9 @@ export function PhotoUploader({ barId, onSuccess }: Props) {
         onClick={(e) => (e.currentTarget.value = "")} // Fix: Reset input on click
       />
 
-      <label htmlFor="photo-upload">
+      <label htmlFor="photo-upload" className="cursor-pointer">
         <Button disabled={isUploading} asChild>
-          <span>
+          <span className="inline-flex items-center">
             {isUploading ? (
               <>
                 <Loader2 className="h-4 w-4 animate-spin mr-2" /> Uploading...
