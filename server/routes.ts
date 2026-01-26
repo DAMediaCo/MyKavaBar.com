@@ -71,6 +71,8 @@ import { getUserReferralDetails } from "@utils/referrals";
 import { generateUniqueReferralCode } from "@utils/generate-referralcode";
 import { requireAdmin } from "./middleware/admin";
 import { differenceInDays, startOfDay } from "date-fns";
+import { injectBarSeoData } from "./seo/inject";
+import * as fs from "fs";
 
 // Handle the user type
 declare global {
@@ -164,6 +166,45 @@ const upload = multer({
 });
 let wss: any;
 export function registerRoutes(app: Express, server: Server): void {
+  // SEO Route Handler - Injects meta tags for crawlers on bar listing pages
+  app.get("/kava-bars/:id", async (req, res, next) => {
+    const barId = parseInt(req.params.id);
+    
+    // Skip if not a valid ID or if it's an API request
+    if (isNaN(barId) || req.headers.accept?.includes('application/json')) {
+      return next();
+    }
+    
+    try {
+      const [bar] = await db
+        .select()
+        .from(kavaBars)
+        .where(eq(kavaBars.id, barId))
+        .limit(1);
+      
+      if (!bar) {
+        return next(); // Let normal SPA routing handle 404
+      }
+      
+      // Determine the correct index.html path based on environment
+      const isDev = process.env.NODE_ENV !== 'production';
+      const indexPath = isDev 
+        ? path.join(process.cwd(), 'client', 'index.html')
+        : path.join(process.cwd(), 'dist', 'public', 'index.html');
+      
+      // Read the HTML template
+      let html = fs.readFileSync(indexPath, 'utf-8');
+      
+      // Inject SEO data
+      html = injectBarSeoData(html, bar);
+      
+      res.status(200).set({ 'Content-Type': 'text/html' }).send(html);
+    } catch (error) {
+      console.error('SEO injection error:', error);
+      next(); // Fall back to normal SPA routing on error
+    }
+  });
+
   // Set up authentication first
   setupAuth(app);
   setupSquareRoutes(app);
