@@ -63,6 +63,7 @@
     "@types/sharp": "^0.31.1",
     "@types/uuid": "^10.0.0",
     "bcrypt": "^5.1.1",
+    "cheerio": "^1.2.0",
     "class-variance-authority": "^0.7.0",
     "clsx": "^2.1.1",
     "cmdk": "^1.0.0",
