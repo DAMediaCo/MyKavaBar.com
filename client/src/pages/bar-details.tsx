@@ -217,41 +217,7 @@ export default function BarDetails() {
     return bar?.features || [];
   }, [barFeaturesData, bar?.features]);
 
-  if (isLoading) {
-    return (
-      <div className="min-h-screen bg-[#121212] animate-pulse">
-        <div className="h-[45vh] bg-[#1E1E1E]" />
-        <div className="max-w-7xl mx-auto px-4 py-8 space-y-4">
-          <div className="h-8 bg-[#1E1E1E] rounded w-1/3" />
-          <div className="h-40 bg-[#1E1E1E] rounded" />
-        </div>
-      </div>
-    );
-  }
-
-  if (error || !bar) {
-    return (
-      <div className="min-h-screen bg-[#121212] flex items-center justify-center">
-        <div className="text-center">
-          <AlertCircle className="mx-auto h-12 w-12 text-red-500 mb-4" />
-          <h2 className="text-xl font-bold text-white mb-2">Error Loading Bar Details</h2>
-          <p className="text-gray-400">{error ? error.toString() : "Bar not found"}</p>
-        </div>
-      </div>
-    );
-  }
-
-  const isOwner = user?.id === bar.ownerId;
-  const canClaim = user && !bar.ownerId;
-  const isOpen = bar.hours?.open_now;
-  
-  const heroImage = bar.heroImageUrl || 
-    (galleryPhotos && galleryPhotos.length > 0 ? galleryPhotos[0].url : null) ||
-    "https://images.unsplash.com/photo-1514362545857-3bc16c4c7d1b?w=1200";
-
-  const displayFeatures = showAllFeatures ? features : features.slice(0, 5);
-
-  // JSON-LD Structured Data for SEO
+  // JSON-LD Structured Data for SEO - must be before conditional returns
   useEffect(() => {
     if (!bar) return;
     
@@ -368,6 +334,40 @@ export default function BarDetails() {
       }
     };
   }, [bar, galleryPhotos]);
+
+  if (isLoading) {
+    return (
+      <div className="min-h-screen bg-[#121212] animate-pulse">
+        <div className="h-[45vh] bg-[#1E1E1E]" />
+        <div className="max-w-7xl mx-auto px-4 py-8 space-y-4">
+          <div className="h-8 bg-[#1E1E1E] rounded w-1/3" />
+          <div className="h-40 bg-[#1E1E1E] rounded" />
+        </div>
+      </div>
+    );
+  }
+
+  if (error || !bar) {
+    return (
+      <div className="min-h-screen bg-[#121212] flex items-center justify-center">
+        <div className="text-center">
+          <AlertCircle className="mx-auto h-12 w-12 text-red-500 mb-4" />
+          <h2 className="text-xl font-bold text-white mb-2">Error Loading Bar Details</h2>
+          <p className="text-gray-400">{error ? error.toString() : "Bar not found"}</p>
+        </div>
+      </div>
+    );
+  }
+
+  const isOwner = user?.id === bar.ownerId;
+  const canClaim = user && !bar.ownerId;
+  const isOpen = bar.hours?.open_now;
+  
+  const heroImage = bar.heroImageUrl || 
+    (galleryPhotos && galleryPhotos.length > 0 ? galleryPhotos[0].url : null) ||
+    "https://images.unsplash.com/photo-1514362545857-3bc16c4c7d1b?w=1200";
+
+  const displayFeatures = showAllFeatures ? features : features.slice(0, 5);
 
   const copyAddress = async () => {
     try {
