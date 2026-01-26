@@ -273,6 +273,7 @@ export const kavaBars = pgTable("kava_bars", {
   vibeText: text("vibe_text"),
   menuHighlights: jsonb("menu_highlights"),
   features: jsonb("features"),
+  seoTitle: text("seo_title"),
   createdAt: timestamp("created_at").defaultNow().notNull(),
 });
 
