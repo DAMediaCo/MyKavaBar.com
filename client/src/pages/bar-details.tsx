@@ -26,6 +26,7 @@ import { FavoriteBarDesktop, FavoriteBarMobile } from "@/components/favorite-bar
 import { PhotoUploader } from "@/components/photo-uploader";
 import { useQueryClient } from "@tanstack/react-query";
 import { generateBarJsonLd } from "@/lib/generate-jsonld";
+import { generateBarSummary } from "@/lib/generate-bar-summary";
 import {
   MapPin,
   Phone,
@@ -391,6 +392,37 @@ export default function BarDetails() {
             <CheckInCarousel checkIns={checkIns} />
           </div>
         )}
+
+        {/* About Section - Generated summary for House of Tanoa (id: 4622) or bars without vibeText */}
+        {(bar.id === 4622 || !bar.vibeText) && (() => {
+          const addressParts = bar.address?.split(',').map((s: string) => s.trim()) || [];
+          const city = addressParts[1] || '';
+          const stateZipPart = addressParts[2] || '';
+          const stateMatch = stateZipPart.match(/^([A-Z]{2})/);
+          const zipMatch = stateZipPart.match(/(\d{5})/);
+          const state = stateMatch?.[1] || '';
+          const zip = zipMatch?.[1] || '';
+          
+          const summary = generateBarSummary({
+            id: bar.id,
+            name: bar.name,
+            city,
+            state,
+            zip,
+            slug: bar.name.toLowerCase().replace(/[^a-z0-9\s-]/g, '').replace(/\s+/g, '-')
+          });
+          
+          return (
+            <div className="mb-8">
+              <h2 className="text-white font-bold text-xl mb-4 border-l-4 border-[#D35400] pl-3">
+                About {bar.name}
+              </h2>
+              <div className="bg-[#1E1E1E] p-5 rounded-xl border border-[#333]">
+                <p className="text-gray-300 leading-relaxed">{summary}</p>
+              </div>
+            </div>
+          );
+        })()}
 
         {/* Two Column Layout */}
         <div className="grid grid-cols-1 lg:grid-cols-[1fr_380px] gap-10">
