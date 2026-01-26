@@ -393,21 +393,8 @@ export default function BarDetails() {
           </div>
         )}
 
-        {/* About Section - Show vibeText if available, otherwise show generated summary */}
+        {/* About Section - Always uses generated unique description (ignores database placeholder) */}
         {(() => {
-          if (bar.vibeText) {
-            return (
-              <div className="mb-8">
-                <h2 className="text-white font-bold text-xl mb-4 border-l-4 border-[#D35400] pl-3">
-                  About {bar.name}
-                </h2>
-                <div className="bg-[#1E1E1E] p-5 rounded-xl border border-[#333]">
-                  <p className="text-gray-300 leading-relaxed">{bar.vibeText}</p>
-                </div>
-              </div>
-            );
-          }
-          
           const addressParts = bar.address?.split(',').map((s: string) => s.trim()) || [];
           const city = addressParts[1] || '';
           const stateZipPart = addressParts[2] || '';
