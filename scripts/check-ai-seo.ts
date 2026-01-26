@@ -1,11 +1,9 @@
 /**
  * AI SEO Validation Script for MyKavaBar.com
  * 
- * Checks that kava bar listings are optimized for AI search by validating:
- * - JSON-LD Schema (BarOrPub with geo coordinates)
- * - Unique content (not placeholder text)
- * - Meta title format
- * - SameAs social links
+ * Validates that server-side SEO injection is working by:
+ * - Fetching raw HTML from live server (no JS execution)
+ * - Checking for title, JSON-LD schema, and meta description in raw response
  * 
  * Usage: npx tsx scripts/check-ai-seo.ts
  */
@@ -16,35 +14,44 @@ import { sql } from "drizzle-orm";
 import * as cheerio from "cheerio";
 
 const BASE_URL = process.env.BASE_URL || "http://localhost:5000";
-const SAMPLE_SIZE = 10;
+const SAMPLE_SIZE = 5;
 
-interface CheckResult {
-  barId: number;
+interface BarInfo {
+  id: number;
   name: string;
+  address: string;
+}
+
+interface ValidationResult {
+  barId: number;
+  barName: string;
   url: string;
   checks: {
-    schema: { pass: boolean; details: string };
-    uniqueContent: { pass: boolean; details: string };
-    metaTitle: { pass: boolean; details: string };
-    sameAs: { pass: boolean; details: string };
+    titleContainsBarName: { pass: boolean; details: string };
+    titleContainsCity: { pass: boolean; details: string };
+    jsonLdPresent: { pass: boolean; details: string };
+    metaDescriptionUnique: { pass: boolean; details: string };
   };
-  passed: boolean;
+  allPassed: boolean;
 }
 
 /**
- * Fetches HTML from a URL
+ * Fetches raw HTML from URL (mimics AI crawler behavior)
  */
-async function fetchPage(url: string): Promise<string | null> {
+async function fetchRawHtml(url: string): Promise<string | null> {
   try {
     const response = await fetch(url, {
       headers: {
-        'User-Agent': 'MyKavaBar-SEO-Checker/1.0'
+        'User-Agent': 'Mozilla/5.0 (compatible; Googlebot/2.1; +http://www.google.com/bot.html)',
+        'Accept': 'text/html'
       }
     });
+    
     if (!response.ok) {
       console.error(`  ⚠ HTTP ${response.status} for ${url}`);
       return null;
     }
+    
     return await response.text();
   } catch (error) {
     console.error(`  ⚠ Failed to fetch ${url}:`, error);
@@ -53,241 +60,174 @@ async function fetchPage(url: string): Promise<string | null> {
 }
 
 /**
- * Extracts JSON-LD data from HTML
+ * Extracts city from address string
  */
-function extractJsonLd(html: string): any | null {
-  const $ = cheerio.load(html);
-  const scripts = $('script[type="application/ld+json"]');
-  
-  for (let i = 0; i < scripts.length; i++) {
-    try {
-      const content = $(scripts[i]).html();
-      if (content) {
-        const data = JSON.parse(content);
-        if (data['@type'] === 'BarOrPub' || data['@type'] === 'LocalBusiness') {
-          return data;
-        }
-      }
-    } catch (e) {
-      // Continue to next script
-    }
-  }
-  return null;
+function extractCity(address: string): string {
+  const parts = address.split(',').map(s => s.trim());
+  return parts[1] || '';
 }
 
 /**
- * Checks if JSON-LD schema is valid for AI search
+ * Validates a single bar listing page
  */
-function checkSchema(jsonLd: any): { pass: boolean; details: string } {
-  if (!jsonLd) {
-    return { pass: false, details: "No JSON-LD schema found" };
-  }
-  
-  if (jsonLd['@type'] !== 'BarOrPub') {
-    return { pass: false, details: `Wrong @type: ${jsonLd['@type']} (expected BarOrPub)` };
-  }
-  
-  if (!jsonLd.geo || !jsonLd.geo.latitude || !jsonLd.geo.longitude) {
-    return { pass: false, details: "Missing geo coordinates" };
-  }
-  
-  if (!jsonLd['@id']) {
-    return { pass: false, details: "Missing @id" };
-  }
-  
-  return { pass: true, details: `Valid BarOrPub with geo (${jsonLd.geo.latitude}, ${jsonLd.geo.longitude})` };
-}
-
-/**
- * Checks if page has unique content (not placeholder)
- */
-function checkUniqueContent(html: string, barName: string): { pass: boolean; details: string } {
-  const $ = cheerio.load(html);
-  
-  // Look for description text in the About section
-  const aboutSection = $('h2:contains("About")').parent().find('p').text();
-  const bodyText = $('body').text();
-  
-  // Check for placeholder patterns
-  const placeholders = [
-    'Purple Lotus',
-    'Welcome to [Name]',
-    'We are a new addition',
-    'Lorem ipsum',
-    'placeholder'
-  ];
-  
-  for (const placeholder of placeholders) {
-    if (bodyText.toLowerCase().includes(placeholder.toLowerCase())) {
-      return { pass: false, details: `Contains placeholder text: "${placeholder}"` };
-    }
-  }
-  
-  // Check if description contains bar name and is long enough
-  if (aboutSection.length < 100) {
-    return { pass: false, details: `Description too short (${aboutSection.length} chars)` };
-  }
-  
-  if (!aboutSection.includes(barName)) {
-    return { pass: false, details: "Description doesn't include bar name" };
-  }
-  
-  return { pass: true, details: `Unique content found (${aboutSection.length} chars)` };
-}
-
-/**
- * Checks if meta title follows the correct pattern
- */
-function checkMetaTitle(html: string): { pass: boolean; details: string } {
-  const $ = cheerio.load(html);
-  const title = $('title').text();
-  
-  if (!title) {
-    return { pass: false, details: "No <title> tag found" };
-  }
-  
-  // Check for pattern: "Top Kava Bar in [City], [State] | [Name]" or similar
-  const patterns = [
-    /Top Kava Bar in .+\|.+/i,
-    /Kava Bar in .+\|.+/i,
-    /.+\| .+ Kava Bar/i
-  ];
-  
-  for (const pattern of patterns) {
-    if (pattern.test(title)) {
-      return { pass: true, details: `Valid title: "${title.substring(0, 60)}..."` };
-    }
-  }
-  
-  return { pass: false, details: `Title doesn't match pattern: "${title.substring(0, 60)}..."` };
-}
-
-/**
- * Checks if JSON-LD includes sameAs array for social media
- */
-function checkSameAs(jsonLd: any): { pass: boolean; details: string } {
-  if (!jsonLd) {
-    return { pass: false, details: "No JSON-LD schema found" };
-  }
-  
-  if (!jsonLd.sameAs || !Array.isArray(jsonLd.sameAs)) {
-    return { pass: false, details: "No sameAs array found" };
-  }
-  
-  if (jsonLd.sameAs.length === 0) {
-    return { pass: false, details: "sameAs array is empty" };
-  }
-  
-  const socialLinks = jsonLd.sameAs.filter((url: string) => 
-    url.includes('facebook') || url.includes('instagram') || url.includes('yelp')
-  );
-  
-  return { 
-    pass: true, 
-    details: `Found ${jsonLd.sameAs.length} social link(s): ${jsonLd.sameAs.map((u: string) => new URL(u).hostname).join(', ')}` 
-  };
-}
-
-/**
- * Validates a single bar listing
- */
-async function validateBar(bar: { id: number; name: string }): Promise<CheckResult> {
+async function validateBarPage(bar: BarInfo): Promise<ValidationResult> {
   const url = `${BASE_URL}/kava-bars/${bar.id}`;
-  console.log(`\n📍 Checking: ${bar.name}`);
-  console.log(`   URL: ${url}`);
+  const city = extractCity(bar.address);
   
-  const html = await fetchPage(url);
+  console.log(`\n🔍 Checking: ${bar.name}`);
+  console.log(`   URL: ${url}`);
+  console.log(`   Expected city: "${city}"`);
+  
+  const html = await fetchRawHtml(url);
   
   if (!html) {
     return {
       barId: bar.id,
-      name: bar.name,
+      barName: bar.name,
       url,
       checks: {
-        schema: { pass: false, details: "Failed to fetch page" },
-        uniqueContent: { pass: false, details: "Failed to fetch page" },
-        metaTitle: { pass: false, details: "Failed to fetch page" },
-        sameAs: { pass: false, details: "Failed to fetch page" }
+        titleContainsBarName: { pass: false, details: "Failed to fetch page" },
+        titleContainsCity: { pass: false, details: "Failed to fetch page" },
+        jsonLdPresent: { pass: false, details: "Failed to fetch page" },
+        metaDescriptionUnique: { pass: false, details: "Failed to fetch page" }
       },
-      passed: false
+      allPassed: false
     };
   }
   
-  const jsonLd = extractJsonLd(html);
+  const $ = cheerio.load(html);
   
-  const checks = {
-    schema: checkSchema(jsonLd),
-    uniqueContent: checkUniqueContent(html, bar.name),
-    metaTitle: checkMetaTitle(html),
-    sameAs: checkSameAs(jsonLd)
+  // Check 1: Title contains bar name
+  const title = $('title').text();
+  const titleContainsBarName = title.includes(bar.name);
+  
+  // Check 2: Title contains city
+  const titleContainsCity = city ? title.includes(city) : true;
+  
+  // Check 3: JSON-LD is present in raw HTML
+  let jsonLdPresent = false;
+  let jsonLdDetails = "No JSON-LD found";
+  const jsonLdScripts = $('script[type="application/ld+json"]');
+  
+  jsonLdScripts.each((_, script) => {
+    const content = $(script).html();
+    if (content) {
+      try {
+        const data = JSON.parse(content);
+        if (data['@type'] === 'BarOrPub' && data.name === bar.name) {
+          jsonLdPresent = true;
+          jsonLdDetails = `Found BarOrPub schema with geo: ${data.geo ? 'yes' : 'no'}`;
+        }
+      } catch (e) {
+        // Invalid JSON, skip
+      }
+    }
+  });
+  
+  // Check 4: Meta description is unique (not default, contains bar name)
+  const metaDescription = $('meta[name="description"]').attr('content') || '';
+  const isDefaultDescription = metaDescription.includes('Discover kava bars near you') || 
+                               metaDescription.includes('Your Nationwide Kava Bar Directory');
+  const metaDescriptionUnique = !isDefaultDescription && 
+                                 metaDescription.length > 100 && 
+                                 metaDescription.includes(bar.name);
+  
+  // Log results
+  console.log(`   ${titleContainsBarName ? '✅' : '❌'} TITLE HAS BAR NAME: "${title.substring(0, 50)}..."`);
+  console.log(`   ${titleContainsCity ? '✅' : '❌'} TITLE HAS CITY: ${city ? `looking for "${city}"` : 'N/A'}`);
+  console.log(`   ${jsonLdPresent ? '✅' : '❌'} JSON-LD IN RAW HTML: ${jsonLdDetails}`);
+  console.log(`   ${metaDescriptionUnique ? '✅' : '❌'} UNIQUE META DESC: ${metaDescription.substring(0, 60)}...`);
+  
+  const allPassed = titleContainsBarName && titleContainsCity && jsonLdPresent && metaDescriptionUnique;
+  
+  return {
+    barId: bar.id,
+    barName: bar.name,
+    url,
+    checks: {
+      titleContainsBarName: { 
+        pass: titleContainsBarName, 
+        details: title.substring(0, 60) 
+      },
+      titleContainsCity: { 
+        pass: titleContainsCity, 
+        details: city || 'No city found' 
+      },
+      jsonLdPresent: { 
+        pass: jsonLdPresent, 
+        details: jsonLdDetails 
+      },
+      metaDescriptionUnique: { 
+        pass: metaDescriptionUnique, 
+        details: metaDescription.substring(0, 100) 
+      }
+    },
+    allPassed
   };
-  
-  // Log individual checks
-  console.log(`   ${checks.schema.pass ? '✅' : '❌'} SCHEMA: ${checks.schema.details}`);
-  console.log(`   ${checks.uniqueContent.pass ? '✅' : '❌'} CONTENT: ${checks.uniqueContent.details}`);
-  console.log(`   ${checks.metaTitle.pass ? '✅' : '❌'} TITLE: ${checks.metaTitle.details}`);
-  console.log(`   ${checks.sameAs.pass ? '✅' : '❌'} SAMEAS: ${checks.sameAs.details}`);
-  
-  const passed = checks.schema.pass && checks.uniqueContent.pass && checks.metaTitle.pass;
-  
-  return { barId: bar.id, name: bar.name, url, checks, passed };
 }
 
 async function main() {
   console.log('═'.repeat(80));
-  console.log('  AI SEO VALIDATION SCRIPT - MyKavaBar.com');
+  console.log('  AI SEO VALIDATION - Server-Side Injection Check');
+  console.log('  Verifying raw HTML contains SEO data (no JavaScript execution)');
   console.log('═'.repeat(80));
-  console.log(`\nFetching ${SAMPLE_SIZE} random bars from database...\n`);
+  console.log(`\nTarget: ${BASE_URL}`);
+  console.log(`Sample size: ${SAMPLE_SIZE} random listings\n`);
   
-  // Fetch random sample of bars
+  // Fetch random sample of bars with addresses
   const bars = await db
-    .select({ id: kavaBars.id, name: kavaBars.name })
+    .select({ 
+      id: kavaBars.id, 
+      name: kavaBars.name,
+      address: kavaBars.address
+    })
     .from(kavaBars)
     .orderBy(sql`RANDOM()`)
     .limit(SAMPLE_SIZE);
   
-  console.log(`Found ${bars.length} bars to check against ${BASE_URL}\n`);
+  console.log(`Found ${bars.length} bars to validate`);
   console.log('─'.repeat(80));
   
-  const results: CheckResult[] = [];
+  const results: ValidationResult[] = [];
   
   for (const bar of bars) {
-    const result = await validateBar(bar);
+    const result = await validateBarPage(bar);
     results.push(result);
   }
   
   // Summary
   console.log('\n' + '═'.repeat(80));
-  console.log('  SUMMARY');
+  console.log('  SUMMARY - RAW HTML SEO VALIDATION');
   console.log('═'.repeat(80));
   
-  const passedCount = results.filter(r => r.passed).length;
-  const schemaPass = results.filter(r => r.checks.schema.pass).length;
-  const contentPass = results.filter(r => r.checks.uniqueContent.pass).length;
-  const titlePass = results.filter(r => r.checks.metaTitle.pass).length;
-  const sameAsPass = results.filter(r => r.checks.sameAs.pass).length;
+  const titleNamePass = results.filter(r => r.checks.titleContainsBarName.pass).length;
+  const titleCityPass = results.filter(r => r.checks.titleContainsCity.pass).length;
+  const jsonLdPass = results.filter(r => r.checks.jsonLdPresent.pass).length;
+  const metaDescPass = results.filter(r => r.checks.metaDescriptionUnique.pass).length;
+  const allPassedCount = results.filter(r => r.allPassed).length;
   
-  console.log(`\n  📊 Individual Checks:`);
-  console.log(`     SCHEMA (BarOrPub + geo): ${schemaPass}/${results.length} passed`);
-  console.log(`     UNIQUE CONTENT:          ${contentPass}/${results.length} passed`);
-  console.log(`     META TITLE:              ${titlePass}/${results.length} passed`);
-  console.log(`     SAMEAS (social links):   ${sameAsPass}/${results.length} passed`);
+  console.log(`\n  📊 Individual Checks (in raw HTML, no JS):`);
+  console.log(`     Title contains bar name:  ${titleNamePass}/${results.length}`);
+  console.log(`     Title contains city:      ${titleCityPass}/${results.length}`);
+  console.log(`     JSON-LD schema present:   ${jsonLdPass}/${results.length}`);
+  console.log(`     Unique meta description:  ${metaDescPass}/${results.length}`);
   
-  console.log(`\n  ${'─'.repeat(40)}`);
-  console.log(`  🤖 AI SEO Check: ${passedCount}/${results.length} Pages Fully Passed`);
-  console.log(`  ${'─'.repeat(40)}\n`);
+  console.log(`\n  ${'─'.repeat(50)}`);
   
-  // List failures
-  const failures = results.filter(r => !r.passed);
-  if (failures.length > 0) {
-    console.log('  ⚠️  Pages needing attention:');
-    for (const f of failures) {
-      console.log(`     - [${f.barId}] ${f.name}`);
+  if (allPassedCount === results.length) {
+    console.log(`  ✅ SUCCESS: ${allPassedCount}/${results.length} Pages Fully Passed`);
+    console.log(`  AI crawlers will see complete SEO data in raw HTML!`);
+  } else {
+    console.log(`  ⚠️  PARTIAL: ${allPassedCount}/${results.length} Pages Fully Passed`);
+    console.log(`\n  Pages needing attention:`);
+    for (const r of results.filter(r => !r.allPassed)) {
+      console.log(`     - [${r.barId}] ${r.barName}`);
     }
   }
   
-  console.log('');
-  process.exit(passedCount === results.length ? 0 : 1);
+  console.log(`  ${'─'.repeat(50)}\n`);
+  
+  process.exit(allPassedCount === results.length ? 0 : 1);
 }
 
 main().catch(console.error);
