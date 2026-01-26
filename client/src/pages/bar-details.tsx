@@ -25,6 +25,7 @@ import CheckInCarousel from "@/components/check-in-carousal";
 import { FavoriteBarDesktop, FavoriteBarMobile } from "@/components/favorite-bar";
 import { PhotoUploader } from "@/components/photo-uploader";
 import { useQueryClient } from "@tanstack/react-query";
+import { generateBarJsonLd } from "@/lib/generate-jsonld";
 import {
   MapPin,
   Phone,
@@ -221,99 +222,21 @@ export default function BarDetails() {
   useEffect(() => {
     if (!bar) return;
     
-    const location = bar.location as { lat?: number; lng?: number } | null;
-    const hours = bar.hours as { 
-      periods?: Array<{ open?: { day: number; time: string }; close?: { day: number; time: string } }>;
-      weekday_text?: string[];
-    } | null;
+    const jsonLd = generateBarJsonLd({
+      id: bar.id,
+      name: bar.name,
+      address: bar.address,
+      phone: bar.phone,
+      rating: bar.rating,
+      reviewCount: bar.reviewCount,
+      heroImageUrl: bar.heroImageUrl || (galleryPhotos && galleryPhotos.length > 0 ? galleryPhotos[0]?.url : null),
+      vibeText: bar.vibeText,
+      facebookUrl: bar.facebookUrl,
+      instagramUrl: bar.instagramUrl,
+      location: bar.location as { lat?: number; lng?: number } | null,
+      hours: bar.hours as any
+    });
     
-    // Parse address components from "Street, City, State Zip, Country" format
-    const addressParts = bar.address?.split(',').map(s => s.trim()) || [];
-    const street = addressParts[0] || '';
-    const city = addressParts[1] || '';
-    const stateZipPart = addressParts[2] || '';
-    const stateZipMatch = stateZipPart.match(/^([A-Z]{2})\s*(\d{5})?/);
-    const stateCode = stateZipMatch?.[1] || '';
-    const zip = stateZipMatch?.[2] || '';
-    
-    // Build opening hours from periods data if available
-    const dayNames = ["Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"];
-    const openingHoursSpec: any[] = [];
-    
-    if (hours?.periods && hours.periods.length > 0) {
-      hours.periods.forEach(period => {
-        if (period.open?.time && period.close?.time) {
-          const opens = `${period.open.time.slice(0, 2)}:${period.open.time.slice(2)}`;
-          const closes = `${period.close.time.slice(0, 2)}:${period.close.time.slice(2)}`;
-          const dayOfWeek = dayNames[period.open.day];
-          
-          openingHoursSpec.push({
-            "@type": "OpeningHoursSpecification",
-            "dayOfWeek": dayOfWeek,
-            "opens": opens,
-            "closes": closes
-          });
-        }
-      });
-    }
-    
-    const jsonLd: Record<string, any> = {
-      "@context": "https://schema.org",
-      "@type": "BarOrPub",
-      "@id": `https://mykavabar.com/kava-bars/${bar.id}#business`,
-      "name": bar.name,
-      "url": `https://mykavabar.com/kava-bars/${bar.id}`,
-      "logo": "https://mykavabar.com/logo.png",
-      "image": bar.heroImageUrl || (galleryPhotos && galleryPhotos.length > 0 ? galleryPhotos[0]?.url : null),
-      "description": bar.vibeText || `${bar.name} - Kava bar located in ${city || 'the US'}${stateCode ? `, ${stateCode}` : ''}`,
-      "servesCuisine": "Kava, Botanical Drinks",
-      "priceRange": "$$",
-      "address": {
-        "@type": "PostalAddress",
-        "streetAddress": street,
-        "addressLocality": city,
-        "addressRegion": stateCode,
-        "postalCode": zip,
-        "addressCountry": "US"
-      }
-    };
-    
-    // Only add geo if we have valid coordinates
-    if (location?.lat && location?.lng) {
-      jsonLd.geo = {
-        "@type": "GeoCoordinates",
-        "latitude": location.lat,
-        "longitude": location.lng
-      };
-    }
-    
-    // Only add opening hours if we have valid data
-    if (openingHoursSpec.length > 0) {
-      jsonLd.openingHoursSpecification = openingHoursSpec;
-    }
-    
-    // Only add phone if available
-    if (bar.phone) {
-      jsonLd.telephone = bar.phone;
-    }
-    
-    // Only add rating if available
-    if (bar.rating && parseFloat(bar.rating) > 0) {
-      jsonLd.aggregateRating = {
-        "@type": "AggregateRating",
-        "ratingValue": bar.rating,
-        "bestRating": "5",
-        "worstRating": "1"
-      };
-    }
-    
-    // Add social links if available
-    const sameAs = [bar.facebookUrl, bar.instagramUrl].filter(Boolean);
-    if (sameAs.length > 0) {
-      jsonLd.sameAs = sameAs;
-    }
-    
-    // Create or update script tag
     const scriptId = 'bar-jsonld';
     let script = document.getElementById(scriptId) as HTMLScriptElement | null;
     
@@ -326,7 +249,6 @@ export default function BarDetails() {
     
     script.textContent = JSON.stringify(jsonLd);
     
-    // Cleanup on unmount
     return () => {
       const existingScript = document.getElementById(scriptId);
       if (existingScript) {
