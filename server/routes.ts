@@ -205,6 +205,66 @@ export function registerRoutes(app: Express, server: Server): void {
     }
   });
 
+  // Dynamic Sitemap.xml for SEO
+  app.get("/sitemap.xml", async (req, res) => {
+    try {
+      const BASE_URL = "https://mykavabar.com";
+      
+      // Fetch all bar IDs (efficient query - only needed columns)
+      const bars = await db
+        .select({
+          id: kavaBars.id
+        })
+        .from(kavaBars)
+        .orderBy(kavaBars.id);
+      
+      // Static pages
+      const staticPages = [
+        { url: "/", priority: "1.0", changefreq: "daily" },
+        { url: "/about", priority: "0.6", changefreq: "monthly" },
+        { url: "/search", priority: "0.9", changefreq: "daily" },
+        { url: "/contact", priority: "0.5", changefreq: "monthly" }
+      ];
+      
+      // Build XML
+      const today = new Date().toISOString().split('T')[0];
+      
+      let xml = `<?xml version="1.0" encoding="UTF-8"?>
+<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">
+`;
+      
+      // Add static pages
+      for (const page of staticPages) {
+        xml += `  <url>
+    <loc>${BASE_URL}${page.url}</loc>
+    <lastmod>${today}</lastmod>
+    <changefreq>${page.changefreq}</changefreq>
+    <priority>${page.priority}</priority>
+  </url>
+`;
+      }
+      
+      // Add dynamic bar pages
+      for (const bar of bars) {
+        xml += `  <url>
+    <loc>${BASE_URL}/kava-bars/${bar.id}</loc>
+    <lastmod>${today}</lastmod>
+    <changefreq>weekly</changefreq>
+    <priority>0.8</priority>
+  </url>
+`;
+      }
+      
+      xml += `</urlset>`;
+      
+      res.set("Content-Type", "application/xml");
+      res.send(xml);
+    } catch (error) {
+      console.error("Sitemap generation error:", error);
+      res.status(500).send("Error generating sitemap");
+    }
+  });
+
   // Set up authentication first
   setupAuth(app);
   setupSquareRoutes(app);
