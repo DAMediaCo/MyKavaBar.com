@@ -224,6 +224,7 @@ export default function BarDetails() {
     
     const jsonLd = generateBarJsonLd({
       id: bar.id,
+      slug: (bar as any).slug,
       name: bar.name,
       address: bar.address,
       phone: bar.phone,
@@ -233,6 +234,8 @@ export default function BarDetails() {
       vibeText: bar.vibeText,
       facebookUrl: bar.facebookUrl,
       instagramUrl: bar.instagramUrl,
+      yelpUrl: (bar as any).yelpUrl,
+      websiteUrl: bar.websiteUrl,
       location: bar.location as { lat?: number; lng?: number } | null,
       hours: bar.hours as any
     });
