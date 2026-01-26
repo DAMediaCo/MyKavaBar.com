@@ -205,6 +205,32 @@ export function registerRoutes(app: Express, server: Server): void {
     }
   });
 
+  // Robots.txt for SEO and AI crawlers
+  app.get("/robots.txt", (req, res) => {
+    const robotsTxt = `# MyKavaBar.com Robots.txt
+# Allow all crawlers including AI bots
+
+User-agent: *
+Allow: /
+
+# Disallow administrative and private routes
+Disallow: /admin
+Disallow: /api/
+Disallow: /login
+Disallow: /register
+Disallow: /forgot-password
+Disallow: /reset-password
+
+# Allow specific API routes for SEO (bar data)
+Allow: /kava-bars/
+
+# Sitemap location
+Sitemap: https://mykavabar.com/sitemap.xml
+`;
+    res.set("Content-Type", "text/plain");
+    res.send(robotsTxt);
+  });
+
   // Dynamic Sitemap.xml for SEO
   app.get("/sitemap.xml", async (req, res) => {
     try {
