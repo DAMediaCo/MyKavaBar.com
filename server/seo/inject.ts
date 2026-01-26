@@ -1,6 +1,6 @@
 /**
  * SEO Injection for bar listing pages
- * Injects meta tags, title, and JSON-LD into HTML before sending to crawlers
+ * Replaces placeholder comments in HTML with actual SEO data for crawlers
  */
 
 import { generateUniqueDescription, generateKavaSchema, generateSeoTitle } from "./generators";
@@ -26,44 +26,6 @@ interface BarData {
 const BASE_URL = "https://mykavabar.com";
 
 /**
- * Injects SEO data into HTML template for a bar listing page
- */
-export function injectBarSeoData(html: string, bar: BarData): string {
-  const seoTitle = generateSeoTitle(bar);
-  const description = generateUniqueDescription(bar);
-  const jsonLd = generateKavaSchema(bar);
-  const canonicalUrl = `${BASE_URL}/kava-bars/${bar.id}`;
-  const ogImage = bar.heroImageUrl || `${BASE_URL}/og-default.jpg`;
-
-  // Replace title tag
-  html = html.replace(
-    /<title>[^<]*<\/title>/,
-    `<title>${escapeHtml(seoTitle)}</title>`
-  );
-
-  // Build meta tags to inject
-  const metaTags = `
-    <meta name="description" content="${escapeHtml(description.substring(0, 160))}">
-    <link rel="canonical" href="${canonicalUrl}">
-    <meta property="og:title" content="${escapeHtml(seoTitle)}">
-    <meta property="og:description" content="${escapeHtml(description.substring(0, 160))}">
-    <meta property="og:url" content="${canonicalUrl}">
-    <meta property="og:image" content="${ogImage}">
-    <meta property="og:type" content="business.business">
-    <meta name="twitter:card" content="summary_large_image">
-    <meta name="twitter:title" content="${escapeHtml(seoTitle)}">
-    <meta name="twitter:description" content="${escapeHtml(description.substring(0, 160))}">
-    <meta name="twitter:image" content="${ogImage}">
-    <script type="application/ld+json">${JSON.stringify(jsonLd)}</script>
-  `;
-
-  // Inject meta tags before </head>
-  html = html.replace('</head>', `${metaTags}\n</head>`);
-
-  return html;
-}
-
-/**
  * Escapes HTML special characters
  */
 function escapeHtml(text: string): string {
@@ -73,4 +35,68 @@ function escapeHtml(text: string): string {
     .replace(/>/g, '&gt;')
     .replace(/"/g, '&quot;')
     .replace(/'/g, '&#039;');
+}
+
+/**
+ * Injects SEO data into HTML template for a bar listing page
+ * Uses placeholder comments (<!-- SSR:TAG -->...<!-- /SSR:TAG -->) for clean replacement
+ */
+export function injectBarSeoData(html: string, bar: BarData): string {
+  const seoTitle = generateSeoTitle(bar);
+  const description = generateUniqueDescription(bar);
+  const jsonLd = generateKavaSchema(bar);
+  const canonicalUrl = `${BASE_URL}/kava-bars/${bar.id}`;
+  const ogImage = bar.heroImageUrl || `${BASE_URL}/og-default.jpg`;
+
+  // Replace title (between SSR:TITLE placeholders)
+  html = html.replace(
+    /<!-- SSR:TITLE -->.*?<!-- \/SSR:TITLE -->/s,
+    `<!-- SSR:TITLE --><title>${escapeHtml(seoTitle)}</title><!-- /SSR:TITLE -->`
+  );
+
+  // Replace meta description
+  html = html.replace(
+    /<!-- SSR:META_DESC -->.*?<!-- \/SSR:META_DESC -->/s,
+    `<!-- SSR:META_DESC --><meta name="description" content="${escapeHtml(description.substring(0, 160))}"><!-- /SSR:META_DESC -->`
+  );
+
+  // Replace canonical URL
+  html = html.replace(
+    /<!-- SSR:CANONICAL -->.*?<!-- \/SSR:CANONICAL -->/s,
+    `<!-- SSR:CANONICAL --><link rel="canonical" href="${canonicalUrl}"><!-- /SSR:CANONICAL -->`
+  );
+
+  // Replace Open Graph tags
+  const ogTags = `
+    <meta property="og:title" content="${escapeHtml(seoTitle)}">
+    <meta property="og:description" content="${escapeHtml(description.substring(0, 160))}">
+    <meta property="og:type" content="business.business">
+    <meta property="og:url" content="${canonicalUrl}">
+    <meta property="og:image" content="${ogImage}">
+    <meta property="og:site_name" content="MyKavaBar">
+  `;
+  html = html.replace(
+    /<!-- SSR:OG_TAGS -->.*?<!-- \/SSR:OG_TAGS -->/s,
+    `<!-- SSR:OG_TAGS -->${ogTags}<!-- /SSR:OG_TAGS -->`
+  );
+
+  // Replace Twitter tags
+  const twitterTags = `
+    <meta name="twitter:card" content="summary_large_image">
+    <meta name="twitter:title" content="${escapeHtml(seoTitle)}">
+    <meta name="twitter:description" content="${escapeHtml(description.substring(0, 160))}">
+    <meta name="twitter:image" content="${ogImage}">
+  `;
+  html = html.replace(
+    /<!-- SSR:TWITTER_TAGS -->.*?<!-- \/SSR:TWITTER_TAGS -->/s,
+    `<!-- SSR:TWITTER_TAGS -->${twitterTags}<!-- /SSR:TWITTER_TAGS -->`
+  );
+
+  // Replace JSON-LD schema
+  html = html.replace(
+    /<!-- SSR:JSON_LD -->.*?<!-- \/SSR:JSON_LD -->/s,
+    `<!-- SSR:JSON_LD --><script type="application/ld+json">${JSON.stringify(jsonLd)}</script><!-- /SSR:JSON_LD -->`
+  );
+
+  return html;
 }
