@@ -51,34 +51,32 @@ function seededPick<T>(arr: T[], rng: () => number): T {
   return arr[Math.floor(rng() * arr.length)];
 }
 
-const INTRO_TEMPLATES = [
-  "Nestled in the heart of {{city}}, {{name}} offers an authentic kava experience for locals and travelers alike.",
-  "Welcome to {{name}}, a beloved kava lounge serving the {{city}} community with traditional island hospitality.",
-  "Discover {{name}} in {{city}}, {{state}} — your destination for premium kava and genuine relaxation.",
-  "{{name}} brings the spirit of the Pacific Islands to {{city}}, offering a serene escape from everyday life.",
-  "Located in {{city}}, {{name}} has become a gathering place for kava enthusiasts seeking quality and connection.",
-  "Experience the warmth of {{name}}, where {{city}} locals come together to enjoy the finest kava traditions.",
-  "{{name}} stands as a cornerstone of the {{city}} kava scene, welcoming guests with open arms."
+// Slot 1: The Where & What (10 variations)
+const SLOT_1_TEMPLATES = [
+  "{{name}} is a premier {{city}} destination for authentic Noble kava and botanical blends.",
+  "Located in the heart of {{city}}, {{name}} offers a relaxing, alcohol-free retreat for the local community.",
+  "A staple of the {{state}} kava scene, {{name}} specializes in traditional South Pacific roots and wellness.",
+  "Found near {{zip}}, {{name}} provides a serene environment perfect for unwinding with a shell.",
+  "Serving the greater {{city}} area, {{name}} is a vibrant hub for mindful socializing and island tradition.",
+  "Nestled within the {{city}} community, {{name}} brings a taste of the islands to {{state}}.",
+  "As a top-rated kava lounge in {{city}}, {{name}} is dedicated to serving high-quality, lab-tested kava.",
+  "Situated in a prime {{city}} location, {{name}} is the perfect spot for those seeking a botanical alternative.",
+  "{{name}} stands as a dedicated kava bar in {{state}}, offering traditional service in a modern setting.",
+  "If you are looking for kava in {{city}}, {{name}} provides an authentic experience rooted in tradition."
 ];
 
-const MIDDLE_TEMPLATES = [
-  "Their menu features noble kava blends sourced directly from the South Pacific islands.",
-  "Guests enjoy a carefully curated selection of traditional and flavored kava preparations.",
-  "The bar serves both newcomers and seasoned kava drinkers with patience and expertise.",
-  "Known for their smooth, high-quality kava, they prioritize authenticity in every shell.",
-  "The atmosphere blends modern comfort with traditional island vibes for a unique experience.",
-  "Beyond kava, they offer botanical drinks and a welcoming space to unwind and connect.",
-  "Their knowledgeable staff guides visitors through the kava journey, from first sip to regular patron."
-];
-
-const END_TEMPLATES = [
-  "A true staple of the {{zip}} area, {{name}} continues to grow the kava culture one shell at a time.",
-  "Whether you're a kava veteran or curious newcomer, {{name}} in {{state}} welcomes all who seek relaxation.",
-  "Stop by {{name}} and discover why it's become a favorite gathering spot in {{city}}, {{state}}.",
-  "Join the {{name}} ohana and experience the calming traditions that have made kava beloved worldwide.",
-  "{{name}} invites you to slow down, connect, and savor the peaceful moments that kava brings.",
-  "Visit {{name}} in the {{zip}} area to find your new favorite spot for kava and community.",
-  "From first-timers to regulars, everyone finds a home at {{name}} in {{city}}."
+// Slot 2: The Why & CTA (10 variations)
+const SLOT_2_TEMPLATES = [
+  "Visit them today to experience the best kava culture in the {{zip}} area.",
+  "It remains a top-rated choice for anyone seeking a chill 'Bula' vibe in {{state}}.",
+  "Stop by {{name}} to see why it's a favorite for kava drinkers across {{city}}.",
+  "Whether you're a regular or a newcomer, it's a must-visit spot in {{state}}.",
+  "They continue to set the standard for quality and community in the {{city}} region.",
+  "Experience the relaxing benefits of premium kava at this {{city}} staple.",
+  "Come by for a shell and discover why {{name}} is a cornerstone of {{state}} kava culture.",
+  "The welcoming atmosphere at {{name}} makes it a top destination for the {{zip}} community.",
+  "Join the local {{city}} kava community at {{name}} for a truly unique social experience.",
+  "Discover your new favorite botanical retreat right here in the heart of {{city}}."
 ];
 
 function parseAddress(address: string | null | undefined): { city: string; state: string; zip: string } {
@@ -105,17 +103,25 @@ function fillTemplate(template: string, name: string, city: string, state: strin
     .replace(/\{\{zip\}\}/g, zip || 'local');
 }
 
+/**
+ * Generates a unique, deterministic 2-sentence description for a kava bar
+ * Uses slug-based seeding for permanent, consistent output
+ * 10x10 = 100 unique combinations for 700+ bars
+ * 
+ * @param bar - Bar data from database
+ * @returns 2-sentence description (~150-160 characters)
+ */
 export function generateUniqueDescription(bar: BarData): string {
   const slug = bar.name.toLowerCase().replace(/[^a-z0-9\s-]/g, '').replace(/\s+/g, '-');
   const hash = hashString(slug);
   const rng = seededRandom(hash);
   const { city, state, zip } = parseAddress(bar.address);
   
-  const intro = fillTemplate(seededPick(INTRO_TEMPLATES, rng), bar.name, city, state, zip);
-  const middle = fillTemplate(seededPick(MIDDLE_TEMPLATES, rng), bar.name, city, state, zip);
-  const end = fillTemplate(seededPick(END_TEMPLATES, rng), bar.name, city, state, zip);
+  // Pick one from each slot (10x10 = 100 combinations)
+  const slot1 = fillTemplate(seededPick(SLOT_1_TEMPLATES, rng), bar.name, city, state, zip);
+  const slot2 = fillTemplate(seededPick(SLOT_2_TEMPLATES, rng), bar.name, city, state, zip);
   
-  return `${intro} ${middle} ${end}`;
+  return `${slot1} ${slot2}`;
 }
 
 // ============================================================================
