@@ -135,8 +135,8 @@ export function PassportCheckinButton({
   return (
     <Dialog open={open} onOpenChange={setOpen}>
       <DialogTrigger asChild>
-        <Button variant="outline" size="lg" className="w-full sm:w-auto gap-2 border-[#333] text-gray-300 hover:bg-[#252525]">
-          🛂
+        <Button variant="outline" className="gap-2 border-[#333] text-gray-300 hover:bg-[#252525]">
+          <span className="text-base">🛂</span>
           Stamp Your Passport
         </Button>
       </DialogTrigger>
