@@ -33,6 +33,12 @@ import {
   getBarRsvpStats,
 } from "./controllers/rsvp";
 import {
+  checkin,
+  getPassport,
+  getLeaderboard,
+  getBadges,
+} from "./controllers/passport";
+import {
   kavaBars,
   userFavorites,
   verificationRequests,
@@ -4849,6 +4855,13 @@ Sitemap: https://mykavabar.com/sitemap.xml
 
   app.get("/api/bar/:barId/happy-hours", getHappyHoursController);
   app.put("/api/bar/:barId/happy-hours", updateHappyHoursController);
+
+  // Kava Passport routes
+  app.post("/api/passport/checkin", isAuthenticated, checkin);
+  app.get("/api/passport/:userId", getPassport);
+  app.get("/api/passport/leaderboard", getLeaderboard);
+  app.get("/api/passport/badges/:userId", getBadges);
+
   app.put("/api/user/password", async (req, res) => {
     if (!req.isAuthenticated()) {
       return res.status(401).json({ error: "Not authenticated" });
