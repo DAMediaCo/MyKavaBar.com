@@ -44,8 +44,8 @@ export default function NavBar() {
 
   const navLinks = [
     {
-      href: "/learn",
-      label: "Learn",
+      href: "/blog",
+      label: "Blog",
       icon: <BookOpen className="h-4 w-4" />,
       show: true,
     },

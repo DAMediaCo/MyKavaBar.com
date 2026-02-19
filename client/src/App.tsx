@@ -27,12 +27,7 @@ import ForgotPassword from "@/pages/forgot-password";
 import ResetPassword from "@/pages/reset-password";
 import Profile from "@/pages/profile";
 import VerificationStatus from "@/pages/verification-status";
-import Learn from "@/pages/learn";
-import History from "@/pages/learn/history";
-import Kratom from "@/pages/learn/kratom";
-import BlueLotus from "@/pages/learn/blue-lotus";
-import Kanna from "@/pages/learn/kanna";
-import Damiana from "@/pages/learn/damiana";
+import Blog from "@/pages/blog";
 import ManageBar from "./pages/manage-bar";
 import TermsOfService from "./pages/terms-of-service";
 import CookiePolicy from "./pages/cookie-policy";
@@ -43,8 +38,6 @@ import ManageFeatures from "@/pages/admin/manage-features";
 import MyRsvpsPage from "./pages/my-rsvp";
 import PassportPage from "./pages/passport";
 import LeaderboardPage from "./pages/leaderboard";
-import PassportPage from "./pages/PassportPage";
-import LeaderboardPage from "./pages/LeaderboardPage";
 interface ProtectedRouteProps {
   children: React.ReactNode;
   isAllowed: boolean;
@@ -110,14 +103,8 @@ function Router() {
           <Route path="/auth" component={AuthPage} />
           <Route path="/forgot-password" component={ForgotPassword} />
           <Route path="/reset-password/:token" component={ResetPassword} />
-          <Route path="/learn" component={Learn} />
+          <Route path="/blog" component={Blog} />
           <Route path="/complete-onboarding" component={CompleteOnboarding} />
-          {/* Knowledge Hub Routes */}
-          <Route path="/learn/history" component={History} />
-          <Route path="/learn/kratom" component={Kratom} />
-          <Route path="/learn/blue-lotus" component={BlueLotus} />
-          <Route path="/learn/kanna" component={Kanna} />
-          <Route path="/learn/damiana" component={Damiana} />
           <Route path="/leaderboard" component={LeaderboardPage} />
           {/* Protected routes */}
           <Route path="/passport">
