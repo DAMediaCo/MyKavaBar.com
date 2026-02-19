@@ -514,7 +514,7 @@ export const barOwnerNotifications = pgTable("bar_owner_notifications", {
   createdAt: timestamp("created_at").defaultNow().notNull(),
 });
 
-export const userRelations = relations(users, ({ many }) => ({
+export const userRelations = relations(users, ({ many, one }) => ({
   reviews: many(reviews),
   upvotes: many(upvotes),
   ownedBars: many(kavaBars),
@@ -526,6 +526,11 @@ export const userRelations = relations(users, ({ many }) => ({
   notifications: many(notifications),
   notificationPreferences: many(barOwnerNotificationPreferences),
   favorites: many(userFavorites),
+  passportCheckins: many(passportCheckins),
+  passportStats: one(passportStats, {
+    fields: [users.id],
+    references: [passportStats.userId],
+  }),
 }));
 
 export const userFavoritesRelations = relations(userFavorites, ({ one }) => ({
@@ -558,6 +563,7 @@ export const kavaBarRelations = relations(kavaBars, ({ many, one }) => ({
   crowdDensity: many(crowdDensity),
   photos: many(kavaBarPhotos),
   events: many(barEvents),
+  passportCheckins: many(passportCheckins),
 }));
 
 export const passwordResetTokenRelations = relations(
@@ -699,6 +705,34 @@ export const barOwnerNotificationRelations = relations(
     }),
   }),
 );
+
+// ====================== KAVA PASSPORT ======================
+export const passportCheckins = pgTable("passport_checkins", {
+  id: serial("id").primaryKey(),
+  userId: integer("user_id")
+    .references(() => users.id, { onDelete: "cascade" })
+    .notNull(),
+  barId: integer("bar_id")
+    .references(() => kavaBars.id, { onDelete: "cascade" })
+    .notNull(),
+  checkedInAt: timestamp("checked_in_at").defaultNow().notNull(),
+  lat: decimal("lat", { precision: 10, scale: 7 }).notNull(),
+  lng: decimal("lng", { precision: 10, scale: 7 }).notNull(),
+  notes: text("notes"),
+});
+
+export const passportStats = pgTable("passport_stats", {
+  userId: integer("user_id")
+    .primaryKey()
+    .references(() => users.id, { onDelete: "cascade" })
+    .notNull(),
+  totalCheckins: integer("total_checkins").default(0).notNull(),
+  uniqueBars: integer("unique_bars").default(0).notNull(),
+  currentStreak: integer("current_streak").default(0).notNull(),
+  longestStreak: integer("longest_streak").default(0).notNull(),
+  rank: integer("rank"),
+  lastCheckinAt: timestamp("last_checkin_at"),
+});
 export const eventRsvps = pgTable(
   "event_rsvps",
   {
@@ -910,3 +944,32 @@ export const insertBarOwnerNotificationSchema = createInsertSchema(
 export const selectBarOwnerNotificationSchema = createSelectSchema(
   barOwnerNotifications,
 );
+
+// Passport checkins relations
+export const passportCheckinsRelations = relations(
+  passportCheckins,
+  ({ one }) => ({
+    user: one(users, {
+      fields: [passportCheckins.userId],
+      references: [users.id],
+    }),
+    bar: one(kavaBars, {
+      fields: [passportCheckins.barId],
+      references: [kavaBars.id],
+    }),
+  }),
+);
+
+// Passport stats relations
+export const passportStatsRelations = relations(passportStats, ({ one }) => ({
+  user: one(users, {
+    fields: [passportStats.userId],
+    references: [users.id],
+  }),
+}));
+
+// Passport types
+export type PassportCheckin = typeof passportCheckins.$inferSelect;
+export type InsertPassportCheckin = typeof passportCheckins.$inferInsert;
+export type PassportStats = typeof passportStats.$inferSelect;
+export type InsertPassportStats = typeof passportStats.$inferInsert;

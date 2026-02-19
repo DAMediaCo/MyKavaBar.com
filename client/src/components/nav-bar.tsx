@@ -22,6 +22,9 @@ import {
   Settings,
   DollarSign,
   Menu,
+  Map,
+  Trophy,
+  Award,
 } from "lucide-react";
 
 import { Link, useLocation } from "wouter";
@@ -45,6 +48,18 @@ export default function NavBar() {
       label: "Learn",
       icon: <BookOpen className="h-4 w-4" />,
       show: true,
+    },
+    {
+      href: "/leaderboard",
+      label: "Leaderboard",
+      icon: <Trophy className="h-4 w-4" />,
+      show: true,
+    },
+    {
+      href: "/passport",
+      label: "Passport",
+      icon: <Map className="h-4 w-4" />,
+      show: !!user,
     },
     {
       href: "/welcome",

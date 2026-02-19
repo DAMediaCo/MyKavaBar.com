@@ -41,6 +41,10 @@ import Referral from "./pages/referrals";
 import AdminPayoutPage from "./pages/admin/payout";
 import ManageFeatures from "@/pages/admin/manage-features";
 import MyRsvpsPage from "./pages/my-rsvp";
+import PassportPage from "./pages/passport";
+import LeaderboardPage from "./pages/leaderboard";
+import PassportPage from "./pages/PassportPage";
+import LeaderboardPage from "./pages/LeaderboardPage";
 interface ProtectedRouteProps {
   children: React.ReactNode;
   isAllowed: boolean;
@@ -114,7 +118,13 @@ function Router() {
           <Route path="/learn/blue-lotus" component={BlueLotus} />
           <Route path="/learn/kanna" component={Kanna} />
           <Route path="/learn/damiana" component={Damiana} />
+          <Route path="/leaderboard" component={LeaderboardPage} />
           {/* Protected routes */}
+          <Route path="/passport">
+            <ProtectedRoute isAllowed={!!user}>
+              <PassportPage />
+            </ProtectedRoute>
+          </Route>
           <Route path="/profile">
             <ProtectedRoute isAllowed={!!user}>
               <Profile />
@@ -125,6 +135,12 @@ function Router() {
               <MyRsvpsPage />
             </ProtectedRoute>
           </Route>
+          <Route path="/passport">
+            <ProtectedRoute isAllowed={!!user}>
+              <PassportPage />
+            </ProtectedRoute>
+          </Route>
+          <Route path="/leaderboard" component={LeaderboardPage} />
           <Route path="/referrals">
             <ProtectedRoute isAllowed={!!user && user.role === "kavatender"}>
               <Referral />

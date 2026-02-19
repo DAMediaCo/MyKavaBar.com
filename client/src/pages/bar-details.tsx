@@ -27,6 +27,7 @@ import { PhotoUploader } from "@/components/photo-uploader";
 import { useQueryClient } from "@tanstack/react-query";
 import { generateBarJsonLd } from "@/lib/generate-jsonld";
 import { generateBarSummary } from "@/lib/generate-bar-summary";
+import { PassportCheckinButton } from "@/components/passport-checkin-button";
 import {
   MapPin,
   Phone,
@@ -357,6 +358,7 @@ export default function BarDetails() {
           <ShareBar bar={bar} />
           <FavoriteBarDesktop barId={Number(id)} />
           <FavoriteBarMobile barId={Number(id)} />
+          <PassportCheckinButton barId={bar.id} barName={bar.name} />
           
           {canClaim && (
             <ClaimBarDialog
