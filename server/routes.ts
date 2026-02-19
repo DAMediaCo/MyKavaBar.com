@@ -4858,9 +4858,9 @@ Sitemap: https://mykavabar.com/sitemap.xml
 
   // Kava Passport routes
   app.post("/api/passport/checkin", isAuthenticated, checkin);
-  app.get("/api/passport/:userId", getPassport);
   app.get("/api/passport/leaderboard", getLeaderboard);
   app.get("/api/passport/badges/:userId", getBadges);
+  app.get("/api/passport/:userId", getPassport);
 
   app.put("/api/user/password", async (req, res) => {
     if (!req.isAuthenticated()) {
