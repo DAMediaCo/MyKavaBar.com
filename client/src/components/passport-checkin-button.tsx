@@ -64,8 +64,8 @@ export function PassportCheckinButton({
     },
     onSuccess: (data) => {
       toast({
-        title: "Check-in successful! 🎉",
-        description: `You earned a stamp at ${barName}! ${data.stats.uniqueBars} unique bars visited.`,
+        title: "Passport stamped! 🛂🎉",
+        description: `New stamp: ${barName}! ${data.stats.uniqueBars} unique bars visited.`,
       });
       queryClient.invalidateQueries({ queryKey: ["/api/passport"] });
       setOpen(false);
@@ -136,13 +136,13 @@ export function PassportCheckinButton({
     <Dialog open={open} onOpenChange={setOpen}>
       <DialogTrigger asChild>
         <Button variant="default" size="lg" className="w-full sm:w-auto">
-          <MapPin className="h-4 w-4 mr-2" />
-          Check In
+          🛂
+          Stamp Your Passport
         </Button>
       </DialogTrigger>
       <DialogContent className="sm:max-w-md">
         <DialogHeader>
-          <DialogTitle>Check In at {barName}</DialogTitle>
+          <DialogTitle>Stamp Your Passport at {barName}</DialogTitle>
           <DialogDescription>
             Earn a stamp in your Kava Passport! You must be within 200 meters
             of the bar to check in.
@@ -178,8 +178,8 @@ export function PassportCheckinButton({
               </>
             ) : (
               <>
-                <MapPin className="h-4 w-4 mr-2" />
-                Confirm Check-In
+                🛂
+                Stamp It!
               </>
             )}
           </Button>
