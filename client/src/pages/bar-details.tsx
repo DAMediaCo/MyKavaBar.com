@@ -354,10 +354,12 @@ export default function BarDetails() {
       {/* Main Content */}
       <div className="max-w-7xl mx-auto px-4 py-8">
         {/* Action Bar */}
-        <div className="flex flex-wrap gap-3 mb-8">
+        <div className="flex items-center gap-3 mb-4">
           <ShareBar bar={bar} />
           <FavoriteBarDesktop barId={Number(id)} />
           <FavoriteBarMobile barId={Number(id)} />
+        </div>
+        <div className="flex flex-col sm:flex-row gap-3 mb-8">
           <PassportCheckinButton barId={bar.id} barName={bar.name} />
           
           {canClaim && (
