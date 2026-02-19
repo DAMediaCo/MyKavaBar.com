@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, lazy, Suspense } from "react";
 import { useKavaBars } from "@/hooks/use-kava-bars";
 import { useLocation, calculateDistance } from "@/hooks/use-location";
 import KavaBarCard from "@/components/kava-bar-card";
@@ -12,9 +12,11 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { Search, MapPin } from "lucide-react";
+import { Search, MapPin, Map, List } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { useUser } from "@/hooks/use-user";
+
+const MapView = lazy(() => import("@/components/map-view"));
 
 type SortOption = "favorite" | "rating" | "distance" | "name";
 
@@ -22,6 +24,7 @@ export default function Home() {
   const [search, setSearch] = useState("");
   const { data: kavaBars, isLoading } = useKavaBars();
   const [sortBy, setSortBy] = useState<SortOption>("distance");
+  const [viewMode, setViewMode] = useState<"list" | "map">("list");
   const [radius] = useState<number>(5000);
   const { user } = useUser();
   const {
@@ -196,10 +199,42 @@ export default function Home() {
               Near you
             </span>
           )}
+
+          <button
+            onClick={() => setViewMode(viewMode === "list" ? "map" : "list")}
+            className="bg-[#1E1E1E] border border-[#333] rounded-full px-4 py-1 text-sm text-gray-300 flex items-center gap-2 whitespace-nowrap hover:bg-[#252525] transition-colors ml-auto"
+          >
+            {viewMode === "list" ? (
+              <>
+                <Map className="h-3 w-3 text-[#D35400]" />
+                Map View
+              </>
+            ) : (
+              <>
+                <List className="h-3 w-3 text-[#D35400]" />
+                List View
+              </>
+            )}
+          </button>
         </div>
       </div>
 
+      {/* Map View */}
+      {viewMode === "map" && sortedBars && (
+        <div className="w-full h-[calc(100vh-160px)]">
+          <Suspense fallback={<div className="flex items-center justify-center h-full text-gray-400">Loading map...</div>}>
+            <MapView
+              bars={sortedBars}
+              center={coordinates ? { lat: coordinates.latitude, lng: coordinates.longitude } : undefined}
+              zoom={coordinates ? 10 : 4}
+              userLocation={coordinates ? { lat: coordinates.latitude, lng: coordinates.longitude } : undefined}
+            />
+          </Suspense>
+        </div>
+      )}
+
       {/* Bar Listings */}
+      {viewMode === "list" && (
       <div className="container mx-auto px-4 py-6">
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
           {sortedBars?.map((bar) => (
@@ -213,6 +248,7 @@ export default function Home() {
           ))}
         </div>
       </div>
+      )}
     </div>
   );
 }
