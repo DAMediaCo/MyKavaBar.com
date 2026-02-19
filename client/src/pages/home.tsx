@@ -221,7 +221,7 @@ export default function Home() {
 
       {/* Map View */}
       {viewMode === "map" && sortedBars && (
-        <div className="w-full h-[calc(100vh-160px)]">
+        <div style={{ width: "100%", height: "calc(100vh - 160px)", position: "relative" }}>
           <Suspense fallback={<div className="flex items-center justify-center h-full text-gray-400">Loading map...</div>}>
             <MapView
               bars={sortedBars}
