@@ -70,16 +70,18 @@ export default function StatePage() {
         {cities.length > 0 && (
           <div className="mb-8">
             <h2 className="text-base font-semibold text-gray-300 mb-3">Browse by City</h2>
-            <div className="flex flex-wrap gap-2">
-              {cities.map((c: any) => (
-                <Link
-                  key={c.city_slug}
-                  href={`/kava-bars/${stateSlug}/${c.city_slug}`}
-                  className="px-3 py-1.5 bg-[#1E1E1E] border border-[#333] rounded-full text-sm text-gray-300 hover:border-[#D35400] hover:text-[#D35400] transition-colors"
-                >
-                  {c.city} <span className="text-gray-500">({c.bar_count})</span>
-                </Link>
-              ))}
+            <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-2">
+              {cities
+                .sort((a: any, b: any) => b.bar_count - a.bar_count)
+                .map((c: any) => (
+                  <Link
+                    key={c.city_slug}
+                    href={`/kava-bars/${stateSlug}/${c.city_slug}`}
+                    className="px-3 py-2 bg-[#1E1E1E] border border-[#333] rounded-lg text-sm text-gray-300 hover:border-[#D35400] hover:text-[#D35400] transition-colors text-center truncate"
+                  >
+                    {c.city} <span className="text-gray-500">({c.bar_count})</span>
+                  </Link>
+                ))}
             </div>
           </div>
         )}
