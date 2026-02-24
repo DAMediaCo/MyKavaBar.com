@@ -1,5 +1,5 @@
 import { useEffect } from "react";
-import { Switch, Route } from "wouter";
+import { Switch, Route, useParams } from "wouter";
 import { queryClient } from "./lib/queryClient";
 import { QueryClientProvider } from "@tanstack/react-query";
 import { Toaster } from "@/components/ui/toaster";
@@ -38,6 +38,14 @@ import ManageFeatures from "@/pages/admin/manage-features";
 import MyRsvpsPage from "./pages/my-rsvp";
 import PassportPage from "./pages/passport";
 import LeaderboardPage from "./pages/leaderboard";
+import StatePage from "./pages/state-page";
+import CityPage from "./pages/city-page";
+
+function KavaBarRouter() {
+  const { param } = useParams<{ param: string }>();
+  if (!isNaN(parseInt(param ?? ""))) return <BarDetails />;
+  return <StatePage />;
+}
 interface ProtectedRouteProps {
   children: React.ReactNode;
   isAllowed: boolean;
@@ -99,7 +107,8 @@ function Router() {
           {/* Public routes */}
           <Route path="/" component={Home} />
           <Route path="/welcome" component={Welcome} />
-          <Route path="/kava-bars/:id" component={BarDetails} />
+          <Route path="/kava-bars/:param/:citySlug" component={CityPage} />
+          <Route path="/kava-bars/:param" component={KavaBarRouter} />
           <Route path="/auth" component={AuthPage} />
           <Route path="/forgot-password" component={ForgotPassword} />
           <Route path="/reset-password/:token" component={ResetPassword} />

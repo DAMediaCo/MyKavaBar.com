@@ -77,7 +77,7 @@ import { getUserReferralDetails } from "@utils/referrals";
 import { generateUniqueReferralCode } from "@utils/generate-referralcode";
 import { requireAdmin } from "./middleware/admin";
 import { differenceInDays, startOfDay } from "date-fns";
-import { injectBarSeoData } from "./seo/inject";
+import { injectBarSeoData, injectStateSeoData, injectCitySeoData, slugToStateCode, getLocationStateName } from "./seo/inject";
 import * as fs from "fs";
 
 // Handle the user type
@@ -172,6 +172,116 @@ const upload = multer({
 });
 let wss: any;
 export function registerRoutes(app: Express, server: Server): void {
+
+  // ── Location API routes ───────────────────────────────────────────────────
+
+  app.get("/api/location/states/:stateSlug/bars", async (req: Request, res: Response) => {
+    try {
+      const stateCode = slugToStateCode(req.params.stateSlug);
+      if (!stateCode) return res.status(404).json({ error: "State not found" });
+      const result = await db.execute(sql`
+        SELECT id, name, address, phone, rating, is_verified_kava_bar, business_status,
+               hero_image_url, vibe_text, location, hours
+        FROM kava_bars
+        WHERE address ILIKE ${'%, ' + stateCode + '%'}
+        ORDER BY is_verified_kava_bar DESC, rating DESC NULLS LAST
+        LIMIT 200
+      `);
+      res.json(result.rows);
+    } catch (err: any) { res.status(500).json({ error: err.message }); }
+  });
+
+  app.get("/api/location/states/:stateSlug/cities", async (req: Request, res: Response) => {
+    try {
+      const stateCode = slugToStateCode(req.params.stateSlug);
+      if (!stateCode) return res.status(404).json({ error: "State not found" });
+      const result = await db.execute(sql`
+        SELECT TRIM(SPLIT_PART(address, ',', 2)) as city, COUNT(*) as bar_count
+        FROM kava_bars
+        WHERE address ILIKE ${'%, ' + stateCode + '%'}
+        GROUP BY city
+        HAVING TRIM(SPLIT_PART(address, ',', 2)) != ''
+        ORDER BY bar_count DESC
+        LIMIT 50
+      `);
+      res.json((result.rows as any[])
+        .filter((r: any) => r.city && r.city.length > 1)
+        .map((r: any) => ({
+          city: r.city,
+          city_slug: r.city.toLowerCase().replace(/\s+/g, "-"),
+          bar_count: parseInt(r.bar_count)
+        })));
+    } catch (err: any) { res.status(500).json({ error: err.message }); }
+  });
+
+  app.get("/api/location/states/:stateSlug/cities/:citySlug/bars", async (req: Request, res: Response) => {
+    try {
+      const stateCode = slugToStateCode(req.params.stateSlug);
+      if (!stateCode) return res.status(404).json({ error: "State not found" });
+      const cityName = req.params.citySlug.replace(/-/g, " ");
+      const result = await db.execute(sql`
+        SELECT id, name, address, phone, rating, is_verified_kava_bar, business_status,
+               hero_image_url, vibe_text, location, hours
+        FROM kava_bars
+        WHERE address ILIKE ${'%, ' + stateCode + '%'}
+          AND address ILIKE ${'%' + cityName + '%'}
+        ORDER BY is_verified_kava_bar DESC, rating DESC NULLS LAST
+        LIMIT 100
+      `);
+      res.json(result.rows);
+    } catch (err: any) { res.status(500).json({ error: err.message }); }
+  });
+
+  // ── Location page SSR routes (meta injection for Google) ─────────────────
+
+  app.get("/kava-bars/:stateSlug/:citySlug", async (req, res, next) => {
+    if (req.headers.accept?.includes("application/json")) return next();
+    const stateCode = slugToStateCode(req.params.stateSlug);
+    if (!stateCode) return next();
+    try {
+      const cityName = req.params.citySlug.replace(/-/g, " ");
+      const countRes = await db.execute(sql`
+        SELECT COUNT(*) as n FROM kava_bars
+        WHERE address ILIKE ${'%, ' + stateCode + '%'}
+          AND address ILIKE ${'%' + cityName + '%'}
+      `);
+      const barCount = parseInt((countRes.rows[0] as any).n) || 0;
+      const isDev = process.env.NODE_ENV !== "production";
+      const indexPath = isDev
+        ? path.join(process.cwd(), "client", "index.html")
+        : path.join(process.cwd(), "dist", "public", "index.html");
+      let html = fs.readFileSync(indexPath, "utf-8");
+      html = injectCitySeoData(html, stateCode, cityName, barCount);
+      res.status(200).set({ "Content-Type": "text/html" }).send(html);
+    } catch { next(); }
+  });
+
+  app.get("/kava-bars/:stateSlug", async (req, res, next) => {
+    if (req.headers.accept?.includes("application/json")) return next();
+    if (!isNaN(parseInt(req.params.stateSlug))) return next();
+    const stateCode = slugToStateCode(req.params.stateSlug);
+    if (!stateCode) return next();
+    try {
+      const [countRes, citiesRes] = await Promise.all([
+        db.execute(sql`SELECT COUNT(*) as n FROM kava_bars WHERE address ILIKE ${'%, ' + stateCode + '%'}`),
+        db.execute(sql`
+          SELECT TRIM(SPLIT_PART(address, ',', 2)) as city
+          FROM kava_bars WHERE address ILIKE ${'%, ' + stateCode + '%'}
+          GROUP BY city ORDER BY COUNT(*) DESC LIMIT 20
+        `)
+      ]);
+      const barCount = parseInt((countRes.rows[0] as any).n) || 0;
+      const cities = (citiesRes.rows as any[]).map((r: any) => r.city).filter(Boolean);
+      const isDev = process.env.NODE_ENV !== "production";
+      const indexPath = isDev
+        ? path.join(process.cwd(), "client", "index.html")
+        : path.join(process.cwd(), "dist", "public", "index.html");
+      let html = fs.readFileSync(indexPath, "utf-8");
+      html = injectStateSeoData(html, stateCode, barCount, cities);
+      res.status(200).set({ "Content-Type": "text/html" }).send(html);
+    } catch { next(); }
+  });
+
   // SEO Route Handler - Injects meta tags for crawlers on bar listing pages
   app.get("/kava-bars/:id", async (req, res, next) => {
     const barId = parseInt(req.params.id);
