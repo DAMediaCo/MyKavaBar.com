@@ -43,7 +43,7 @@ import CityPage from "./pages/city-page";
 
 function KavaBarRouter() {
   const { param } = useParams<{ param: string }>();
-  if (!isNaN(parseInt(param ?? ""))) return <BarDetails />;
+  if (param && /^\d+$/.test(param)) return <BarDetails />;
   return <StatePage />;
 }
 interface ProtectedRouteProps {
