@@ -81,7 +81,8 @@ function generateGoogleCalendarLink(event: any, barAddress: string) {
 }
 
 export default function BarDetails() {
-  const { id } = useParams();
+  const { id: _id, param } = useParams<{ id?: string; param?: string }>();
+  const id = _id ?? param;
   const { data: bar, isLoading, error } = useKavaBar(id || "");
   const { user } = useUser();
   const { toast } = useToast();
