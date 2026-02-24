@@ -78,7 +78,7 @@ import { generateUniqueReferralCode } from "@utils/generate-referralcode";
 import { requireAdmin } from "./middleware/admin";
 import { differenceInDays, startOfDay } from "date-fns";
 import { injectBarSeoData, injectStateSeoData, injectCitySeoData, slugToStateCode, getLocationStateName } from "./seo/inject";
-import * as fs from "fs";
+import { readFileSync } from "fs";
 
 // Handle the user type
 declare global {
@@ -250,7 +250,7 @@ export function registerRoutes(app: Express, server: Server): void {
       const indexPath = isDev
         ? path.join(process.cwd(), "client", "index.html")
         : path.join(process.cwd(), "dist", "public", "index.html");
-      let html = fs.readFileSync(indexPath, "utf-8");
+      let html = readFileSync(indexPath, "utf-8");
       html = injectCitySeoData(html, stateCode, cityName, barCount);
       res.status(200).set({ "Content-Type": "text/html" }).send(html);
     } catch { next(); }
@@ -276,7 +276,7 @@ export function registerRoutes(app: Express, server: Server): void {
       const indexPath = isDev
         ? path.join(process.cwd(), "client", "index.html")
         : path.join(process.cwd(), "dist", "public", "index.html");
-      let html = fs.readFileSync(indexPath, "utf-8");
+      let html = readFileSync(indexPath, "utf-8");
       html = injectStateSeoData(html, stateCode, barCount, cities);
       res.status(200).set({ "Content-Type": "text/html" }).send(html);
     } catch { next(); }
@@ -309,7 +309,7 @@ export function registerRoutes(app: Express, server: Server): void {
         : path.join(process.cwd(), 'dist', 'public', 'index.html');
       
       // Read the HTML template
-      let html = fs.readFileSync(indexPath, 'utf-8');
+      let html = readFileSync(indexPath, 'utf-8');
       
       // Inject SEO data
       html = injectBarSeoData(html, bar);
