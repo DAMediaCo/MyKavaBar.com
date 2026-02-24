@@ -386,6 +386,67 @@ Sitemap: https://mykavabar.com/sitemap.xml
 `;
       }
       
+      // Add state location pages
+      const stateResult = await db.execute(sql`
+        SELECT DISTINCT TRIM(SPLIT_PART(address, ',', 3)) as state_part
+        FROM kava_bars
+        WHERE address IS NOT NULL
+      `);
+      const STATE_NAMES: Record<string, string> = {
+        AL:"Alabama",AK:"Alaska",AZ:"Arizona",AR:"Arkansas",CA:"California",
+        CO:"Colorado",CT:"Connecticut",DE:"Delaware",FL:"Florida",GA:"Georgia",
+        HI:"Hawaii",ID:"Idaho",IL:"Illinois",IN:"Indiana",IA:"Iowa",
+        KS:"Kansas",KY:"Kentucky",LA:"Louisiana",ME:"Maine",MD:"Maryland",
+        MA:"Massachusetts",MI:"Michigan",MN:"Minnesota",MS:"Mississippi",MO:"Missouri",
+        MT:"Montana",NE:"Nebraska",NV:"Nevada",NH:"New Hampshire",NJ:"New Jersey",
+        NM:"New Mexico",NY:"New York",NC:"North Carolina",ND:"North Dakota",OH:"Ohio",
+        OK:"Oklahoma",OR:"Oregon",PA:"Pennsylvania",RI:"Rhode Island",SC:"South Carolina",
+        SD:"South Dakota",TN:"Tennessee",TX:"Texas",UT:"Utah",VT:"Vermont",
+        VA:"Virginia",WA:"Washington",WV:"West Virginia",WI:"Wisconsin",WY:"Wyoming"
+      };
+      const seenStates = new Set<string>();
+      for (const row of stateResult.rows as any[]) {
+        const match = (row.state_part || "").match(/^([A-Z]{2})/);
+        if (!match) continue;
+        const code = match[1];
+        if (!STATE_NAMES[code] || seenStates.has(code)) continue;
+        seenStates.add(code);
+        const slug = STATE_NAMES[code].toLowerCase().replace(/\s+/g, "-");
+        xml += `  <url>
+    <loc>${BASE_URL}/kava-bars/${slug}</loc>
+    <lastmod>${today}</lastmod>
+    <changefreq>weekly</changefreq>
+    <priority>0.9</priority>
+  </url>
+`;
+      }
+
+      // Add city location pages
+      const cityResult = await db.execute(sql`
+        SELECT TRIM(SPLIT_PART(address, ',', 2)) as city,
+               TRIM(SPLIT_PART(address, ',', 3)) as state_part
+        FROM kava_bars
+        WHERE address IS NOT NULL
+        GROUP BY city, state_part
+        HAVING COUNT(*) >= 1
+      `);
+      for (const row of cityResult.rows as any[]) {
+        const match = (row.state_part || "").match(/^([A-Z]{2})/);
+        if (!match || !row.city || row.city.length < 2) continue;
+        const code = match[1];
+        if (!STATE_NAMES[code]) continue;
+        const stateSlug = STATE_NAMES[code].toLowerCase().replace(/\s+/g, "-");
+        const citySlug = row.city.trim().toLowerCase().replace(/\s+/g, "-").replace(/[^a-z0-9-]/g, "");
+        if (!citySlug) continue;
+        xml += `  <url>
+    <loc>${BASE_URL}/kava-bars/${stateSlug}/${citySlug}</loc>
+    <lastmod>${today}</lastmod>
+    <changefreq>weekly</changefreq>
+    <priority>0.8</priority>
+  </url>
+`;
+      }
+
       // Add dynamic bar pages
       for (const bar of bars) {
         xml += `  <url>
