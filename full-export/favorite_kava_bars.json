@@ -1,0 +1,12 @@
+[
+  {
+    "Error in river service (agentToolPostgreSQL - executeSqlCommand)": "LINE 1: SELECT * FROM user_favorites",
+    " code: EXECUTE_SQL_COMMAND_ERROR": null,
+    " message: Encountered an error executing SQL command: exitCode=1 exitReason=exit stderr=ERROR:  relation user_favorites does not exist": null
+  },
+  {
+    "Error in river service (agentToolPostgreSQL - executeSqlCommand)": "                      ^",
+    " code: EXECUTE_SQL_COMMAND_ERROR": null,
+    " message: Encountered an error executing SQL command: exitCode=1 exitReason=exit stderr=ERROR:  relation user_favorites does not exist": null
+  }
+]
