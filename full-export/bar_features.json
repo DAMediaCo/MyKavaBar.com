@@ -1,0 +1,23 @@
+[
+  {"id":65,"bar_id":4608,"name":"KARAOKE MACHINE","created_at":"2025-08-27T07:04:04.756971","created_by":132,"updated_at":null,"category_id":1,"is_featured":false},
+  {"id":66,"bar_id":4622,"name":"Foosball","created_at":"2025-08-30T22:01:44.485724","created_by":15,"updated_at":null,"category_id":2,"is_featured":true},
+  {"id":71,"bar_id":2550,"name":"Poker","created_at":"2025-09-11T01:01:20.230658","created_by":174,"updated_at":null,"category_id":2,"is_featured":false},
+  {"id":72,"bar_id":2550,"name":"Card Games ( Magic The Gathering and more )","created_at":"2025-09-11T01:01:51.156523","created_by":174,"updated_at":null,"category_id":2,"is_featured":false},
+  {"id":73,"bar_id":2550,"name":"Console Hosting","created_at":"2025-09-11T01:02:15.863594","created_by":174,"updated_at":null,"category_id":2,"is_featured":false},
+  {"id":75,"bar_id":2550,"name":"Spacious seating","created_at":"2025-09-11T01:05:18.253489","created_by":174,"updated_at":null,"category_id":3,"is_featured":false},
+  {"id":76,"bar_id":2550,"name":"Dynamic seating","created_at":"2025-09-11T01:05:29.301962","created_by":174,"updated_at":null,"category_id":3,"is_featured":false},
+  {"id":77,"bar_id":2550,"name":"Adaptable seating","created_at":"2025-09-11T01:05:51.961726","created_by":174,"updated_at":null,"category_id":3,"is_featured":false},
+  {"id":78,"bar_id":2550,"name":"Outdoor seating","created_at":"2025-09-11T01:06:06.230702","created_by":174,"updated_at":null,"category_id":3,"is_featured":false},
+  {"id":79,"bar_id":2550,"name":"Esthetic lighting","created_at":"2025-09-11T01:06:53.412525","created_by":174,"updated_at":null,"category_id":3,"is_featured":false},
+  {"id":80,"bar_id":2550,"name":"Chill atmosphere","created_at":"2025-09-11T01:07:17.723148","created_by":174,"updated_at":null,"category_id":3,"is_featured":false},
+  {"id":81,"bar_id":2550,"name":"Great spot to work","created_at":"2025-09-11T01:07:59.439094","created_by":174,"updated_at":null,"category_id":3,"is_featured":false},
+  {"id":82,"bar_id":2550,"name":"Painting","created_at":"2025-09-11T01:08:38.088149","created_by":174,"updated_at":null,"category_id":2,"is_featured":false},
+  {"id":83,"bar_id":2550,"name":"Streaming Services (Shows/Movies)","created_at":"2025-09-11T01:10:00.557028","created_by":174,"updated_at":null,"category_id":2,"is_featured":false},
+  {"id":84,"bar_id":2945,"name":"Full kitchen & menu","created_at":"2025-09-20T20:37:25.342617","created_by":114,"updated_at":null,"category_id":5,"is_featured":false},
+  {"id":86,"bar_id":4641,"name":"Karaoke","created_at":"2025-10-15T15:03:14.525286","created_by":209,"updated_at":null,"category_id":4,"is_featured":false},
+  {"id":89,"bar_id":4405,"name":"Arts/Crafts & Paint Mondays","created_at":"2025-10-24T20:01:36.470769","created_by":115,"updated_at":null,"category_id":4,"is_featured":false},
+  {"id":87,"bar_id":4405,"name":"Gentlemen’s’ Night Thursday","created_at":"2025-10-24T20:00:23.183557","created_by":115,"updated_at":null,"category_id":4,"is_featured":false},
+  {"id":88,"bar_id":4405,"name":"Ladies’ Night Saturday","created_at":"2025-10-24T20:01:20.711738","created_by":115,"updated_at":null,"category_id":4,"is_featured":false},
+  {"id":90,"bar_id":4405,"name":"Stage","created_at":"2025-10-24T20:03:36.060864","created_by":115,"updated_at":null,"category_id":3,"is_featured":false},
+  {"id":91,"bar_id":4405,"name":"98 Inch TV for Sports & Gaming","created_at":"2025-10-24T20:03:53.946316","created_by":115,"updated_at":null,"category_id":2,"is_featured":false}
+]
