@@ -52,9 +52,11 @@ import {
   barOwnerNotificationPreferences,
   passwordResetTokens,
   checkIns,
+  barEvents,
+  eventRsvps,
 } from "@db/schema";
 import { crypto } from "./utils/crypto";
-import { eq, and, isNull, desc, ne, sql, gt, lt, inArray } from "drizzle-orm";
+import { eq, and, isNull, desc, ne, sql, gt, lt, inArray, gte } from "drizzle-orm";
 import { setupWebSocket, notifyAdmins } from "./websocket";
 import { fetchKavaBars } from "./scripts/fetch-kava-bars";
 import { setupAuth } from "./auth";
@@ -535,7 +537,63 @@ Sitemap: https://mykavabar.com/sitemap.xml
   });
 
   // Add routes below
-  app.get("/api/kava-bars", async (req: Request, res: Response) => {
+
+  // ── Mobile app aliases ────────────────────────────────────────────────────
+  // Mobile app calls /api/bars (not /api/kava-bars), /api/bars/:id, and /api/bars/:id/photos
+  // These must be registered BEFORE the /:id routes to avoid interception.
+
+  // GET /api/bars/:id/photos  (before bar-detail to avoid route interception)
+  app.get(["/api/bars/:id/photos", "/api/kava-bars/:id/photos"], async (req, res) => {
+    try {
+      const barId = Number(req.params.id);
+      const photos = await db.query.kavaBarPhotos.findMany({
+        where: eq(kavaBarPhotos.barId, barId),
+        orderBy: desc(kavaBarPhotos.createdAt),
+      });
+      res.json(photos);
+    } catch (e: any) {
+      res.status(500).json({ error: e.message });
+    }
+  });
+
+  // GET /api/kava-bars/featured  (nearby bars sorted by distance)
+  app.get(["/api/kava-bars/featured", "/api/bars/featured"], async (req, res) => {
+    try {
+      const lat = parseFloat(req.query.lat as string);
+      const lng = parseFloat(req.query.lng as string);
+      const limit = parseInt(req.query.limit as string) || 10;
+      const bars = await db.execute(sql`
+        SELECT k.id, k.name, k.address, k.phone, k.rating, k.is_sponsored,
+               k.verification_status, k.hero_image_url, k.location, k.hours, k.business_status,
+               (SELECT url FROM kava_bar_photos WHERE bar_id = k.id ORDER BY created_at DESC LIMIT 1) as latest_gallery_photo
+        FROM kava_bars k
+        WHERE k.verification_status != 'not_kava_bar' AND k.verification_status IS NOT NULL
+          AND (k.business_status IS NULL OR k.business_status = 'OPERATIONAL')
+        ORDER BY k.is_sponsored DESC, k.rating DESC NULLS LAST LIMIT 200
+      `);
+      let result = bars.rows.map((bar: any) => {
+        let loc = bar.location;
+        if (typeof loc === "string") { try { loc = JSON.parse(loc); } catch { loc = null; } }
+        let distance: number | null = null;
+        if (!isNaN(lat) && !isNaN(lng) && loc?.lat && loc?.lng) {
+          const R = 3958.8;
+          const dLat = (loc.lat - lat) * Math.PI / 180;
+          const dLng = (loc.lng - lng) * Math.PI / 180;
+          const a = Math.sin(dLat/2)**2 + Math.cos(lat*Math.PI/180)*Math.cos(loc.lat*Math.PI/180)*Math.sin(dLng/2)**2;
+          distance = R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a));
+        }
+        return { ...bar, location: loc, distance, heroImageUrl: bar.hero_image_url || null, latestGalleryPhoto: bar.latest_gallery_photo || null };
+      });
+      if (!isNaN(lat) && !isNaN(lng)) {
+        result = result.filter((b: any) => b.distance !== null).sort((a: any, b: any) => (a.distance ?? 999) - (b.distance ?? 999));
+      }
+      res.json(result.slice(0, limit));
+    } catch (e: any) {
+      res.status(500).json({ error: e.message });
+    }
+  });
+
+  app.get(["/api/kava-bars", "/api/bars"], async (req: Request, res: Response) => {
     try {
       console.log("Fetching all kava bars with connection management...");
       const userId = req.user?.id || null;
@@ -1048,8 +1106,119 @@ Sitemap: https://mykavabar.com/sitemap.xml
     }
   });
 
+  // ── Admin bar management endpoints ──────────────────────────────────────
+  // POST /api/kava-bars/:id/set-featured — toggle featured status
+  app.post("/api/kava-bars/:id/set-featured", isAuthenticated, async (req, res) => {
+    try {
+      if (!req.user?.isAdmin) return res.status(403).json({ error: "Admin only" });
+      const id = Number(req.params.id);
+      const { is_featured } = req.body;
+      await db.execute(sql`UPDATE kava_bars SET is_sponsored = ${is_featured ? true : false} WHERE id = ${id}`);
+      res.json({ success: true, id, is_featured });
+    } catch (e: any) {
+      res.status(500).json({ error: e.message });
+    }
+  });
+
+  // PATCH /api/bars/:id — update bar fields (active status, etc.)
+  app.patch(["/api/bars/:id", "/api/kava-bars/:id/active"], isAuthenticated, async (req, res) => {
+    try {
+      if (!req.user?.isAdmin) return res.status(403).json({ error: "Admin only" });
+      const id = Number(req.params.id);
+      const { is_active } = req.body;
+      if (is_active !== undefined) {
+        const status = is_active ? "OPERATIONAL" : "CLOSED_TEMPORARILY";
+        await db.execute(sql`UPDATE kava_bars SET business_status = ${status} WHERE id = ${id}`);
+      }
+      res.json({ success: true, id, ...req.body });
+    } catch (e: any) {
+      res.status(500).json({ error: e.message });
+    }
+  });
+  // ── End admin bar management ──────────────────────────────────────────────
+
+  // ── Missing mobile endpoints ──────────────────────────────────────────────
+  // GET /api/events — all upcoming events (used by Events tab)
+  app.get("/api/events", async (req, res) => {
+    try {
+      const today = new Date().toISOString().split("T")[0];
+      
+      // Fetch non-recurring events
+      const nonRecurringEvents = await db.query.barEvents.findMany({
+        where: and(
+          eq(barEvents.isRecurring, false),
+          gte(barEvents.endDate, today)
+        ),
+        orderBy: [desc(barEvents.startDate)],
+        limit: 100,
+        with: {
+          bar: {
+            columns: {
+              id: true,
+              name: true,
+            },
+          },
+        },
+      });
+      
+      // Fetch all recurring events
+      const recurringEvents = await db.query.barEvents.findMany({
+        where: eq(barEvents.isRecurring, true),
+        orderBy: [barEvents.dayOfWeek],
+        with: {
+          bar: {
+            columns: {
+              id: true,
+              name: true,
+            },
+          },
+        },
+      });
+      
+      // Combine and add bar name to each event
+      const allEvents = [...nonRecurringEvents, ...recurringEvents].map(event => ({
+        ...event,
+        barName: event.bar?.name || 'Unknown Bar',
+      }));
+      
+      res.json({ events: allEvents });
+    } catch (e: any) {
+      console.error("Error fetching events:", e);
+      res.status(500).json({ error: e.message });
+    }
+  });
+
+  // GET /api/event-rsvp/:id — get RSVP details for an event
+  app.get("/api/event-rsvp/:id", async (req, res) => {
+    try {
+      const eventId = Number(req.params.id);
+      const rsvps = await db.query.eventRsvps.findMany({
+        where: eq(eventRsvps.eventId, eventId),
+      });
+      res.json(rsvps);
+    } catch (e: any) {
+      res.status(500).json({ error: e.message });
+    }
+  });
+
+  // GET /api/bars/verification-status — alias for mobile
+  app.get("/api/bars/verification-status", async (req, res) => {
+    try {
+      const result = await db.execute(sql`
+        SELECT verification_status, COUNT(*) as count
+        FROM kava_bars
+        GROUP BY verification_status
+      `);
+      res.json(result.rows);
+    } catch (e: any) {
+      res.status(500).json({ error: e.message });
+    }
+  });
+  // ── End missing mobile endpoints ──────────────────────────────────────────
+
   // Update the bar details endpoint to properly format hours and provide fallbacks
-  app.get("/api/kava-bars/:id", async (req, res) => {
+  // /api/bars/:id(\d+) is the mobile alias — numeric only so it doesn't conflict with /api/bars/:city/:slug
+  app.get(["/api/kava-bars/:id", "/api/bars/:id(\\d+)"], async (req, res) => {
     const { id } = req.params;
     try {
       console.log("Bar details request:", {
@@ -1281,6 +1450,14 @@ Sitemap: https://mykavabar.com/sitemap.xml
             isBarStaff = true;
           }
         }
+        // Fetch photos for this bar (needed by mobile app which reads bar.photos)
+        const barPhotos = await db.query.kavaBarPhotos.findMany({
+          where: eq(kavaBarPhotos.barId, Number(id)),
+          orderBy: desc(kavaBarPhotos.createdAt),
+        });
+
+        const latestGalleryPhoto = barPhotos.length > 0 ? barPhotos[0].url : null;
+
         const fullBarData = {
           ...publicBarData,
           ownerId: bar.owner_id,
@@ -1301,6 +1478,8 @@ Sitemap: https://mykavabar.com/sitemap.xml
           vibeText: bar.vibe_text || `Welcome to ${bar.name}! We are a new addition to the kava community. Stop by and check out our atmosphere.`,
           menuHighlights: bar.menu_highlights || null,
           features: bar.features || null,
+          photos: barPhotos,
+          latestGalleryPhoto,
         };
         console.log("Full bar data: ", fullBarData);
         console.log("Sending bar details response:", {
@@ -2790,7 +2969,7 @@ Sitemap: https://mykavabar.com/sitemap.xml
           barId: req.params.id,
         });
 
-        if (!req.isAuthenticated()) {
+        if (!req.user) {
           console.log("User not authenticated");
           return res.status(401).send("Not authenticated");
         }

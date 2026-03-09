@@ -25,6 +25,7 @@ import {
   Map,
   Trophy,
   Award,
+  Calendar,
 } from "lucide-react";
 
 import { Link, useLocation } from "wouter";
@@ -47,6 +48,12 @@ export default function NavBar() {
       href: "/blog",
       label: "Blog",
       icon: <BookOpen className="h-4 w-4" />,
+      show: true,
+    },
+    {
+      href: "/events",
+      label: "Events",
+      icon: <Calendar className="h-4 w-4" />,
       show: true,
     },
     {

@@ -1,6 +1,6 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import type { InsertUser, User } from "@db/schema";
-import { fetchApi, postApi } from "@/lib/api";
+import { fetchApi, postApi, setAuthToken } from "@/lib/api";
 import { useLocation } from "wouter";
 
 // Define response types for API calls
@@ -32,6 +32,12 @@ async function handleRequest(
   try {
     if (method === "POST") {
       const result = await postApi<ApiResponse>(url, body);
+      
+      // Store JWT token if present (for mobile app support)
+      if (result && 'token' in result && result.token) {
+        setAuthToken(result.token as string);
+      }
+      
       return {
         ok: true,
         user: result?.user,
@@ -97,6 +103,8 @@ export function useUser() {
   const logoutMutation = useMutation<RequestResult, Error>({
     mutationFn: () => handleRequest("/api/logout", "POST"),
     onSuccess: () => {
+      // Clear stored JWT token on logout
+      setAuthToken(null);
       queryClient.invalidateQueries({ queryKey: ["user"] });
       setLocation("/");
       queryClient.clear();

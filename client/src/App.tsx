@@ -40,6 +40,7 @@ import PassportPage from "./pages/passport";
 import LeaderboardPage from "./pages/leaderboard";
 import StatePage from "./pages/state-page";
 import CityPage from "./pages/city-page";
+import EventsPage from "./pages/events";
 
 function KavaBarRouter() {
   const { param } = useParams<{ param: string }>();
@@ -114,6 +115,7 @@ function Router() {
           <Route path="/reset-password/:token" component={ResetPassword} />
           <Route path="/blog" component={Blog} />
           <Route path="/complete-onboarding" component={CompleteOnboarding} />
+          <Route path="/events" component={EventsPage} />
           <Route path="/leaderboard" component={LeaderboardPage} />
           {/* Protected routes */}
           <Route path="/passport">

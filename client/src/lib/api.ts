@@ -19,6 +19,32 @@ export const getApiUrl = (path: string): string => {
 };
 
 /**
+ * Get stored JWT token from localStorage
+ */
+const getAuthToken = (): string | null => {
+  try {
+    return localStorage.getItem('auth_token');
+  } catch {
+    return null;
+  }
+};
+
+/**
+ * Store JWT token in localStorage
+ */
+export const setAuthToken = (token: string | null): void => {
+  try {
+    if (token) {
+      localStorage.setItem('auth_token', token);
+    } else {
+      localStorage.removeItem('auth_token');
+    }
+  } catch (error) {
+    console.error('Failed to store auth token:', error);
+  }
+};
+
+/**
  * Fetch data from API with proper error handling
  */
 export async function fetchApi<T>(
@@ -27,11 +53,16 @@ export async function fetchApi<T>(
 ): Promise<T> {
   const url = getApiUrl(path);
   
+  // Get JWT token if available
+  const token = getAuthToken();
+  
   // Set default options
   const defaultOptions: RequestInit = {
     credentials: 'include',
     headers: {
       'Accept': 'application/json',
+      // Add JWT Bearer token if available (for mobile app support)
+      ...(token ? { 'Authorization': `Bearer ${token}` } : {}),
       ...options.headers,
     },
     // Add a timeout to the fetch request
