@@ -10,9 +10,9 @@ import { useToast } from "@/hooks/use-toast";
 
 export const FavoriteBarDesktop = ({ barId }: { barId: number }) => {
   const { user } = useUser();
-  if (!user) return null;
   const { toast } = useToast();
-  const { data, isLoading } = useFavoriteStatus(barId);
+  const { data, isLoading } = useFavoriteStatus(barId, !!user);
+  if (!user) return null;
   const addFavorite = useAddFavorite();
   const removeFavorite = useRemoveFavorite();
 
@@ -59,9 +59,9 @@ export const FavoriteBarDesktop = ({ barId }: { barId: number }) => {
 
 export const FavoriteBarMobile = ({ barId }: { barId: number }) => {
   const { user } = useUser();
-  if (!user) return null;
   const { toast } = useToast();
-  const { data, isLoading } = useFavoriteStatus(barId);
+  const { data, isLoading } = useFavoriteStatus(barId, !!user);
+  if (!user) return null;
   const addFavorite = useAddFavorite();
   const removeFavorite = useRemoveFavorite();
 
@@ -108,9 +108,9 @@ export const FavoriteBarMobile = ({ barId }: { barId: number }) => {
 
 export const FavoriteBar = ({ barId }: { barId: number }) => {
   const { user } = useUser();
-  if (!user) return null;
   const { toast } = useToast();
-  const { data, isLoading } = useFavoriteStatus(barId);
+  const { data, isLoading } = useFavoriteStatus(barId, !!user);
+  if (!user) return null;
   const addFavorite = useAddFavorite();
   const removeFavorite = useRemoveFavorite();
 

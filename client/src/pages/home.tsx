@@ -76,10 +76,13 @@ export default function Home() {
   );
 
   const filteredBars = kavaBars?.filter((bar) => {
+    const q = search.toLowerCase();
     const matchesSearch =
       !search ||
-      bar.name.toLowerCase().includes(search.toLowerCase()) ||
-      bar.address.toLowerCase().includes(search.toLowerCase());
+      bar.name.toLowerCase().includes(q) ||
+      bar.address.toLowerCase().includes(q) ||
+      (bar.city && bar.city.toLowerCase().includes(q)) ||
+      (bar.state && bar.state.toLowerCase().includes(q));
 
     if (coordinates && radius && bar.location?.lat && bar.location?.lng) {
       const distance = calculateDistance(

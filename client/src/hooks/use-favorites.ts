@@ -1,7 +1,7 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 
-// ✅ Fetch favorite status
-export const useFavoriteStatus = (barId: number) => {
+// ✅ Fetch favorite status (only when authenticated)
+export const useFavoriteStatus = (barId: number, enabled: boolean = true) => {
   return useQuery({
     queryKey: ["favorite", barId],
     queryFn: async () => {
@@ -11,6 +11,8 @@ export const useFavoriteStatus = (barId: number) => {
       if (!res.ok) throw new Error("Failed to check favorite status");
       return res.json(); // { isFavorite: true/false }
     },
+    enabled,
+    retry: false,
   });
 };
 

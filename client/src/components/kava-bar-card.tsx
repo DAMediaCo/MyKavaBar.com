@@ -85,11 +85,14 @@ export default function KavaBarCard({ bar, distance }: KavaBarCardProps) {
   }
 
   const isOpen = isBarOpenNow(bar.hours);
+  const hasHappyHours = bar.happyHours && typeof bar.happyHours === 'object' && Object.keys(bar.happyHours).length > 0;
   
   const getHeroImage = () => {
     if (imageError) return FALLBACK_IMAGE;
     if (bar.heroImageUrl) return bar.heroImageUrl;
     if (bar.latestGalleryPhoto) return bar.latestGalleryPhoto;
+    if (bar.latest_gallery_photo) return bar.latest_gallery_photo;
+    if (bar.hero_image_url) return bar.hero_image_url;
     return FALLBACK_IMAGE;
   };
   const heroImage = getHeroImage();
@@ -117,6 +120,11 @@ export default function KavaBarCard({ bar, distance }: KavaBarCardProps) {
           {bar.is_sponsored && (
             <div className="absolute top-3 left-3 bg-amber-500/90 text-white text-xs font-bold px-3 py-1 rounded-full backdrop-blur-sm">
               SPONSORED
+            </div>
+          )}
+          {hasHappyHours && !comingSoonText && (
+            <div className="absolute bottom-3 left-3 bg-purple-600/90 text-white text-xs font-bold px-3 py-1 rounded-full backdrop-blur-sm">
+              🍹 HAPPY HOUR
             </div>
           )}
           <img 

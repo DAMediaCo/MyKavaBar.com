@@ -484,6 +484,66 @@ export default function BarDetails() {
               </div>
             </section>
 
+            {/* Happy Hours */}
+            {Object.keys(happyHourSchedules).length > 0 && (
+              <section>
+                <h2 className="text-white font-bold text-xl mb-4 border-l-4 border-[#D35400] pl-3">
+                  🍹 Happy Hours
+                </h2>
+                <div className="bg-[#1E1E1E] p-5 rounded-xl border border-[#333]">
+                  {/* Today's happy hours */}
+                  {happyHourSchedules[todayDay] ? (
+                    <div className="mb-4">
+                      <div className="flex items-center gap-2 mb-2">
+                        <span className="bg-green-500/20 text-green-400 text-xs font-bold px-3 py-1 rounded-full">TODAY</span>
+                        <span className="text-white font-semibold">{todayDay}</span>
+                      </div>
+                      <div className="flex flex-wrap gap-2">
+                        {happyHourSchedules[todayDay].map((slot: string, idx: number) => (
+                          <span key={idx} className="bg-[#D35400]/20 text-[#E67E22] px-3 py-1.5 rounded-lg text-sm font-medium">
+                            {slot}
+                          </span>
+                        ))}
+                      </div>
+                    </div>
+                  ) : (
+                    <p className="text-gray-400 mb-4">No happy hours today</p>
+                  )}
+                  
+                  {/* Other days */}
+                  {showAllHappyHours && (
+                    <div className="space-y-3 mt-4 pt-4 border-t border-[#333]">
+                      {daysOfWeek.filter(day => day !== todayDay && happyHourSchedules[day]).map((day) => (
+                        <div key={day}>
+                          <span className="text-gray-300 font-medium text-sm">{day}</span>
+                          <div className="flex flex-wrap gap-2 mt-1">
+                            {happyHourSchedules[day].map((slot: string, idx: number) => (
+                              <span key={idx} className="bg-[#252525] text-gray-300 px-3 py-1 rounded-lg text-sm">
+                                {slot}
+                              </span>
+                            ))}
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                  
+                  {Object.keys(happyHourSchedules).length > 1 && (
+                    <button
+                      onClick={() => setShowAllHappyHours(!showAllHappyHours)}
+                      className="text-[#D35400] hover:text-[#E67E22] font-medium flex items-center gap-1 mt-3"
+                    >
+                      {showAllHappyHours ? (
+                        <>Show Less <ChevronUp className="h-4 w-4" /></>
+                      ) : (
+                        <>View Full Schedule <ChevronDown className="h-4 w-4" /></>
+                      )}
+                    </button>
+                  )}
+                </div>
+              </section>
+            )}
+
             {/* Features */}
             {features.length > 0 && (
               <section>
