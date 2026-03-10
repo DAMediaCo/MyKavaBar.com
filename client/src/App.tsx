@@ -1,5 +1,5 @@
-import { useEffect } from "react";
-import { Switch, Route, useParams } from "wouter";
+import { useEffect, useState } from "react";
+import { Switch, Route, useParams, useLocation } from "wouter";
 import { queryClient } from "./lib/queryClient";
 import { QueryClientProvider } from "@tanstack/react-query";
 import { Toaster } from "@/components/ui/toaster";
@@ -46,6 +46,34 @@ function KavaBarRouter() {
   const { param } = useParams<{ param: string }>();
   if (param && /^\d+$/.test(param)) return <BarDetails />;
   return <StatePage />;
+}
+
+function CityBarRouter() {
+  // Handles /kava-bars/:city/:barSlug — could be a city page OR a bar detail page
+  const { param, citySlug } = useParams<{ param: string; citySlug: string }>();
+  const [, navigate] = useLocation();
+  const [loading, setLoading] = useState(true);
+  const [isCity, setIsCity] = useState(false);
+
+  useEffect(() => {
+    // Check if this is a bar slug (city/bar-name format)
+    fetch(`/api/bars/by-slug/${param}/${citySlug}`)
+      .then(r => {
+        if (r.ok) return r.json();
+        throw new Error('Not a bar');
+      })
+      .then(data => {
+        // Redirect to the numeric ID URL so BarDetails loads normally
+        navigate(`/kava-bars/${data.numeric_id}`, { replace: true });
+      })
+      .catch(() => {
+        setIsCity(true);
+        setLoading(false);
+      });
+  }, [param, citySlug]);
+
+  if (loading && !isCity) return <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', minHeight: '50vh' }}><div>Loading...</div></div>;
+  return <CityPage />;
 }
 interface ProtectedRouteProps {
   children: React.ReactNode;
@@ -108,7 +136,7 @@ function Router() {
           {/* Public routes */}
           <Route path="/" component={Home} />
           <Route path="/welcome" component={Welcome} />
-          <Route path="/kava-bars/:param/:citySlug" component={CityPage} />
+          <Route path="/kava-bars/:param/:citySlug" component={CityBarRouter} />
           <Route path="/kava-bars/:param" component={KavaBarRouter} />
           <Route path="/auth" component={AuthPage} />
           <Route path="/forgot-password" component={ForgotPassword} />

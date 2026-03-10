@@ -88,7 +88,7 @@ function calculateStreak(checkins: Array<{ checkedInAt: Date }>): {
  */
 export const checkin = async (req: Request, res: Response) => {
   try {
-    if (!req.isAuthenticated() || !req.user?.id) {
+    if (!req.user?.id) {
       return res.status(401).json({ error: "Not authenticated" });
     }
 

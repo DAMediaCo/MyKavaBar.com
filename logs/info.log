@@ -1,0 +1,485 @@
+[2025-01-27T01:33:51.755Z] [backup-database] Starting database backup (type: manual)
+[2025-01-27T01:33:52.242Z] [backup-database] ✓ Backup completed: /home/runner/workspace/backups/kava_bars_manual_2025-01-27T01-33-51-757Z.json
+[2025-01-27T01:33:52.242Z] [backup-database] Total bars backed up: 370
+[2025-01-27T01:36:04.318Z] [fetch-western-bars] Starting Delaware kava bars search...
+[2025-01-27T01:36:04.319Z] [backup-database] Starting database backup (type: pre-operation)
+[2025-01-27T01:36:04.318Z] [fetch-western-bars] Creating pre-search backup...
+[2025-01-27T01:36:04.736Z] [backup-database] ✓ Backup completed: /home/runner/workspace/backups/kava_bars_pre-operation_2025-01-27T01-36-04-320Z.json
+[2025-01-27T01:36:04.737Z] [backup-database] Total bars backed up: 370
+[2025-01-27T01:36:04.738Z] [progress-tracker] Initializing new progress for delaware
+[2025-01-27T01:36:04.738Z] [fetch-western-bars] Resuming from city 0, keyword 0
+[2025-01-27T01:36:04.739Z] [fetch-western-bars] Previously found: 0, added: 0
+[2025-01-27T01:36:04.739Z] [fetch-western-bars] 
+Searching in Birmingham...
+[2025-01-27T01:36:04.741Z] [progress-tracker] Saved progress for delaware
+[2025-01-27T01:36:07.305Z] [fetch-western-bars] Found 3 results for "kava bar" in Birmingham
+[2025-01-27T01:36:07.349Z] [progress-tracker] Saved progress for delaware
+[2025-01-27T01:36:07.350Z] [progress-tracker] Saved progress for delaware
+[2025-01-27T01:36:09.801Z] [fetch-western-bars] Found 0 results for "kava lounge" in Birmingham
+[2025-01-27T01:36:09.845Z] [progress-tracker] Saved progress for delaware
+[2025-01-27T01:36:09.845Z] [progress-tracker] Saved progress for delaware
+[2025-01-27T01:36:12.197Z] [fetch-western-bars] Found 4 results for "kava house" in Birmingham
+[2025-01-27T01:36:12.256Z] [progress-tracker] Saved progress for delaware
+[2025-01-27T01:36:12.257Z] [progress-tracker] Saved progress for delaware
+[2025-01-27T01:36:14.545Z] [fetch-western-bars] Found 0 results for "kratom cafe" in Birmingham
+[2025-01-27T01:36:14.590Z] [progress-tracker] Saved progress for delaware
+[2025-01-27T01:36:14.591Z] [progress-tracker] Saved progress for delaware
+[2025-01-27T01:36:16.908Z] [fetch-western-bars] Found 2 results for "kava tea" in Birmingham
+[2025-01-27T01:36:16.953Z] [progress-tracker] Saved progress for delaware
+[2025-01-27T01:36:16.954Z] [progress-tracker] Saved progress for delaware
+[2025-01-27T01:36:19.245Z] [fetch-western-bars] Found 0 results for "noble kava" in Birmingham
+[2025-01-27T01:36:19.289Z] [progress-tracker] Saved progress for delaware
+[2025-01-27T01:36:19.289Z] [fetch-western-bars] 
+Searching in Montgomery...
+[2025-01-27T01:36:19.289Z] [progress-tracker] Saved progress for delaware
+[2025-01-27T01:36:21.876Z] [fetch-western-bars] Found 2 results for "kava bar" in Montgomery
+[2025-01-27T01:36:21.919Z] [progress-tracker] Saved progress for delaware
+[2025-01-27T01:36:21.919Z] [progress-tracker] Saved progress for delaware
+[2025-01-27T01:36:24.410Z] [fetch-western-bars] Found 0 results for "kava lounge" in Montgomery
+[2025-01-27T01:36:24.454Z] [progress-tracker] Saved progress for delaware
+[2025-01-27T01:36:24.455Z] [progress-tracker] Saved progress for delaware
+[2025-01-27T01:36:26.948Z] [fetch-western-bars] Found 0 results for "kava house" in Montgomery
+[2025-01-27T01:36:26.991Z] [progress-tracker] Saved progress for delaware
+[2025-01-27T01:36:26.992Z] [progress-tracker] Saved progress for delaware
+[2025-01-27T01:36:29.260Z] [fetch-western-bars] Found 0 results for "kratom cafe" in Montgomery
+[2025-01-27T01:36:29.304Z] [progress-tracker] Saved progress for delaware
+[2025-01-27T01:36:29.305Z] [progress-tracker] Saved progress for delaware
+[2025-01-27T01:36:31.598Z] [fetch-western-bars] Found 2 results for "kava tea" in Montgomery
+[2025-01-27T01:36:31.641Z] [progress-tracker] Saved progress for delaware
+[2025-01-27T01:36:31.642Z] [progress-tracker] Saved progress for delaware
+[2025-01-27T01:36:33.941Z] [fetch-western-bars] Found 0 results for "noble kava" in Montgomery
+[2025-01-27T01:36:33.986Z] [progress-tracker] Saved progress for delaware
+[2025-01-27T01:36:33.987Z] [fetch-western-bars] 
+Searching in Huntsville...
+[2025-01-27T01:36:33.987Z] [progress-tracker] Saved progress for delaware
+[2025-01-27T01:36:36.339Z] [fetch-western-bars] Found 5 results for "kava bar" in Huntsville
+[2025-01-27T01:36:36.383Z] [progress-tracker] Saved progress for delaware
+[2025-01-27T01:36:36.383Z] [progress-tracker] Saved progress for delaware
+[2025-01-27T01:36:38.796Z] [fetch-western-bars] Found 1 results for "kava lounge" in Huntsville
+[2025-01-27T01:36:38.839Z] [progress-tracker] Saved progress for delaware
+[2025-01-27T01:36:38.840Z] [progress-tracker] Saved progress for delaware
+[2025-01-27T01:36:41.282Z] [fetch-western-bars] Found 2 results for "kava house" in Huntsville
+[2025-01-27T01:36:41.325Z] [progress-tracker] Saved progress for delaware
+[2025-01-27T01:36:41.326Z] [progress-tracker] Saved progress for delaware
+[2025-01-27T01:36:43.670Z] [fetch-western-bars] Found 0 results for "kratom cafe" in Huntsville
+[2025-01-27T01:36:43.714Z] [progress-tracker] Saved progress for delaware
+[2025-01-27T01:36:43.714Z] [progress-tracker] Saved progress for delaware
+[2025-01-27T01:36:46.162Z] [fetch-western-bars] Found 5 results for "kava tea" in Huntsville
+[2025-01-27T01:36:46.206Z] [progress-tracker] Saved progress for delaware
+[2025-01-27T01:36:46.207Z] [progress-tracker] Saved progress for delaware
+[2025-01-27T01:36:48.502Z] [fetch-western-bars] Found 0 results for "noble kava" in Huntsville
+[2025-01-27T01:36:48.545Z] [progress-tracker] Saved progress for delaware
+[2025-01-27T01:36:48.545Z] [fetch-western-bars] 
+Searching in Mobile...
+[2025-01-27T01:36:48.545Z] [progress-tracker] Saved progress for delaware
+[2025-01-27T01:36:50.988Z] [fetch-western-bars] Found 0 results for "kava bar" in Mobile
+[2025-01-27T01:36:51.034Z] [progress-tracker] Saved progress for delaware
+[2025-01-27T01:36:51.035Z] [progress-tracker] Saved progress for delaware
+[2025-01-27T01:36:53.420Z] [fetch-western-bars] Found 0 results for "kava lounge" in Mobile
+[2025-01-27T01:36:53.463Z] [progress-tracker] Saved progress for delaware
+[2025-01-27T01:36:53.464Z] [progress-tracker] Saved progress for delaware
+[2025-01-27T01:36:55.840Z] [fetch-western-bars] Found 1 results for "kava house" in Mobile
+[2025-01-27T01:36:55.884Z] [progress-tracker] Saved progress for delaware
+[2025-01-27T01:36:55.884Z] [progress-tracker] Saved progress for delaware
+[2025-01-27T01:36:58.153Z] [fetch-western-bars] Found 0 results for "kratom cafe" in Mobile
+[2025-01-27T01:36:58.202Z] [progress-tracker] Saved progress for delaware
+[2025-01-27T01:36:58.203Z] [progress-tracker] Saved progress for delaware
+[2025-01-27T01:37:00.507Z] [fetch-western-bars] Found 0 results for "kava tea" in Mobile
+[2025-01-27T01:37:00.550Z] [progress-tracker] Saved progress for delaware
+[2025-01-27T01:37:00.550Z] [progress-tracker] Saved progress for delaware
+[2025-01-27T01:37:02.862Z] [fetch-western-bars] Found 0 results for "noble kava" in Mobile
+[2025-01-27T01:37:02.906Z] [progress-tracker] Saved progress for delaware
+[2025-01-27T01:37:02.906Z] [fetch-western-bars] 
+Searching in Tuscaloosa...
+[2025-01-27T01:37:02.907Z] [progress-tracker] Saved progress for delaware
+[2025-01-27T01:37:05.236Z] [fetch-western-bars] Found 3 results for "kava bar" in Tuscaloosa
+[2025-01-27T01:37:05.280Z] [progress-tracker] Saved progress for delaware
+[2025-01-27T01:37:05.281Z] [progress-tracker] Saved progress for delaware
+[2025-01-27T01:37:07.606Z] [fetch-western-bars] Found 0 results for "kava lounge" in Tuscaloosa
+[2025-01-27T01:37:07.650Z] [progress-tracker] Saved progress for delaware
+[2025-01-27T01:37:07.651Z] [progress-tracker] Saved progress for delaware
+[2025-01-27T01:37:09.988Z] [fetch-western-bars] Found 0 results for "kava house" in Tuscaloosa
+[2025-01-27T01:37:10.031Z] [progress-tracker] Saved progress for delaware
+[2025-01-27T01:37:10.032Z] [progress-tracker] Saved progress for delaware
+[2025-01-27T01:37:12.292Z] [fetch-western-bars] Found 0 results for "kratom cafe" in Tuscaloosa
+[2025-01-27T01:37:12.335Z] [progress-tracker] Saved progress for delaware
+[2025-01-27T01:37:12.336Z] [progress-tracker] Saved progress for delaware
+[2025-01-27T01:37:14.612Z] [fetch-western-bars] Found 1 results for "kava tea" in Tuscaloosa
+[2025-01-27T01:37:14.664Z] [progress-tracker] Saved progress for delaware
+[2025-01-27T01:37:14.664Z] [progress-tracker] Saved progress for delaware
+[2025-01-27T01:37:16.870Z] [fetch-western-bars] Found 0 results for "noble kava" in Tuscaloosa
+[2025-01-27T01:37:16.914Z] [progress-tracker] Saved progress for delaware
+[2025-01-27T01:37:16.914Z] [fetch-western-bars] 
+Searching in Auburn...
+[2025-01-27T01:37:16.914Z] [progress-tracker] Saved progress for delaware
+[2025-01-27T01:37:19.344Z] [fetch-western-bars] Found 0 results for "kava bar" in Auburn
+[2025-01-27T01:37:19.388Z] [progress-tracker] Saved progress for delaware
+[2025-01-27T01:37:19.388Z] [progress-tracker] Saved progress for delaware
+[2025-01-27T01:37:21.747Z] [fetch-western-bars] Found 0 results for "kava lounge" in Auburn
+[2025-01-27T01:37:21.790Z] [progress-tracker] Saved progress for delaware
+[2025-01-27T01:37:21.791Z] [progress-tracker] Saved progress for delaware
+[2025-01-27T01:37:24.093Z] [fetch-western-bars] Found 1 results for "kava house" in Auburn
+[2025-01-27T01:37:24.137Z] [progress-tracker] Saved progress for delaware
+[2025-01-27T01:37:24.137Z] [progress-tracker] Saved progress for delaware
+[2025-01-27T01:37:26.399Z] [fetch-western-bars] Found 0 results for "kratom cafe" in Auburn
+[2025-01-27T01:37:26.442Z] [progress-tracker] Saved progress for delaware
+[2025-01-27T01:37:26.443Z] [progress-tracker] Saved progress for delaware
+[2025-01-27T01:37:28.881Z] [fetch-western-bars] Found 1 results for "kava tea" in Auburn
+[2025-01-27T01:37:28.925Z] [progress-tracker] Saved progress for delaware
+[2025-01-27T01:37:28.925Z] [progress-tracker] Saved progress for delaware
+[2025-01-27T01:37:31.184Z] [fetch-western-bars] Found 0 results for "noble kava" in Auburn
+[2025-01-27T01:37:31.227Z] [progress-tracker] Saved progress for delaware
+[2025-01-27T01:37:31.227Z] [fetch-western-bars] 
+Searching in Dothan...
+[2025-01-27T01:37:31.228Z] [progress-tracker] Saved progress for delaware
+[2025-01-27T01:37:33.666Z] [fetch-western-bars] Found 0 results for "kava bar" in Dothan
+[2025-01-27T01:37:33.716Z] [progress-tracker] Saved progress for delaware
+[2025-01-27T01:37:33.717Z] [progress-tracker] Saved progress for delaware
+[2025-01-27T01:37:36.034Z] [fetch-western-bars] Found 0 results for "kava lounge" in Dothan
+[2025-01-27T01:37:36.078Z] [progress-tracker] Saved progress for delaware
+[2025-01-27T01:37:36.079Z] [progress-tracker] Saved progress for delaware
+[2025-01-27T01:37:38.415Z] [fetch-western-bars] Found 0 results for "kava house" in Dothan
+[2025-01-27T01:37:38.461Z] [progress-tracker] Saved progress for delaware
+[2025-01-27T01:37:38.462Z] [progress-tracker] Saved progress for delaware
+[2025-01-27T01:37:40.748Z] [fetch-western-bars] Found 0 results for "kratom cafe" in Dothan
+[2025-01-27T01:37:40.792Z] [progress-tracker] Saved progress for delaware
+[2025-01-27T01:37:40.792Z] [progress-tracker] Saved progress for delaware
+[2025-01-27T01:37:43.215Z] [fetch-western-bars] Found 0 results for "kava tea" in Dothan
+[2025-01-27T01:37:43.258Z] [progress-tracker] Saved progress for delaware
+[2025-01-27T01:37:43.259Z] [progress-tracker] Saved progress for delaware
+[2025-01-27T01:37:45.515Z] [fetch-western-bars] Found 0 results for "noble kava" in Dothan
+[2025-01-27T01:37:45.558Z] [progress-tracker] Saved progress for delaware
+[2025-01-27T01:37:45.558Z] [fetch-western-bars] 
+Searching in Hoover...
+[2025-01-27T01:37:45.559Z] [progress-tracker] Saved progress for delaware
+[2025-01-27T01:37:47.984Z] [fetch-western-bars] Found 3 results for "kava bar" in Hoover
+[2025-01-27T01:37:48.028Z] [progress-tracker] Saved progress for delaware
+[2025-01-27T01:37:48.029Z] [progress-tracker] Saved progress for delaware
+[2025-01-27T01:37:50.431Z] [fetch-western-bars] Found 1 results for "kava lounge" in Hoover
+[2025-01-27T01:37:50.475Z] [progress-tracker] Saved progress for delaware
+[2025-01-27T01:37:50.475Z] [progress-tracker] Saved progress for delaware
+[2025-01-27T01:37:52.980Z] [fetch-western-bars] Found 4 results for "kava house" in Hoover
+[2025-01-27T01:37:53.024Z] [progress-tracker] Saved progress for delaware
+[2025-01-27T01:37:53.024Z] [progress-tracker] Saved progress for delaware
+[2025-01-27T01:37:55.292Z] [fetch-western-bars] Found 0 results for "kratom cafe" in Hoover
+[2025-01-27T01:37:55.335Z] [progress-tracker] Saved progress for delaware
+[2025-01-27T01:37:55.336Z] [progress-tracker] Saved progress for delaware
+[2025-01-27T01:37:57.583Z] [fetch-western-bars] Found 2 results for "kava tea" in Hoover
+[2025-01-27T01:37:57.627Z] [progress-tracker] Saved progress for delaware
+[2025-01-27T01:37:57.627Z] [progress-tracker] Saved progress for delaware
+[2025-01-27T01:37:59.877Z] [fetch-western-bars] Found 0 results for "noble kava" in Hoover
+[2025-01-27T01:37:59.920Z] [progress-tracker] Saved progress for delaware
+[2025-01-27T01:37:59.920Z] [fetch-western-bars] 
+Searching in Gulf Shores...
+[2025-01-27T01:37:59.921Z] [progress-tracker] Saved progress for delaware
+[2025-01-27T01:38:02.360Z] [fetch-western-bars] Found 1 results for "kava bar" in Gulf Shores
+[2025-01-27T01:38:02.403Z] [progress-tracker] Saved progress for delaware
+[2025-01-27T01:38:02.404Z] [progress-tracker] Saved progress for delaware
+[2025-01-27T01:38:04.701Z] [fetch-western-bars] Found 0 results for "kava lounge" in Gulf Shores
+[2025-01-27T01:38:04.745Z] [progress-tracker] Saved progress for delaware
+[2025-01-27T01:38:04.745Z] [progress-tracker] Saved progress for delaware
+[2025-01-27T01:38:07.038Z] [fetch-western-bars] Found 1 results for "kava house" in Gulf Shores
+[2025-01-27T01:38:07.082Z] [progress-tracker] Saved progress for delaware
+[2025-01-27T01:38:07.083Z] [progress-tracker] Saved progress for delaware
+[2025-01-27T01:38:09.423Z] [fetch-western-bars] Found 0 results for "kratom cafe" in Gulf Shores
+[2025-01-27T01:38:09.472Z] [progress-tracker] Saved progress for delaware
+[2025-01-27T01:38:09.473Z] [progress-tracker] Saved progress for delaware
+[2025-01-27T01:38:11.799Z] [fetch-western-bars] Found 1 results for "kava tea" in Gulf Shores
+[2025-01-27T01:38:11.842Z] [progress-tracker] Saved progress for delaware
+[2025-01-27T01:38:11.843Z] [progress-tracker] Saved progress for delaware
+[2025-01-27T01:38:14.125Z] [fetch-western-bars] Found 0 results for "noble kava" in Gulf Shores
+[2025-01-27T01:38:14.168Z] [progress-tracker] Saved progress for delaware
+[2025-01-27T01:38:14.168Z] [fetch-western-bars] 
+Searching in Orange Beach...
+[2025-01-27T01:38:14.168Z] [progress-tracker] Saved progress for delaware
+[2025-01-27T01:38:16.533Z] [fetch-western-bars] Found 0 results for "kava bar" in Orange Beach
+[2025-01-27T01:38:16.578Z] [progress-tracker] Saved progress for delaware
+[2025-01-27T01:38:16.579Z] [progress-tracker] Saved progress for delaware
+[2025-01-27T01:38:19.071Z] [fetch-western-bars] Found 0 results for "kava lounge" in Orange Beach
+[2025-01-27T01:38:19.115Z] [progress-tracker] Saved progress for delaware
+[2025-01-27T01:38:19.115Z] [progress-tracker] Saved progress for delaware
+[2025-01-27T01:38:21.499Z] [fetch-western-bars] Found 0 results for "kava house" in Orange Beach
+[2025-01-27T01:38:21.542Z] [progress-tracker] Saved progress for delaware
+[2025-01-27T01:38:21.543Z] [progress-tracker] Saved progress for delaware
+[2025-01-27T01:38:23.806Z] [fetch-western-bars] Found 0 results for "kratom cafe" in Orange Beach
+[2025-01-27T01:38:23.852Z] [progress-tracker] Saved progress for delaware
+[2025-01-27T01:38:23.852Z] [progress-tracker] Saved progress for delaware
+[2025-01-27T01:38:26.146Z] [fetch-western-bars] Found 0 results for "kava tea" in Orange Beach
+[2025-01-27T01:38:26.190Z] [progress-tracker] Saved progress for delaware
+[2025-01-27T01:38:26.190Z] [progress-tracker] Saved progress for delaware
+[2025-01-27T01:38:28.391Z] [fetch-western-bars] Found 0 results for "noble kava" in Orange Beach
+[2025-01-27T01:38:28.435Z] [progress-tracker] Saved progress for delaware
+[2025-01-27T01:38:28.435Z] [backup-database] Starting database backup (type: post-operation)
+[2025-01-27T01:38:28.435Z] [fetch-western-bars] 
+Creating post-search backup...
+[2025-01-27T01:39:39.560Z] [fetch-western-bars] Starting Florida kava bars search...
+[2025-01-27T01:39:39.560Z] [fetch-western-bars] Creating pre-search backup...
+[2025-01-27T01:39:39.560Z] [backup-database] Starting database backup (type: pre-operation)
+[2025-01-27T01:39:39.947Z] [backup-database] ✓ Backup completed: /home/runner/workspace/backups/kava_bars_pre-operation_2025-01-27T01-39-39-562Z.json
+[2025-01-27T01:39:39.947Z] [backup-database] Total bars backed up: 370
+[2025-01-27T01:39:39.950Z] [progress-tracker] Loaded progress for florida
+[2025-01-27T01:39:39.951Z] [fetch-western-bars] Resuming from city undefined, keyword undefined
+[2025-01-27T01:39:39.951Z] [backup-database] Starting database backup (type: pre-operation)
+[2025-01-27T01:39:39.951Z] [fetch-western-bars] 
+Creating post-search backup...
+[2025-01-27T01:39:39.951Z] [fetch-western-bars] Previously found: undefined, added: undefined
+[2025-01-27T01:41:10.341Z] [fetch-western-bars] Creating pre-search backup...
+[2025-01-27T01:41:10.341Z] [backup-database] Starting database backup (type: pre-operation)
+[2025-01-27T01:41:10.341Z] [fetch-western-bars] Starting Florida kava bars search...
+[2025-01-27T01:41:10.781Z] [backup-database] ✓ Backup completed: /home/runner/workspace/backups/kava_bars_pre-operation_2025-01-27T01-41-10-344Z.json
+[2025-01-27T01:41:10.781Z] [backup-database] Total bars backed up: 370
+[2025-01-27T01:41:10.783Z] [progress-tracker] Loaded progress for florida
+[2025-01-27T01:41:10.783Z] [fetch-western-bars] Resuming from city 0, keyword 0
+[2025-01-27T01:41:10.783Z] [fetch-western-bars] Previously found: 0, added: 0
+[2025-01-27T01:41:10.783Z] [fetch-western-bars] 
+Searching in Miami...
+[2025-01-27T01:41:10.786Z] [progress-tracker] Saved progress for florida
+[2025-01-27T01:41:13.265Z] [fetch-western-bars] Found 20 results for "kava bar" in Miami
+[2025-01-27T01:41:13.311Z] [fetch-western-bars] - Skipped existing: Kava Villa Upper Buena Vista
+[2025-01-27T01:41:13.334Z] [fetch-western-bars] - Skipped existing: Elixir Kava Boutique | North Miami
+[2025-01-27T01:41:13.356Z] [fetch-western-bars] - Skipped existing: Kava Kavern
+[2025-01-27T01:41:13.378Z] [fetch-western-bars] - Skipped existing: Kava Villa
+[2025-01-27T01:41:13.400Z] [fetch-western-bars] - Skipped existing: Euphoria Juice & Kava Bar
+[2025-01-27T01:41:13.445Z] [fetch-western-bars] ✓ Added: Makana Kava Gastrobar
+[2025-01-27T01:41:13.466Z] [fetch-western-bars] - Skipped existing: Elixir Kava Boutique | Speakeasy SoBe
+[2025-01-27T01:41:13.511Z] [fetch-western-bars] ✓ Added: Miami Kava & Coffee - Magic City
+[2025-01-27T01:41:13.532Z] [fetch-western-bars] - Skipped existing: Purple Lotus Kava Bar
+[2025-01-27T01:41:13.555Z] [fetch-western-bars] - Skipped existing: Delight Kava Bar & Hookah Lounge
+[2025-01-27T01:41:13.578Z] [fetch-western-bars] - Skipped existing: Herbin Living Smoke Shop, Kava Bar
+[2025-01-27T01:41:13.601Z] [progress-tracker] Saved progress for florida
+[2025-01-27T01:41:13.603Z] [progress-tracker] Saved progress for florida
+[2025-01-27T01:41:16.035Z] [fetch-western-bars] Found 19 results for "kava lounge" in Miami
+[2025-01-27T01:41:16.101Z] [fetch-western-bars] ✓ Added: Miami Kava & Coffee - Biscayne
+[2025-01-27T01:41:16.124Z] [progress-tracker] Saved progress for florida
+[2025-01-27T01:41:16.125Z] [progress-tracker] Saved progress for florida
+[2025-01-27T01:41:18.612Z] [fetch-western-bars] Found 17 results for "kava house" in Miami
+[2025-01-27T01:41:18.655Z] [progress-tracker] Saved progress for florida
+[2025-01-27T01:41:18.657Z] [progress-tracker] Saved progress for florida
+[2025-01-27T01:41:21.077Z] [fetch-western-bars] Found 11 results for "kratom cafe" in Miami
+[2025-01-27T01:41:21.122Z] [progress-tracker] Saved progress for florida
+[2025-01-27T01:41:21.125Z] [progress-tracker] Saved progress for florida
+[2025-01-27T01:41:23.520Z] [fetch-western-bars] Found 15 results for "kava tea" in Miami
+[2025-01-27T01:41:23.566Z] [progress-tracker] Saved progress for florida
+[2025-01-27T01:41:23.568Z] [progress-tracker] Saved progress for florida
+[2025-01-27T01:41:25.888Z] [fetch-western-bars] Found 0 results for "noble kava" in Miami
+[2025-01-27T01:41:25.932Z] [progress-tracker] Saved progress for florida
+[2025-01-27T01:41:25.932Z] [fetch-western-bars] 
+Searching in Orlando...
+[2025-01-27T01:41:25.954Z] [progress-tracker] Saved progress for florida
+[2025-01-27T01:41:28.475Z] [fetch-western-bars] Found 20 results for "kava bar" in Orlando
+[2025-01-27T01:41:28.519Z] [fetch-western-bars] - Skipped existing: Kava Culture Kava Bar
+[2025-01-27T01:41:28.540Z] [fetch-western-bars] - Skipped existing: The Kava Bowl Lounge
+[2025-01-27T01:41:28.563Z] [fetch-western-bars] - Skipped existing: Elevate Kava Bar & Lounge
+[2025-01-27T01:41:28.584Z] [fetch-western-bars] - Skipped existing: Kavasutra kava bar
+[2025-01-27T01:41:28.629Z] [fetch-western-bars] ✓ Added: The Muddy Root Kava Cafe
+[2025-01-27T01:41:28.651Z] [fetch-western-bars] - Skipped existing: Pacific Rootz Kava Lounge
+[2025-01-27T01:41:28.673Z] [fetch-western-bars] - Skipped existing: SODO KAVA
+[2025-01-27T01:41:28.718Z] [fetch-western-bars] ✓ Added: Kavas Tacos + Tequila
+[2025-01-27T01:41:28.740Z] [progress-tracker] Saved progress for florida
+[2025-01-27T01:41:28.742Z] [progress-tracker] Saved progress for florida
+[2025-01-27T01:41:31.180Z] [fetch-western-bars] Found 20 results for "kava lounge" in Orlando
+[2025-01-27T01:41:31.224Z] [progress-tracker] Saved progress for florida
+[2025-01-27T01:41:31.225Z] [progress-tracker] Saved progress for florida
+[2025-01-27T01:41:33.714Z] [fetch-western-bars] Found 20 results for "kava house" in Orlando
+[2025-01-27T01:41:33.757Z] [progress-tracker] Saved progress for florida
+[2025-01-27T01:41:33.759Z] [progress-tracker] Saved progress for florida
+[2025-01-27T01:41:36.138Z] [fetch-western-bars] Found 9 results for "kratom cafe" in Orlando
+[2025-01-27T01:41:36.183Z] [progress-tracker] Saved progress for florida
+[2025-01-27T01:41:36.202Z] [progress-tracker] Saved progress for florida
+[2025-01-27T01:41:38.618Z] [fetch-western-bars] Found 20 results for "kava tea" in Orlando
+[2025-01-27T01:41:38.661Z] [progress-tracker] Saved progress for florida
+[2025-01-27T01:41:38.663Z] [progress-tracker] Saved progress for florida
+[2025-01-27T01:41:40.996Z] [fetch-western-bars] Found 1 results for "noble kava" in Orlando
+[2025-01-27T01:41:41.041Z] [progress-tracker] Saved progress for florida
+[2025-01-27T01:41:41.041Z] [fetch-western-bars] 
+Searching in Tampa...
+[2025-01-27T01:41:41.042Z] [progress-tracker] Saved progress for florida
+[2025-01-27T01:41:43.546Z] [fetch-western-bars] Found 20 results for "kava bar" in Tampa
+[2025-01-27T01:41:43.591Z] [fetch-western-bars] - Skipped existing: Bula Kavananda Kava Bar & Coffee House
+[2025-01-27T01:41:43.636Z] [fetch-western-bars] ✓ Added: The Muddy Root Kava Cafe
+[2025-01-27T01:41:43.659Z] [fetch-western-bars] - Skipped existing: Alibaba Lounge & Kava Bar
+[2025-01-27T01:41:43.681Z] [fetch-western-bars] - Skipped existing: Ritual Kava Lounge
+[2025-01-27T01:41:43.703Z] [fetch-western-bars] - Skipped existing: Bull Smoke shop and Kava Bar
+[2025-01-27T01:41:43.725Z] [fetch-western-bars] - Skipped existing: Kava Culture Kava Bar
+[2025-01-27T01:41:43.748Z] [progress-tracker] Saved progress for florida
+[2025-01-27T01:41:43.750Z] [progress-tracker] Saved progress for florida
+[2025-01-27T01:41:46.191Z] [fetch-western-bars] Found 20 results for "kava lounge" in Tampa
+[2025-01-27T01:41:46.235Z] [progress-tracker] Saved progress for florida
+[2025-01-27T01:41:46.236Z] [progress-tracker] Saved progress for florida
+[2025-01-27T01:41:48.615Z] [fetch-western-bars] Found 19 results for "kava house" in Tampa
+[2025-01-27T01:41:48.658Z] [fetch-western-bars] - Skipped existing: Grassroots Kava House
+[2025-01-27T01:41:48.680Z] [progress-tracker] Saved progress for florida
+[2025-01-27T01:41:48.681Z] [progress-tracker] Saved progress for florida
+[2025-01-27T01:41:51.119Z] [fetch-western-bars] Found 20 results for "kratom cafe" in Tampa
+[2025-01-27T01:41:51.186Z] [fetch-western-bars] ✓ Added: Indica Cafe Kava Bar
+[2025-01-27T01:41:51.210Z] [progress-tracker] Saved progress for florida
+[2025-01-27T01:41:51.211Z] [progress-tracker] Saved progress for florida
+[2025-01-27T01:41:53.680Z] [fetch-western-bars] Found 20 results for "kava tea" in Tampa
+[2025-01-27T01:41:53.722Z] [fetch-western-bars] - Skipped existing: Steep Station Kava Bar
+[2025-01-27T01:41:53.744Z] [progress-tracker] Saved progress for florida
+[2025-01-27T01:41:53.746Z] [progress-tracker] Saved progress for florida
+[2025-01-27T01:41:55.957Z] [fetch-western-bars] Found 0 results for "noble kava" in Tampa
+[2025-01-27T01:41:56.001Z] [progress-tracker] Saved progress for florida
+[2025-01-27T01:41:56.001Z] [fetch-western-bars] 
+Searching in Jacksonville...
+[2025-01-27T01:41:56.016Z] [progress-tracker] Saved progress for florida
+[2025-01-27T01:41:58.479Z] [fetch-western-bars] Found 20 results for "kava bar" in Jacksonville
+[2025-01-27T01:41:58.527Z] [progress-tracker] Saved progress for florida
+[2025-01-27T01:41:58.529Z] [progress-tracker] Saved progress for florida
+[2025-01-27T01:42:00.958Z] [fetch-western-bars] Found 13 results for "kava lounge" in Jacksonville
+[2025-01-27T01:42:01.002Z] [progress-tracker] Saved progress for florida
+[2025-01-27T01:42:01.004Z] [progress-tracker] Saved progress for florida
+[2025-01-27T01:42:03.604Z] [fetch-western-bars] Found 20 results for "kava house" in Jacksonville
+[2025-01-27T01:42:03.649Z] [progress-tracker] Saved progress for florida
+[2025-01-27T01:42:03.651Z] [progress-tracker] Saved progress for florida
+[2025-01-27T01:42:05.965Z] [fetch-western-bars] Found 0 results for "kratom cafe" in Jacksonville
+[2025-01-27T01:42:06.010Z] [progress-tracker] Saved progress for florida
+[2025-01-27T01:42:06.011Z] [progress-tracker] Saved progress for florida
+[2025-01-27T01:42:08.476Z] [fetch-western-bars] Found 20 results for "kava tea" in Jacksonville
+[2025-01-27T01:42:08.522Z] [progress-tracker] Saved progress for florida
+[2025-01-27T01:42:08.523Z] [progress-tracker] Saved progress for florida
+[2025-01-27T01:42:10.783Z] [fetch-western-bars] Found 0 results for "noble kava" in Jacksonville
+[2025-01-27T01:42:10.827Z] [fetch-western-bars] 
+Searching in Fort Lauderdale...
+[2025-01-27T01:42:10.827Z] [progress-tracker] Saved progress for florida
+[2025-01-27T01:42:11.075Z] [progress-tracker] Saved progress for florida
+[2025-01-27T01:42:13.565Z] [fetch-western-bars] Found 20 results for "kava bar" in Fort Lauderdale
+[2025-01-27T01:42:13.611Z] [progress-tracker] Saved progress for florida
+[2025-01-27T01:42:13.616Z] [progress-tracker] Saved progress for florida
+[2025-01-27T01:42:16.085Z] [fetch-western-bars] Found 20 results for "kava lounge" in Fort Lauderdale
+[2025-01-27T01:42:16.128Z] [progress-tracker] Saved progress for florida
+[2025-01-27T01:42:16.132Z] [progress-tracker] Saved progress for florida
+[2025-01-27T01:42:18.556Z] [fetch-western-bars] Found 20 results for "kava house" in Fort Lauderdale
+[2025-01-27T01:42:18.601Z] [progress-tracker] Saved progress for florida
+[2025-01-27T01:42:18.626Z] [progress-tracker] Saved progress for florida
+[2025-01-27T01:42:20.931Z] [fetch-western-bars] Found 0 results for "kratom cafe" in Fort Lauderdale
+[2025-01-27T01:42:20.976Z] [progress-tracker] Saved progress for florida
+[2025-01-27T01:42:20.977Z] [progress-tracker] Saved progress for florida
+[2025-01-27T01:42:23.388Z] [fetch-western-bars] Found 20 results for "kava tea" in Fort Lauderdale
+[2025-01-27T01:42:23.431Z] [progress-tracker] Saved progress for florida
+[2025-01-27T01:42:23.433Z] [progress-tracker] Saved progress for florida
+[2025-01-27T01:42:25.671Z] [fetch-western-bars] Found 1 results for "noble kava" in Fort Lauderdale
+[2025-01-27T01:42:25.714Z] [progress-tracker] Saved progress for florida
+[2025-01-27T01:42:25.714Z] [fetch-western-bars] 
+Searching in St. Petersburg...
+[2025-01-27T01:42:25.728Z] [progress-tracker] Saved progress for florida
+[2025-01-27T01:42:28.165Z] [fetch-western-bars] Found 20 results for "kava bar" in St. Petersburg
+[2025-01-27T01:42:28.209Z] [progress-tracker] Saved progress for florida
+[2025-01-27T01:42:28.211Z] [progress-tracker] Saved progress for florida
+[2025-01-27T01:42:30.622Z] [fetch-western-bars] Found 20 results for "kava lounge" in St. Petersburg
+[2025-01-27T01:42:30.666Z] [progress-tracker] Saved progress for florida
+[2025-01-27T01:42:30.668Z] [progress-tracker] Saved progress for florida
+[2025-01-27T01:42:33.092Z] [fetch-western-bars] Found 20 results for "kava house" in St. Petersburg
+[2025-01-27T01:42:33.138Z] [progress-tracker] Saved progress for florida
+[2025-01-27T01:42:33.140Z] [progress-tracker] Saved progress for florida
+[2025-01-27T01:42:35.630Z] [fetch-western-bars] Found 20 results for "kratom cafe" in St. Petersburg
+[2025-01-27T01:42:35.675Z] [progress-tracker] Saved progress for florida
+[2025-01-27T01:42:35.676Z] [progress-tracker] Saved progress for florida
+[2025-01-27T01:42:38.108Z] [fetch-western-bars] Found 20 results for "kava tea" in St. Petersburg
+[2025-01-27T01:42:38.152Z] [progress-tracker] Saved progress for florida
+[2025-01-27T01:42:38.154Z] [progress-tracker] Saved progress for florida
+[2025-01-27T01:42:40.376Z] [fetch-western-bars] Found 0 results for "noble kava" in St. Petersburg
+[2025-01-27T01:42:40.420Z] [fetch-western-bars] 
+Searching in Clearwater...
+[2025-01-27T01:42:40.420Z] [progress-tracker] Saved progress for florida
+[2025-01-27T01:42:40.442Z] [progress-tracker] Saved progress for florida
+[2025-01-27T01:42:43.003Z] [fetch-western-bars] Found 20 results for "kava bar" in Clearwater
+[2025-01-27T01:42:43.047Z] [fetch-western-bars] - Skipped existing: N7 Nitro Kava Bar & Smoke Shop US19
+[2025-01-27T01:42:43.069Z] [progress-tracker] Saved progress for florida
+[2025-01-27T01:42:43.071Z] [progress-tracker] Saved progress for florida
+[2025-01-27T01:42:45.582Z] [fetch-western-bars] Found 20 results for "kava lounge" in Clearwater
+[2025-01-27T01:42:45.628Z] [fetch-western-bars] - Skipped existing: Kava Culture Kava Bar
+[2025-01-27T01:42:45.650Z] [progress-tracker] Saved progress for florida
+[2025-01-27T01:42:45.652Z] [progress-tracker] Saved progress for florida
+[2025-01-27T01:42:48.100Z] [fetch-western-bars] Found 20 results for "kava house" in Clearwater
+[2025-01-27T01:42:48.146Z] [progress-tracker] Saved progress for florida
+[2025-01-27T01:42:48.168Z] [progress-tracker] Saved progress for florida
+[2025-01-27T01:42:50.611Z] [fetch-western-bars] Found 20 results for "kratom cafe" in Clearwater
+[2025-01-27T01:42:50.658Z] [progress-tracker] Saved progress for florida
+[2025-01-27T01:42:50.661Z] [progress-tracker] Saved progress for florida
+[2025-01-27T01:42:53.104Z] [fetch-western-bars] Found 20 results for "kava tea" in Clearwater
+[2025-01-27T01:42:53.149Z] [progress-tracker] Saved progress for florida
+[2025-01-27T01:42:53.151Z] [progress-tracker] Saved progress for florida
+[2025-01-27T01:42:55.486Z] [fetch-western-bars] Found 0 results for "noble kava" in Clearwater
+[2025-01-27T01:42:55.532Z] [fetch-western-bars] 
+Searching in Sarasota...
+[2025-01-27T01:42:55.532Z] [progress-tracker] Saved progress for florida
+[2025-01-27T01:42:55.551Z] [progress-tracker] Saved progress for florida
+[2025-01-27T01:42:58.087Z] [fetch-western-bars] Found 20 results for "kava bar" in Sarasota
+[2025-01-27T01:42:58.133Z] [fetch-western-bars] - Skipped existing: Manna Tea & Kava Bar
+[2025-01-27T01:42:58.155Z] [progress-tracker] Saved progress for florida
+[2025-01-27T01:42:58.157Z] [progress-tracker] Saved progress for florida
+[2025-01-27T01:43:00.601Z] [fetch-western-bars] Found 5 results for "kava lounge" in Sarasota
+[2025-01-27T01:43:00.645Z] [progress-tracker] Saved progress for florida
+[2025-01-27T01:43:00.646Z] [progress-tracker] Saved progress for florida
+[2025-01-27T01:43:03.091Z] [fetch-western-bars] Found 11 results for "kava house" in Sarasota
+[2025-01-27T01:43:03.135Z] [progress-tracker] Saved progress for florida
+[2025-01-27T01:43:03.137Z] [progress-tracker] Saved progress for florida
+[2025-01-27T01:43:05.741Z] [fetch-western-bars] Found 3 results for "kratom cafe" in Sarasota
+[2025-01-27T01:43:05.785Z] [progress-tracker] Saved progress for florida
+[2025-01-27T01:43:05.787Z] [progress-tracker] Saved progress for florida
+[2025-01-27T01:43:08.242Z] [fetch-western-bars] Found 8 results for "kava tea" in Sarasota
+[2025-01-27T01:43:08.288Z] [progress-tracker] Saved progress for florida
+[2025-01-27T01:43:08.290Z] [progress-tracker] Saved progress for florida
+[2025-01-27T01:43:10.617Z] [fetch-western-bars] Found 0 results for "noble kava" in Sarasota
+[2025-01-27T01:43:10.662Z] [progress-tracker] Saved progress for florida
+[2025-01-27T01:43:10.662Z] [fetch-western-bars] 
+Searching in Fort Myers...
+[2025-01-27T01:43:10.680Z] [progress-tracker] Saved progress for florida
+[2025-01-27T01:43:13.150Z] [fetch-western-bars] Found 20 results for "kava bar" in Fort Myers
+[2025-01-27T01:43:13.194Z] [fetch-western-bars] - Skipped existing: Nectar Lab Kava Bar
+[2025-01-27T01:43:13.216Z] [fetch-western-bars] - Skipped existing: 13 Barrels Kava Lounge
+[2025-01-27T01:43:13.259Z] [fetch-western-bars] ✓ Added: Elevate Social Lounge & Kava Bar - Estero
+[2025-01-27T01:43:13.280Z] [fetch-western-bars] - Skipped existing: The Soundgarden Kava Bar
+[2025-01-27T01:43:13.325Z] [fetch-western-bars] ✓ Added: Kava Culture Kava Bar
+[2025-01-27T01:43:13.346Z] [fetch-western-bars] - Skipped existing: Island Vibes Kava - North Fort Myers
+[2025-01-27T01:43:13.369Z] [fetch-western-bars] - Skipped existing: Kapua Kava Bar
+[2025-01-27T01:43:13.414Z] [fetch-western-bars] ✓ Added: Kava Culture Kava Bar
+[2025-01-27T01:43:13.435Z] [fetch-western-bars] - Skipped existing: Kava Nirvana Kava Bar
+[2025-01-27T01:43:13.458Z] [fetch-western-bars] - Skipped existing: Burma Kava Company
+[2025-01-27T01:43:13.480Z] [fetch-western-bars] - Skipped existing: Sincerely, Me Kava Lounge
+[2025-01-27T01:43:13.523Z] [fetch-western-bars] ✓ Added: Kava Culture Kava Bar
+[2025-01-27T01:43:13.545Z] [fetch-western-bars] - Skipped existing: PrintWithMe Print Kiosk at Nectar Lab Kava Bar - Fort Myers
+[2025-01-27T01:43:13.568Z] [fetch-western-bars] - Skipped existing: Sanibel Kava Bar Vape Store Delta 8
+[2025-01-27T01:43:13.591Z] [progress-tracker] Saved progress for florida
+[2025-01-27T01:43:13.593Z] [progress-tracker] Saved progress for florida
+[2025-01-27T01:43:16.033Z] [fetch-western-bars] Found 16 results for "kava lounge" in Fort Myers
+[2025-01-27T01:43:16.077Z] [progress-tracker] Saved progress for florida
+[2025-01-27T01:43:16.078Z] [progress-tracker] Saved progress for florida
+[2025-01-27T01:43:18.623Z] [fetch-western-bars] Found 17 results for "kava house" in Fort Myers
+[2025-01-27T01:43:18.666Z] [progress-tracker] Saved progress for florida
+[2025-01-27T01:43:18.672Z] [progress-tracker] Saved progress for florida
+[2025-01-27T01:43:20.958Z] [fetch-western-bars] Found 0 results for "kratom cafe" in Fort Myers
+[2025-01-27T01:43:21.003Z] [progress-tracker] Saved progress for florida
+[2025-01-27T01:43:21.006Z] [progress-tracker] Saved progress for florida
+[2025-01-27T01:43:23.441Z] [fetch-western-bars] Found 18 results for "kava tea" in Fort Myers
+[2025-01-27T01:43:23.486Z] [progress-tracker] Saved progress for florida
+[2025-01-27T01:43:23.487Z] [progress-tracker] Saved progress for florida
+[2025-01-27T01:43:25.826Z] [fetch-western-bars] Found 0 results for "noble kava" in Fort Myers
+[2025-01-27T01:43:25.870Z] [progress-tracker] Saved progress for florida
+[2025-01-27T01:43:25.870Z] [fetch-western-bars] 
+Searching in Tallahassee...
+[2025-01-27T01:43:25.885Z] [progress-tracker] Saved progress for florida
+[2025-01-27T01:43:28.308Z] [fetch-western-bars] Found 20 results for "kava bar" in Tallahassee
+[2025-01-27T01:43:28.352Z] [progress-tracker] Saved progress for florida
+[2025-01-27T01:43:28.354Z] [progress-tracker] Saved progress for florida
+[2025-01-27T01:43:30.810Z] [fetch-western-bars] Found 11 results for "kava lounge" in Tallahassee
+[2025-01-27T01:43:30.854Z] [progress-tracker] Saved progress for florida
+[2025-01-27T01:43:30.855Z] [progress-tracker] Saved progress for florida
+[2025-01-27T01:43:33.270Z] [fetch-western-bars] Found 17 results for "kava house" in Tallahassee
+[2025-01-27T01:43:33.315Z] [progress-tracker] Saved progress for florida
+[2025-01-27T01:43:33.317Z] [progress-tracker] Saved progress for florida
+[2025-01-27T01:43:35.616Z] [fetch-western-bars] Found 3 results for "kratom cafe" in Tallahassee
+[2025-01-27T01:43:35.659Z] [progress-tracker] Saved progress for florida
+[2025-01-27T01:43:35.661Z] [progress-tracker] Saved progress for florida
+[2025-01-27T01:43:37.978Z] [fetch-western-bars] Found 13 results for "kava tea" in Tallahassee
+[2025-01-27T01:43:38.023Z] [progress-tracker] Saved progress for florida
+[2025-01-27T01:43:38.025Z] [progress-tracker] Saved progress for florida
+[2025-01-27T01:43:40.255Z] [fetch-western-bars] Found 0 results for "noble kava" in Tallahassee
+[2025-01-27T01:43:40.299Z] [progress-tracker] Saved progress for florida
+[2025-01-27T01:43:40.300Z] [fetch-western-bars] 
+Creating post-search backup...
+[2025-01-27T01:43:40.300Z] [backup-database] Starting database backup (type: post-operation)
+[2025-01-27T17:54:08.887Z] [backup-database] Starting database backup (type: manual)
+[2025-01-27T17:54:09.439Z] [backup-database] ✓ Backup completed: /home/runner/workspace/backups/kava_bars_manual_2025-01-27T17-54-08-888Z.json
+[2025-01-27T17:54:09.439Z] [backup-database] Total bars backed up: 381

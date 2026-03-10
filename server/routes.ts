@@ -185,7 +185,7 @@ export function registerRoutes(app: Express, server: Server): void {
         SELECT id, name, address, phone, rating, is_verified_kava_bar, business_status,
                hero_image_url, vibe_text, location, hours
         FROM kava_bars
-        WHERE address ILIKE ${'%, ' + stateCode + '%'}
+        WHERE deleted_at IS NULL AND address ILIKE ${'%, ' + stateCode + '%'}
         ORDER BY is_verified_kava_bar DESC, rating DESC NULLS LAST
         LIMIT 200
       `);
@@ -200,7 +200,7 @@ export function registerRoutes(app: Express, server: Server): void {
       const result = await db.execute(sql`
         SELECT TRIM(SPLIT_PART(address, ',', 2)) as city, COUNT(*) as bar_count
         FROM kava_bars
-        WHERE address ILIKE ${'%, ' + stateCode + '%'}
+        WHERE deleted_at IS NULL AND address ILIKE ${'%, ' + stateCode + '%'}
         GROUP BY city
         HAVING TRIM(SPLIT_PART(address, ',', 2)) != ''
         ORDER BY bar_count DESC
@@ -225,7 +225,7 @@ export function registerRoutes(app: Express, server: Server): void {
         SELECT id, name, address, phone, rating, is_verified_kava_bar, business_status,
                hero_image_url, vibe_text, location, hours
         FROM kava_bars
-        WHERE address ILIKE ${'%, ' + stateCode + '%'}
+        WHERE deleted_at IS NULL AND address ILIKE ${'%, ' + stateCode + '%'}
           AND address ILIKE ${'%' + cityName + '%'}
         ORDER BY is_verified_kava_bar DESC, rating DESC NULLS LAST
         LIMIT 100
@@ -244,7 +244,7 @@ export function registerRoutes(app: Express, server: Server): void {
       const cityName = req.params.citySlug.replace(/-/g, " ");
       const countRes = await db.execute(sql`
         SELECT COUNT(*) as n FROM kava_bars
-        WHERE address ILIKE ${'%, ' + stateCode + '%'}
+        WHERE deleted_at IS NULL AND address ILIKE ${'%, ' + stateCode + '%'}
           AND address ILIKE ${'%' + cityName + '%'}
       `);
       const barCount = parseInt((countRes.rows[0] as any).n) || 0;
@@ -265,7 +265,7 @@ export function registerRoutes(app: Express, server: Server): void {
     if (!stateCode) return next();
     try {
       const [countRes, citiesRes] = await Promise.all([
-        db.execute(sql`SELECT COUNT(*) as n FROM kava_bars WHERE address ILIKE ${'%, ' + stateCode + '%'}`),
+        db.execute(sql`SELECT COUNT(*) as n FROM kava_bars WHERE deleted_at IS NULL AND address ILIKE ${'%, ' + stateCode + '%'}`),
         db.execute(sql`
           SELECT TRIM(SPLIT_PART(address, ',', 2)) as city
           FROM kava_bars WHERE address ILIKE ${'%, ' + stateCode + '%'}
@@ -392,7 +392,7 @@ Sitemap: https://mykavabar.com/sitemap.xml
       const stateResult = await db.execute(sql`
         SELECT DISTINCT TRIM(SPLIT_PART(address, ',', 3)) as state_part
         FROM kava_bars
-        WHERE address IS NOT NULL
+        WHERE deleted_at IS NULL AND address IS NOT NULL
       `);
       const STATE_NAMES: Record<string, string> = {
         AL:"Alabama",AK:"Alaska",AZ:"Arizona",AR:"Arkansas",CA:"California",
@@ -428,7 +428,7 @@ Sitemap: https://mykavabar.com/sitemap.xml
         SELECT TRIM(SPLIT_PART(address, ',', 2)) as city,
                TRIM(SPLIT_PART(address, ',', 3)) as state_part
         FROM kava_bars
-        WHERE address IS NOT NULL
+        WHERE deleted_at IS NULL AND address IS NOT NULL
         GROUP BY city, state_part
         HAVING COUNT(*) >= 1
       `);
@@ -569,6 +569,7 @@ Sitemap: https://mykavabar.com/sitemap.xml
         FROM kava_bars k
         WHERE k.verification_status != 'not_kava_bar' AND k.verification_status IS NOT NULL
           AND (k.business_status IS NULL OR k.business_status = 'OPERATIONAL')
+          AND k.deleted_at IS NULL
         ORDER BY k.is_sponsored DESC, k.rating DESC NULLS LAST LIMIT 200
       `);
       let result = bars.rows.map((bar: any) => {
@@ -714,6 +715,7 @@ Sitemap: https://mykavabar.com/sitemap.xml
             LEFT JOIN users u ON k.owner_id = u.id
             WHERE k.verification_status != 'not_kava_bar'
             AND k.verification_status IS NOT NULL
+            AND k.deleted_at IS NULL
             ORDER BY k.is_sponsored DESC, k.rating DESC
             LIMIT 1000
           `);
@@ -877,6 +879,7 @@ Sitemap: https://mykavabar.com/sitemap.xml
             FROM kava_bars k
             INNER JOIN favourite_bars f ON k.id = f.bar_id
             WHERE f.user_id = ${userId} -- Filter by authenticated user's ID
+            AND k.deleted_at IS NULL
             AND k.verification_status != 'not_kava_bar'
             AND k.verification_status IS NOT NULL
             ORDER BY k.is_sponsored DESC, k.rating DESC
@@ -2493,7 +2496,7 @@ Sitemap: https://mykavabar.com/sitemap.xml
     }
   });
 
-  // Delete a kava bar
+  // Soft-delete a kava bar (sets deleted_at instead of removing the row)
   app.delete("/api/admin/bars/:id", async (req, res) => {
     if (!req.isAuthenticated()) {
       return res.status(401).json({ error: "Not authenticated" });
@@ -2511,7 +2514,6 @@ Sitemap: https://mykavabar.com/sitemap.xml
     }
 
     try {
-      // First, check if the bar exists
       const existingBar = await db.query.kavaBars.findFirst({
         where: eq(kavaBars.id, barId),
       });
@@ -2520,12 +2522,40 @@ Sitemap: https://mykavabar.com/sitemap.xml
         return res.status(404).json({ error: "Bar not found" });
       }
 
-      // Delete the bar
-      await db.delete(kavaBars).where(eq(kavaBars.id, barId));
+      // Soft delete — set deleted_at timestamp instead of removing
+      await db.execute(
+        sql`UPDATE kava_bars SET deleted_at = NOW() WHERE id = ${barId}`
+      );
 
-      res.json({ success: true, message: "Bar deleted successfully" });
+      console.log(`Bar ${barId} (${existingBar.name}) soft-deleted by user ${req.user.id}`);
+      res.json({ success: true, message: "Bar archived successfully. It can be restored by an admin." });
     } catch (error: any) {
-      console.error("Error deleting bar:", error);
+      console.error("Error archiving bar:", error);
+      res.status(500).json({ error: error.message });
+    }
+  });
+
+  // Restore a soft-deleted bar
+  app.post("/api/admin/bars/:id/restore", async (req, res) => {
+    if (!req.isAuthenticated() || !req.user.isAdmin) {
+      return res.status(403).json({ error: "Admin access required" });
+    }
+
+    const barId = parseInt(req.params.id);
+    if (isNaN(barId)) {
+      return res.status(400).json({ error: "Invalid bar ID" });
+    }
+
+    try {
+      const result = await db.execute(
+        sql`UPDATE kava_bars SET deleted_at = NULL WHERE id = ${barId} RETURNING id, name`
+      );
+      if (result.rowCount === 0) {
+        return res.status(404).json({ error: "Bar not found" });
+      }
+      res.json({ success: true, message: "Bar restored successfully" });
+    } catch (error: any) {
+      console.error("Error restoring bar:", error);
       res.status(500).json({ error: error.message });
     }
   });
@@ -2839,7 +2869,7 @@ Sitemap: https://mykavabar.com/sitemap.xml
       const stateBarCount = await db.execute(sql`
         SELECT COUNT(*) as count
         FROM kava_bars
-        WHERE address ILIKE ${`%${state}%`}
+        WHERE deleted_at IS NULL AND address ILIKE ${`%${state}%`}
       `);
 
       res.json({
@@ -2940,6 +2970,7 @@ Sitemap: https://mykavabar.com/sitemap.xml
           COUNT(*) as bar_count,
           COUNT(CASE WHEN verification_status = 'verified_kava_bar' THEN 1 END) as verified_count
         FROM kava_bars
+        WHERE deleted_at IS NULL
         GROUP BY state
         ORDER BY bar_count DESC
       `);
@@ -3612,7 +3643,7 @@ Sitemap: https://mykavabar.com/sitemap.xml
       const stateBarCount = await db.execute(sql`
         SELECT COUNT(*) as count
         FROM kava_bars
-        WHERE address ILIKE ${`%${state}%`}
+        WHERE deleted_at IS NULL AND address ILIKE ${`%${state}%`}
       `);
 
       res.json({
@@ -3713,6 +3744,7 @@ Sitemap: https://mykavabar.com/sitemap.xml
           COUNT(*) as bar_count,
           COUNT(CASE WHEN verification_status = 'verified_kava_bar' THEN 1 END) as verified_count
         FROM kava_bars
+        WHERE deleted_at IS NULL
         GROUP BY state
         ORDER BY bar_count DESC
       `);
@@ -4328,7 +4360,7 @@ Sitemap: https://mykavabar.com/sitemap.xml
       const stateBarCount = await db.execute(sql`
         SELECT COUNT(*) as count
         FROM kava_bars
-        WHERE address ILIKE ${`%${state}%`}
+        WHERE deleted_at IS NULL AND address ILIKE ${`%${state}%`}
       `);
 
       res.json({
@@ -4429,6 +4461,7 @@ Sitemap: https://mykavabar.com/sitemap.xml
           COUNT(*) as bar_count,
           COUNT(CASE WHEN verification_status = 'verified_kava_bar' THEN 1 END) as verified_count
         FROM kava_bars
+        WHERE deleted_at IS NULL
         GROUP BY state
         ORDER BY bar_count DESC
       `);
@@ -4882,7 +4915,7 @@ Sitemap: https://mykavabar.com/sitemap.xml
       const stateBarCount = await db.execute(sql`
         SELECT COUNT(*) as count
         FROM kava_bars
-        WHERE address ILIKE ${`%${state}%`}
+        WHERE deleted_at IS NULL AND address ILIKE ${`%${state}%`}
       `);
 
       res.json({
@@ -4983,6 +5016,7 @@ Sitemap: https://mykavabar.com/sitemap.xml
           COUNT(*) as bar_count,
           COUNT(CASE WHEN verification_status = 'verified_kava_bar' THEN 1 END) as verified_count
         FROM kava_bars
+        WHERE deleted_at IS NULL
         GROUP BY state
         ORDER BY bar_count DESC
       `);
@@ -5449,7 +5483,7 @@ Sitemap: https://mykavabar.com/sitemap.xml
       const stateBarCount = await db.execute(sql`
         SELECT COUNT(*) as count
         FROM kava_bars
-        WHERE address ILIKE ${`%${state}%`}
+        WHERE deleted_at IS NULL AND address ILIKE ${`%${state}%`}
       `);
 
       res.json({
@@ -5551,6 +5585,7 @@ Sitemap: https://mykavabar.com/sitemap.xml
           COUNT(*) as bar_count,
           COUNT(CASE WHEN verification_status = 'verified_kava_bar' THEN 1 END) as verified_count
         FROM kava_bars
+        WHERE deleted_at IS NULL
         GROUP BY state
         ORDER BY bar_count DESC
       `);

@@ -244,7 +244,7 @@ export default function ManageBars() {
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["admin-bars", sortBy] });
-      toast({ title: "Success", description: "Bar deleted successfully" });
+      toast({ title: "Success", description: "Bar archived. It can be restored from the archived bars section." });
     },
     onError: (error: Error) => {
       toast({
@@ -252,6 +252,24 @@ export default function ManageBars() {
         title: "Error",
         description: error.message,
       });
+    },
+  });
+
+  const restoreBarMutation = useMutation({
+    mutationFn: async (id: number) => {
+      const response = await fetch(`/api/admin/bars/${id}/restore`, {
+        method: "POST",
+        credentials: "include",
+      });
+      if (!response.ok) throw new Error(await response.text());
+      return response.json();
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["admin-bars", sortBy] });
+      toast({ title: "Success", description: "Bar restored successfully" });
+    },
+    onError: (error: Error) => {
+      toast({ variant: "destructive", title: "Error", description: error.message });
     },
   });
 
@@ -276,9 +294,12 @@ export default function ManageBars() {
     setIsEditDialogOpen(true);
   };
 
-  const handleDelete = async (id: number) => {
-    if (window.confirm("Are you sure you want to delete this bar?")) {
+  const handleDelete = async (id: number, barName: string) => {
+    const input = window.prompt(`Type "${barName}" to confirm archiving this bar:`);
+    if (input === barName) {
       deleteBarMutation.mutate(id);
+    } else if (input !== null) {
+      toast({ variant: "destructive", title: "Cancelled", description: "Bar name didn't match. Archive cancelled." });
     }
   };
 
@@ -829,8 +850,8 @@ export default function ManageBars() {
                   <Button
                     variant="destructive"
                     size="icon"
-                    onClick={() => handleDelete(bar.id)}
-                    title="Delete bar"
+                    onClick={() => handleDelete(bar.id, bar.name)}
+                    title="Archive bar"
                     className="h-8 w-8"
                   >
                     <Trash className="h-4 w-4" />

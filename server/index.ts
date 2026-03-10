@@ -51,19 +51,22 @@ app.disable("x-powered-by");
 app.use((req, res, next) => {
   const origin = req.headers.origin;
 
-  // In development, accept all origins
-  if (process.env.NODE_ENV === "development") {
-    res.header("Access-Control-Allow-Origin", origin || "*");
+  const allowedOrigins = [
+    "https://*.repl.co", "https://*.replit.dev",
+    "https://mykavabar.com", "https://www.mykavabar.com",
+    "https://mykavabar-ios-api.fly.dev",
+    "capacitor://localhost", "ionic://localhost",
+    "http://localhost", "http://localhost:3000", "http://localhost:8100",
+  ];
+  if (!origin) {
+    res.header("Access-Control-Allow-Origin", "*");
+  } else if (process.env.NODE_ENV === "development") {
+    res.header("Access-Control-Allow-Origin", origin);
   } else {
-    // In production, only allow specific origins
-    const allowedOrigins = ["https://*.repl.co", "https://*.replit.dev"];
-    const isAllowed = allowedOrigins.some((pattern) =>
-      origin?.match(new RegExp(pattern.replace("*", ".*"))),
+    const isAllowed = allowedOrigins.some((p) =>
+      origin.match(new RegExp("^" + p.replace(/\*/g, ".*") + "$")),
     );
-    res.header(
-      "Access-Control-Allow-Origin",
-      isAllowed ? origin : "https://*.replit.dev",
-    );
+    res.header("Access-Control-Allow-Origin", isAllowed ? origin : "https://mykavabar.com");
   }
 
   res.header("Access-Control-Allow-Methods", "GET, POST, PUT, DELETE, OPTIONS");

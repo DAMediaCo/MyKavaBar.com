@@ -1,0 +1,20 @@
+{
+  "files": {
+    "server/routes/admin.ts": [
+      {
+        "id": "52e48af4-09e3-4090-b968-8baabe2906f9",
+        "line": 96,
+        "version": 1,
+        "index": 2582
+      }
+    ],
+    "server/scripts/fetch-by-coordinates (copy).ts": [
+      {
+        "id": "a9e19c81-f478-407a-a30a-34584f8232e8",
+        "line": 8,
+        "version": 1,
+        "index": 252
+      }
+    ]
+  }
+}

@@ -84,13 +84,17 @@ function parseBool(val: any): boolean {
   return Boolean(val); // fallback
 }
 
-// Initialize client.
-let redisClient = createClient({ url: process.env.REDIS_URL! });
-redisClient.connect().catch(console.error);
-let redisStore = new RedisStore({
-  client: redisClient,
-  prefix: "kava-auth:",
-});
+// Initialize Redis session store — fall back to memory store if REDIS_URL not set
+let redisStore: any;
+if (process.env.REDIS_URL) {
+  const redisClient = createClient({ url: process.env.REDIS_URL });
+  redisClient.connect().catch(console.error);
+  redisStore = new RedisStore({ client: redisClient, prefix: "kava-auth:" });
+} else {
+  // No Redis configured — use default MemoryStore (fine for single-instance fly.io)
+  redisStore = undefined;
+  console.warn("[auth] REDIS_URL not set — using MemoryStore for sessions");
+}
 // User type definitions
 interface BaseUser {
   id: number;
@@ -138,7 +142,7 @@ export function setupAuth(app: Express) {
       sameSite: "lax",
       path: "/",
     },
-    store: redisStore,
+    ...(redisStore ? { store: redisStore } : {}),
     name: "mykavabar.sid",
   };
 
@@ -905,9 +909,18 @@ export function setupAuth(app: Express) {
           }
           // /Migrator
 
+          // Generate JWT for mobile clients
+          const jwtSecret = process.env.JWT_SECRET || "fallback-secret";
+          const token = jwt.sign(
+            { userId: user.id, email: user.email, role: user.role },
+            jwtSecret,
+            { expiresIn: "90d" },
+          );
+
           // Return the user object along with a success message
           return res.json({
             message: "Login successful",
+            token,
             user: {
               id: user.id,
               username: user.username,
@@ -923,6 +936,76 @@ export function setupAuth(app: Express) {
       },
     )(req, res, next);
   });
+
+  // ── Mobile app auth aliases (/api/auth/* → /api/*) ─────────────────────────
+  // Build 51 calls /api/auth/login, /api/auth/me, etc.
+  // Server has /api/login, /api/user, /api/logout — these aliases bridge the gap.
+
+  app.post("/api/auth/login", (req, res, next) => {
+    // Mobile sends { email, password } — normalize to { username, password }
+    if (req.body.email && !req.body.username) req.body.username = req.body.email;
+    if (!req.body.username || !req.body.password) {
+      return res.status(400).json({ error: "Email and password are required" });
+    }
+    passport.authenticate("local", async (err: any, user: any, info: any) => {
+      if (err) return next(err);
+      if (!user) return res.status(400).json({ error: info?.message ?? "Login failed" });
+      req.logIn(user, (err) => {
+        if (err) return next(err);
+        const jwtSecret = process.env.JWT_SECRET || "fallback-secret";
+        const token = jwt.sign(
+          { userId: user.id, email: user.email, role: user.role },
+          jwtSecret,
+          { expiresIn: "90d" },
+        );
+        return res.json({
+          message: "Login successful",
+          token,
+          user: {
+            id: user.id,
+            username: user.username,
+            email: user.email,
+            isAdmin: user.isAdmin,
+            points: user.points,
+            role: user.role,
+            phoneNumber: user.phoneNumber,
+            profilePhotoUrl: user.profilePhotoUrl,
+          },
+        });
+      });
+    })(req, res, next);
+  });
+
+  app.post("/api/auth/logout", (req, res) => {
+    req.logout((err) => {
+      if (err) return res.status(500).json({ error: "Logout failed" });
+      res.json({ message: "Logged out" });
+    });
+  });
+
+  app.get("/api/auth/me", (req, res) => {
+    if (req.isAuthenticated()) {
+      return res.json({
+        id: req.user.id,
+        username: req.user.username,
+        email: req.user.email,
+        isAdmin: req.user.isAdmin,
+        points: req.user.points || 0,
+        role: req.user.role,
+        phoneNumber: req.user.phoneNumber,
+        profilePhotoUrl: req.user.profilePhotoUrl,
+      });
+    }
+    res.status(401).json({ error: "Not authenticated" });
+  });
+
+  app.post("/api/auth/register", (req, res, next) => {
+    // Normalize fields: mobile sends { email, password, username }
+    // Forward to existing /api/register — same body shape
+    req.url = "/api/register";
+    next("router");
+  });
+  // ── End mobile auth aliases ─────────────────────────────────────────────────
 
   app.post("/api/logout", (req, res) => {
     req.logout((err) => {
