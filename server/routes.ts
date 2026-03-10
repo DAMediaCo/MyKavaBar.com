@@ -56,7 +56,7 @@ import {
   eventRsvps,
 } from "@db/schema";
 import { crypto } from "./utils/crypto";
-import { eq, and, isNull, desc, ne, sql, gt, lt, inArray, gte } from "drizzle-orm";
+import { eq, and, or, isNull, desc, ne, sql, gt, lt, inArray, gte } from "drizzle-orm";
 import { setupWebSocket, notifyAdmins } from "./websocket";
 import { fetchKavaBars } from "./scripts/fetch-kava-bars";
 import { setupAuth } from "./auth";
@@ -1734,84 +1734,88 @@ Sitemap: https://mykavabar.com/sitemap.xml
   // Add owner dashboard endpoint with enhanced debug logging
   app.get("/api/owner/bars", async (req, res) => {
     try {
-      console.log("Owner/bars request:", {
-        authenticated: req.isAuthenticated(),
-        user: req.user
-          ? {
-              id: req.user.id,
-              role: req.user.role,
-              isAdmin: req.user.isAdmin,
-            }
-          : null,
-        session: req.session ? { id: req.session.id } : null,
-        cookies: req.headers.cookie,
-      });
-
       if (!req.isAuthenticated()) {
-        console.log("Unauthenticated access attempt to owner/bars");
         return res.status(401).json({ error: "Not authenticated" });
       }
 
       // Verify user has proper role
       if (!req.user.isAdmin && req.user.role !== "bar_owner") {
-        console.log("Unauthorized access attempt:", {
-          userId: req.user.id,
-          role: req.user.role,
-        });
         return res.status(403).json({
           error: "Not authorized",
-          details:
-            "You must be a bar owner or administrator to access this feature",
+          details: "You must be a bar owner or administrator to access this feature",
         });
       }
 
-      console.log("Fetching bars for owner:", {
-        userId: req.user.id,
-        userRole: req.user.role,
-        isAdmin: req.user.isAdmin,
-        sessionId: req.session?.id,
-      });
+      // Pagination & search params
+      const page = Math.max(1, parseInt(req.query.page as string) || 1);
+      const limit = Math.min(50, Math.max(1, parseInt(req.query.limit as string) || 50));
+      const searchQuery = (req.query.search as string || "").trim().toLowerCase();
+      const offset = (page - 1) * limit;
 
-      // Get bars owned by the user
+      // Build search condition if provided
+      const searchCondition = searchQuery
+        ? or(
+            sql`LOWER(${kavaBars.name}) LIKE ${'%' + searchQuery + '%'}`,
+            sql`LOWER(${kavaBars.address}) LIKE ${'%' + searchQuery + '%'}`
+          )
+        : undefined;
+
+      // Build owned bars query condition
+      const ownedCondition = req.user.isAdmin
+        ? searchCondition // Admins see all bars
+        : searchCondition
+          ? and(eq(kavaBars.ownerId, req.user.id), searchCondition)
+          : eq(kavaBars.ownerId, req.user.id);
+
+      // Get total count for pagination
+      const [{ count: totalOwned }] = await db
+        .select({ count: sql<number>`count(*)` })
+        .from(kavaBars)
+        .where(req.user.isAdmin ? searchCondition : (searchCondition ? and(eq(kavaBars.ownerId, req.user.id), searchCondition) : eq(kavaBars.ownerId, req.user.id)));
+
+      // Get bars with pagination (no expensive owner join for large result sets)
       const ownedBars = await db.query.kavaBars.findMany({
-        where: req.user.isAdmin
-          ? undefined // Admins can see all bars
-          : eq(kavaBars.ownerId, req.user.id),
-        orderBy: (kavaBars, { desc }) => [desc(kavaBars.createdAt)],
-        with: {
-          owner: true,
-        },
+        where: ownedCondition,
+        orderBy: (kavaBars, { asc }) => [asc(kavaBars.name)],
+        limit,
+        offset,
       });
 
-      console.log("Found owned bars:", {
-        count: ownedBars.length,
-        barIds: ownedBars.map((bar) => bar.id),
-      });
+      // Build unclaimed bars condition
+      const unclaimedCondition = searchCondition
+        ? and(isNull(kavaBars.ownerId), ne(kavaBars.verificationStatus, "not_kava_bar"), searchCondition)
+        : and(isNull(kavaBars.ownerId), ne(kavaBars.verificationStatus, "not_kava_bar"));
 
-      // Get unclaimed bars that are verified kava bars
+      // Get unclaimed count
+      const [{ count: totalUnclaimed }] = await db
+        .select({ count: sql<number>`count(*)` })
+        .from(kavaBars)
+        .where(unclaimedCondition);
+
+      // Get unclaimed bars with pagination
       const unclaimedBars = await db.query.kavaBars.findMany({
-        where: and(
-          isNull(kavaBars.ownerId),
-          ne(kavaBars.verificationStatus, "not_kava_bar"),
-        ),
-        orderBy: (kavaBars, { desc }) => [desc(kavaBars.createdAt)],
-      });
-
-      console.log("Found unclaimed bars:", {
-        count: unclaimedBars.length,
-        barIds: unclaimedBars.map((bar) => bar.id),
+        where: unclaimedCondition,
+        orderBy: (kavaBars, { asc }) => [asc(kavaBars.name)],
+        limit,
+        offset,
       });
 
       res.json({
         ownedBars,
         unclaimedBars,
+        pagination: {
+          page,
+          limit,
+          totalOwned: Number(totalOwned),
+          totalUnclaimed: Number(totalUnclaimed),
+          totalPages: Math.ceil(Math.max(Number(totalOwned), Number(totalUnclaimed)) / limit),
+        },
       });
     } catch (error: any) {
       console.error("Error fetching owner bars:", error);
       res.status(500).json({
         error: "Failed to fetch bars",
-        details:
-          process.env.NODE_ENV === "development" ? error.message : undefined,
+        details: process.env.NODE_ENV === "development" ? error.message : undefined,
       });
     }
   });
