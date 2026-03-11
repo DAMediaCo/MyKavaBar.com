@@ -550,10 +550,22 @@ export default function BarDetails() {
                 <h2 className="text-white font-bold text-xl mb-4 border-l-4 border-[#D35400] pl-3">
                   Features & Amenities
                 </h2>
-                <div className="flex flex-wrap gap-2">
+                {/* Mobile: horizontal scroll, show all features */}
+                <div className="flex flex-nowrap overflow-x-auto gap-2 scrollbar-hide md:hidden">
+                  {features.map((feature, index) => (
+                    <span
+                      key={`mobile-${index}`}
+                      className="bg-[#1E1E1E] border border-[#333] text-gray-300 px-4 py-2 rounded-lg whitespace-nowrap"
+                    >
+                      {feature}
+                    </span>
+                  ))}
+                </div>
+                {/* Desktop: wrap, show first 5, with View More button */}
+                <div className="hidden md:flex flex-wrap gap-2">
                   {displayFeatures.map((feature, index) => (
                     <span
-                      key={index}
+                      key={`desktop-${index}`}
                       className="bg-[#1E1E1E] border border-[#333] text-gray-300 px-4 py-2 rounded-lg"
                     >
                       {feature}

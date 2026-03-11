@@ -722,6 +722,7 @@ Sitemap: https://mykavabar.com/sitemap.xml
             WHERE k.verification_status != 'not_kava_bar'
             AND k.verification_status IS NOT NULL
             AND k.deleted_at IS NULL
+            ${req.query.featured === 'true' ? sql`AND k.is_sponsored = true` : sql``}
             ORDER BY k.is_sponsored DESC, k.rating DESC NULLS LAST
             LIMIT 1000
           `);

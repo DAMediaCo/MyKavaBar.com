@@ -39,6 +39,7 @@ import {
   CheckCircle2,
   AlertCircle,
   Search,
+  Star,
 } from "lucide-react";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { useForm } from "react-hook-form";
@@ -75,6 +76,7 @@ export default function ManageBars() {
   const [isAddDialogOpen, setIsAddDialogOpen] = useState(false);
   const [isEditDialogOpen, setIsEditDialogOpen] = useState(false);
   const [sortBy, setSortBy] = useState<"name" | "state" | "city">("name");
+  const [showFeaturedOnly, setShowFeaturedOnly] = useState(false);
   const [barId, setBarId] = useState<number | null>(null);
   const form = useForm<BarFormValues>({
     resolver: zodResolver(barFormSchema),
@@ -86,9 +88,9 @@ export default function ManageBars() {
   });
 
   const { data: bars = [], isLoading } = useQuery({
-    queryKey: ["admin-bars", sortBy],
+    queryKey: ["admin-bars", sortBy, showFeaturedOnly],
     queryFn: async () => {
-      const response = await fetch("/api/kava-bars", {
+      const response = await fetch(`/api/kava-bars${showFeaturedOnly ? '?featured=true' : ''}`, {
         credentials: "include",
         headers: {
           "Content-Type": "application/json",
@@ -255,6 +257,57 @@ export default function ManageBars() {
     },
   });
 
+  const toggleFeaturedMutation = useMutation({
+    mutationFn: async ({ id, featured }: { id: number; featured: boolean }) => {
+      const response = await fetch(`/api/kava-bars/${id}/set-featured`, {
+        method: "POST",
+        credentials: "include",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ featured }),
+      });
+      if (!response.ok) throw new Error("Failed to toggle featured status");
+      return response.json();
+    },
+    onMutate: async ({ id, featured }) => {
+      // Use correct query key with sortBy parameter
+      const queryKey = ["admin-bars", sortBy];
+      
+      // Cancel outgoing refetches
+      await queryClient.cancelQueries({ queryKey });
+      
+      // Snapshot current data
+      const previousBars = queryClient.getQueryData(queryKey);
+      
+      // Optimistically update
+      queryClient.setQueryData(queryKey, (old: any) => {
+        if (!old) return old;
+        return old.map((bar: any) => 
+          bar.id === id ? { ...bar, is_featured: featured } : bar
+        );
+      });
+      
+      return { previousBars, queryKey };
+    },
+    onSuccess: (data) => {
+      queryClient.invalidateQueries({ queryKey: ["admin-bars"] });
+      toast({
+        title: "Success",
+        description: data.is_featured ? "Bar set as featured" : "Bar removed from featured",
+      });
+    },
+    onError: (error: any, variables, context) => {
+      // Rollback on error
+      if (context?.previousBars && context?.queryKey) {
+        queryClient.setQueryData(context.queryKey, context.previousBars);
+      }
+      toast({
+        title: "Error",
+        description: error.message,
+        variant: "destructive",
+      });
+    },
+  });
+
   const restoreBarMutation = useMutation({
     mutationFn: async (id: number) => {
       const response = await fetch(`/api/admin/bars/${id}/restore`, {
@@ -365,6 +418,16 @@ export default function ManageBars() {
             <option value="state">Sort by State</option>
             <option value="city">Sort by City</option>
           </select>
+          <button
+            onClick={() => setShowFeaturedOnly(!showFeaturedOnly)}
+            className={`ml-2 px-4 py-2 rounded-md font-medium transition-colors ${
+              showFeaturedOnly
+                ? "bg-[#D35400] text-white"
+                : "bg-gray-200 text-gray-700 hover:bg-gray-300"
+            }`}
+          >
+            {showFeaturedOnly ? "⭐ Featured Only" : "Show Featured"}
+          </button>
         </div>
 
         <div className="flex items-center flex-col md:flex-row gap-2">
@@ -846,6 +909,16 @@ export default function ManageBars() {
                     className="h-8 w-8"
                   >
                     <Pencil className="h-4 w-4" />
+                  </Button>
+                  <Button
+                    variant={bar.is_featured ? "default" : "outline"}
+                    size="icon"
+                    onClick={() => toggleFeaturedMutation.mutate({ id: bar.id, featured: !bar.is_featured })}
+                    title={bar.is_featured ? "Remove from featured" : "Set as featured"}
+                    className={`h-8 w-8 ${bar.is_featured ? "bg-yellow-500 hover:bg-yellow-600" : ""}`}
+                    disabled={toggleFeaturedMutation.isPending}
+                  >
+                    <Star className={`h-4 w-4 ${bar.is_featured ? "fill-current" : ""}`} />
                   </Button>
                   <Button
                     variant="destructive"

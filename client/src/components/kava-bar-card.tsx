@@ -181,7 +181,7 @@ export default function KavaBarCard({ bar, distance }: KavaBarCardProps) {
                 }
               </span>
             </div>
-            <span className="bg-[#D35400] hover:bg-[#E67E22] text-white px-4 py-2 rounded-lg text-sm font-semibold transition-colors">
+            <span className="hidden md:inline-block bg-[#D35400] hover:bg-[#E67E22] text-white px-4 py-2 rounded-lg text-sm font-semibold transition-colors">
               View Details
             </span>
           </div>
