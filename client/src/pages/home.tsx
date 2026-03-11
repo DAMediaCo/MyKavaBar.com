@@ -198,65 +198,120 @@ export default function Home() {
           />
         </div>
 
-        {/* Mobile: Swipeable featured bars */}
+        {/* Mobile: Swipeable featured bars - Full Bleed */}
         {sortedFeaturedBars.length > 0 && (
           <div className="md:hidden mb-6 overflow-x-auto scrollbar-hide">
-            <div className="flex gap-4 pb-2">
+            <div className="flex gap-4 pb-2 px-4">
               {sortedFeaturedBars.map((bar: any) => (
-                <div key={bar.id} className="relative min-w-[280px] flex-shrink-0">
-                  <div className="absolute top-3 left-3 bg-[#D35400] text-white px-2 py-0.5 rounded-full text-xs font-semibold z-10 shadow-md">
-                    ⭐ Featured
-                  </div>
-                  <KavaBarCard
-                    bar={bar}
-                    distance={bar.distance !== Infinity ? bar.distance : undefined}
+                <a key={bar.id} href={`/kava-bars/${bar.id}`} className="relative min-w-[85vw] h-48 flex-shrink-0 rounded-xl overflow-hidden block">
+                  {/* Full Bleed Image */}
+                  <div 
+                    className="absolute inset-0 bg-cover bg-center"
+                    style={{ backgroundImage: `url('${bar.heroImageUrl || bar.hero_image_url || '/kava-bar-default-hero.jpg'}')` }}
                   />
-                </div>
+                  {/* Gradient Overlay */}
+                  <div className="absolute inset-0 bg-gradient-to-t from-black/90 via-black/30 to-transparent" />
+                  {/* Content */}
+                  <div className="absolute bottom-0 left-0 right-0 p-4">
+                    <div className="flex items-center gap-2 mb-1">
+                      <span className="bg-[#D35400] text-white px-2 py-0.5 rounded-full text-xs font-semibold">⭐ Featured</span>
+                      {bar.rating && (
+                        <span className="bg-black/50 text-white px-2 py-0.5 rounded-full text-xs">⭐ {bar.rating}</span>
+                      )}
+                    </div>
+                    <h3 className="text-white font-bold text-lg leading-tight">{bar.name}</h3>
+                    <p className="text-gray-300 text-xs mt-1">
+                      {bar.address || `${bar.city}, ${bar.state}`}
+                      {bar.distance !== Infinity && bar.distance !== null && (
+                        <span className="ml-1">• {bar.distance?.toFixed(1)} mi</span>
+                      )}
+                    </p>
+                  </div>
+                </a>
               ))}
             </div>
           </div>
         )}
 
-        {/* Desktop: Featured Bar - Single Hero with View More */}
+        {/* Desktop: Featured Bar - Full Bleed Hero */}
         {featuredBar && (
           <div className="hidden md:block mb-8">
             <p className="text-[#D35400] text-xs font-bold uppercase tracking-widest mb-3">⭐ Featured</p>
             {!showAllFeatured ? (
-              <div className="relative">
-                <div className="absolute top-3 left-3 bg-[#D35400] text-white px-3 py-1 rounded-full text-sm font-semibold z-10 shadow-md">
-                  ⭐ Featured
-                </div>
-                <KavaBarCard
-                  bar={featuredBar}
-                  distance={featuredBar.distance !== Infinity ? featuredBar.distance : undefined}
+              <div className="relative rounded-2xl overflow-hidden h-80">
+                {/* Hero Image - Full Bleed */}
+                <div 
+                  className="absolute inset-0 bg-cover bg-center"
+                  style={{ backgroundImage: `url('${featuredBar.heroImageUrl || featuredBar.hero_image_url || '/kava-bar-default-hero.jpg'}')` }}
                 />
+                {/* Gradient Overlay */}
+                <div className="absolute inset-0 bg-gradient-to-t from-black/90 via-black/50 to-transparent" />
+                {/* Content Overlay */}
+                <div className="absolute bottom-0 left-0 right-0 p-6">
+                  <div className="flex items-center gap-2 mb-2">
+                    <span className="bg-[#D35400] text-white px-2 py-0.5 rounded-full text-xs font-semibold">⭐ Featured</span>
+                    {featuredBar.rating && (
+                      <span className="bg-black/50 text-white px-2 py-0.5 rounded-full text-xs">⭐ {featuredBar.rating}</span>
+                    )}
+                  </div>
+                  <h2 className="text-white font-bold text-2xl mb-1">{featuredBar.name}</h2>
+                  <p className="text-gray-300 text-sm">
+                    {featuredBar.address || `${featuredBar.city}, ${featuredBar.state}`}
+                    {featuredBar.distance !== Infinity && featuredBar.distance !== null && (
+                      <span className="ml-2">• {featuredBar.distance?.toFixed(1)} mi</span>
+                    )}
+                  </p>
+                  <button
+                    onClick={() => window.location.href = `/kava-bars/${featuredBar.id}`}
+                    className="mt-4 bg-[#D35400] hover:bg-[#E67E22] text-white px-6 py-2 rounded-lg font-semibold transition-colors inline-block"
+                  >
+                    View Details
+                  </button>
+                </div>
                 {sortedFeaturedBars.length > 1 && (
                   <button
                     onClick={() => setShowAllFeatured(true)}
-                    className="mt-4 w-full bg-[#D35400] hover:bg-[#E67E22] text-white px-6 py-3 rounded-lg font-semibold transition-colors"
+                    className="absolute top-4 right-4 bg-black/50 hover:bg-black/70 text-white px-4 py-2 rounded-lg font-semibold transition-colors"
                   >
-                    View More Featured ({sortedFeaturedBars.length - 1} more)
+                    View More ({sortedFeaturedBars.length - 1})
                   </button>
                 )}
               </div>
             ) : (
               <div>
-                <div className="grid grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
+                {/* All Featured Bars - Full Bleed Grid */}
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
                   {sortedFeaturedBars.map((bar: any) => (
-                    <div key={bar.id} className="relative">
-                      <div className="absolute top-3 left-3 bg-[#D35400] text-white px-3 py-1 rounded-full text-sm font-semibold z-10 shadow-md">
-                        ⭐ Featured
-                      </div>
-                      <KavaBarCard
-                        bar={bar}
-                        distance={bar.distance !== Infinity ? bar.distance : undefined}
+                    <a key={bar.id} href={`/kava-bars/${bar.id}`} className="relative rounded-2xl overflow-hidden h-64 block">
+                      {/* Full Bleed Image */}
+                      <div 
+                        className="absolute inset-0 bg-cover bg-center"
+                        style={{ backgroundImage: `url('${bar.heroImageUrl || bar.hero_image_url || '/kava-bar-default-hero.jpg'}')` }}
                       />
-                    </div>
+                      {/* Gradient Overlay */}
+                      <div className="absolute inset-0 bg-gradient-to-t from-black/90 via-black/30 to-transparent" />
+                      {/* Content */}
+                      <div className="absolute bottom-0 left-0 right-0 p-5">
+                        <div className="flex items-center gap-2 mb-2">
+                          <span className="bg-[#D35400] text-white px-2 py-0.5 rounded-full text-xs font-semibold">⭐ Featured</span>
+                          {bar.rating && (
+                            <span className="bg-black/50 text-white px-2 py-0.5 rounded-full text-xs">⭐ {bar.rating}</span>
+                          )}
+                        </div>
+                        <h3 className="text-white font-bold text-xl leading-tight">{bar.name}</h3>
+                        <p className="text-gray-300 text-sm mt-1">
+                          {bar.address || `${bar.city}, ${bar.state}`}
+                          {bar.distance !== Infinity && bar.distance !== null && (
+                            <span className="ml-2">• {bar.distance?.toFixed(1)} mi</span>
+                          )}
+                        </p>
+                      </div>
+                    </a>
                   ))}
                 </div>
                 <button
                   onClick={() => setShowAllFeatured(false)}
-                  className="mt-4 w-full bg-[#333] hover:bg-[#444] text-white px-6 py-3 rounded-lg font-semibold transition-colors"
+                  className="mt-6 w-full bg-[#333] hover:bg-[#444] text-white px-6 py-3 rounded-lg font-semibold transition-colors"
                 >
                   Show Less
                 </button>
