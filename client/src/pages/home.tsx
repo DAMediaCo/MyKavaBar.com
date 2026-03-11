@@ -27,6 +27,7 @@ export default function Home() {
   const [sortBy, setSortBy] = useState<SortOption>("distance");
   const [viewMode, setViewMode] = useState<"list" | "map">("list");
   const [radius] = useState<number>(5000);
+  const [showAllFeatured, setShowAllFeatured] = useState(false);
   const { user } = useUser();
   const {
     coordinates,
@@ -216,23 +217,51 @@ export default function Home() {
           </div>
         )}
 
-        {/* Desktop: Featured Bar - Large Hero Card */}
+        {/* Desktop: Featured Bar - Single Hero with View More */}
         {featuredBar && (
           <div className="hidden md:block mb-8">
             <p className="text-[#D35400] text-xs font-bold uppercase tracking-widest mb-3">⭐ Featured</p>
-            <div className="grid grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
-              {sortedFeaturedBars.map((bar: any) => (
-                <div key={bar.id} className="relative">
-                  <div className="absolute top-3 left-3 bg-[#D35400] text-white px-3 py-1 rounded-full text-sm font-semibold z-10 shadow-md">
-                    ⭐ Featured
-                  </div>
-                  <KavaBarCard
-                    bar={bar}
-                    distance={bar.distance !== Infinity ? bar.distance : undefined}
-                  />
+            {!showAllFeatured ? (
+              <div className="relative">
+                <div className="absolute top-3 left-3 bg-[#D35400] text-white px-3 py-1 rounded-full text-sm font-semibold z-10 shadow-md">
+                  ⭐ Featured
                 </div>
-              ))}
-            </div>
+                <KavaBarCard
+                  bar={featuredBar}
+                  distance={featuredBar.distance !== Infinity ? featuredBar.distance : undefined}
+                />
+                {sortedFeaturedBars.length > 1 && (
+                  <button
+                    onClick={() => setShowAllFeatured(true)}
+                    className="mt-4 w-full bg-[#D35400] hover:bg-[#E67E22] text-white px-6 py-3 rounded-lg font-semibold transition-colors"
+                  >
+                    View More Featured ({sortedFeaturedBars.length - 1} more)
+                  </button>
+                )}
+              </div>
+            ) : (
+              <div>
+                <div className="grid grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
+                  {sortedFeaturedBars.map((bar: any) => (
+                    <div key={bar.id} className="relative">
+                      <div className="absolute top-3 left-3 bg-[#D35400] text-white px-3 py-1 rounded-full text-sm font-semibold z-10 shadow-md">
+                        ⭐ Featured
+                      </div>
+                      <KavaBarCard
+                        bar={bar}
+                        distance={bar.distance !== Infinity ? bar.distance : undefined}
+                      />
+                    </div>
+                  ))}
+                </div>
+                <button
+                  onClick={() => setShowAllFeatured(false)}
+                  className="mt-4 w-full bg-[#333] hover:bg-[#444] text-white px-6 py-3 rounded-lg font-semibold transition-colors"
+                >
+                  Show Less
+                </button>
+              </div>
+            )}
           </div>
         )}
 
@@ -249,24 +278,7 @@ export default function Home() {
               />
             );
             
-            // Every 9th position, insert next featured bar (skip the first one already shown at top)
-            if ((index + 1) % 9 === 0 && sortedFeaturedBars.length > 0) {
-              const featuredIndex = Math.floor((index + 1) / 9);
-              const nextFeatured = sortedFeaturedBars[featuredIndex];
-              if (nextFeatured) {
-                cards.push(
-                  <div key={`featured-${nextFeatured.id}`} className="relative">
-                    <div className="absolute top-3 left-3 bg-[#D35400] text-white px-3 py-1 rounded-full text-sm font-semibold z-10 shadow-md">
-                      ⭐ Featured
-                    </div>
-                    <KavaBarCard
-                      bar={nextFeatured}
-                      distance={nextFeatured.distance !== Infinity ? nextFeatured.distance : undefined}
-                    />
-                  </div>
-                );
-              }
-            }
+            // Featured bars are now shown at the top, not inserted into the grid
             
             return cards;
           })}
