@@ -201,13 +201,13 @@ export default function Home() {
         {/* Mobile: Swipeable featured bars - Full Bleed */}
         {sortedFeaturedBars.length > 0 && (
           <div className="md:hidden mb-6 overflow-x-auto scrollbar-hide">
-            <div className="flex gap-4 pb-2 px-4">
+            <div className="flex gap-3 pb-2 px-4">
               {sortedFeaturedBars.map((bar: any) => (
-                <a key={bar.id} href={`/kava-bars/${bar.id}`} className="relative min-w-[85vw] h-48 flex-shrink-0 rounded-xl overflow-hidden block">
+                <a key={bar.id} href={`/kava-bars/${bar.id}`} className="relative min-w-[75vw] h-44 flex-shrink-0 rounded-xl overflow-hidden block">
                   {/* Full Bleed Image */}
                   <div 
                     className="absolute inset-0 bg-cover bg-center"
-                    style={{ backgroundImage: `url('${bar.heroImageUrl || bar.hero_image_url || '/kava-bar-default-hero.jpg'}')` }}
+                    style={{ backgroundImage: `url('${bar.heroImageUrl || bar.hero_image_url || bar.latestGalleryPhoto || bar.latest_gallery_photo || '/kava-bar-default-hero.jpg'}')` }}
                   />
                   {/* Gradient Overlay */}
                   <div className="absolute inset-0 bg-gradient-to-t from-black/90 via-black/30 to-transparent" />
@@ -242,7 +242,7 @@ export default function Home() {
                 {/* Hero Image - Full Bleed */}
                 <div 
                   className="absolute inset-0 bg-cover bg-center"
-                  style={{ backgroundImage: `url('${featuredBar.heroImageUrl || featuredBar.hero_image_url || '/kava-bar-default-hero.jpg'}')` }}
+                  style={{ backgroundImage: `url('${featuredBar.heroImageUrl || featuredBar.hero_image_url || featuredBar.latestGalleryPhoto || featuredBar.latest_gallery_photo || '/kava-bar-default-hero.jpg'}')` }}
                 />
                 {/* Gradient Overlay */}
                 <div className="absolute inset-0 bg-gradient-to-t from-black/90 via-black/50 to-transparent" />
@@ -286,7 +286,7 @@ export default function Home() {
                       {/* Full Bleed Image */}
                       <div 
                         className="absolute inset-0 bg-cover bg-center"
-                        style={{ backgroundImage: `url('${bar.heroImageUrl || bar.hero_image_url || '/kava-bar-default-hero.jpg'}')` }}
+                        style={{ backgroundImage: `url('${bar.heroImageUrl || bar.hero_image_url || bar.latestGalleryPhoto || bar.latest_gallery_photo || '/kava-bar-default-hero.jpg'}')` }}
                       />
                       {/* Gradient Overlay */}
                       <div className="absolute inset-0 bg-gradient-to-t from-black/90 via-black/30 to-transparent" />
