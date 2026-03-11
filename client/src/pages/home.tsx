@@ -202,27 +202,15 @@ export default function Home() {
           <div className="md:hidden mb-6 overflow-x-auto scrollbar-hide">
             <div className="flex gap-4 pb-2">
               {sortedFeaturedBars.map((bar: any) => (
-                <a
-                  key={bar.id}
-                  href={`/kava-bars/${bar.id}`}
-                  className="min-w-[280px] bg-gradient-to-br from-purple-500 via-pink-500 to-orange-500 rounded-xl overflow-hidden relative flex-shrink-0"
-                >
-                  <div className="absolute top-2 left-2 bg-[#D35400] text-white px-2 py-0.5 rounded-full text-xs font-semibold z-10">
-                    Featured
+                <div key={bar.id} className="relative min-w-[280px] flex-shrink-0">
+                  <div className="absolute top-3 left-3 bg-[#D35400] text-white px-2 py-0.5 rounded-full text-xs font-semibold z-10 shadow-md">
+                    ⭐ Featured
                   </div>
-                  <img 
-                    src={bar.heroImageUrl || '/placeholder.jpg'} 
-                    alt={bar.name}
-                    className="w-full h-40 object-cover"
+                  <KavaBarCard
+                    bar={bar}
+                    distance={bar.distance !== Infinity ? bar.distance : undefined}
                   />
-                  <div className="absolute bottom-0 left-0 right-0 bg-gradient-to-t from-black/80 to-transparent p-3">
-                    <h3 className="text-white font-bold text-lg">{bar.name}</h3>
-                    <p className="text-gray-300 text-xs">{bar.city}, {bar.state}</p>
-                    {bar.distance && bar.distance !== Infinity && (
-                      <p className="text-gray-400 text-xs mt-1">{bar.distance.toFixed(1)} mi away</p>
-                    )}
-                  </div>
-                </a>
+                </div>
               ))}
             </div>
           </div>
@@ -231,32 +219,20 @@ export default function Home() {
         {/* Desktop: Featured Bar - Large Hero Card */}
         {featuredBar && (
           <div className="hidden md:block mb-8">
-            <div className="bg-gradient-to-br from-purple-500 via-pink-500 to-orange-500 rounded-2xl overflow-hidden relative">
-              <div className="absolute top-4 left-4 bg-[#D35400] text-white px-3 py-1 rounded-full text-sm font-semibold">
-                Featured
-              </div>
-              <img 
-                src={featuredBar.heroImageUrl || '/placeholder.jpg'} 
-                alt={featuredBar.name}
-                className="w-full h-64 object-cover"
-              />
-              <div className="absolute bottom-0 left-0 right-0 bg-gradient-to-t from-black/80 to-transparent p-6">
-                <h2 className="text-white font-bold text-2xl">{featuredBar.name}</h2>
-                <p className="text-gray-300 text-sm">{featuredBar.address}</p>
-              </div>
+            <p className="text-[#D35400] text-xs font-bold uppercase tracking-widest mb-3">⭐ Featured</p>
+            <div className="grid grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
+              {sortedFeaturedBars.map((bar: any) => (
+                <div key={bar.id} className="relative">
+                  <div className="absolute top-3 left-3 bg-[#D35400] text-white px-3 py-1 rounded-full text-sm font-semibold z-10 shadow-md">
+                    ⭐ Featured
+                  </div>
+                  <KavaBarCard
+                    bar={bar}
+                    distance={bar.distance !== Infinity ? bar.distance : undefined}
+                  />
+                </div>
+              ))}
             </div>
-            
-            {/* Desktop: See All Featured Bars button */}
-            {sortedFeaturedBars.length > 1 && (
-              <div className="hidden md:flex justify-center mt-4">
-                <button
-                  onClick={() => {/* TODO: navigate to featured bars page */}}
-                  className="bg-[#D35400] hover:bg-[#E67E22] text-white px-6 py-2 rounded-lg font-semibold transition-colors"
-                >
-                  See All Featured Bars
-                </button>
-              </div>
-            )}
           </div>
         )}
 
