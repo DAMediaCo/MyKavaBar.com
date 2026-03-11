@@ -1,4 +1,4 @@
-import { useState, useEffect, lazy, Suspense } from "react";
+import { useState, useEffect, useMemo, lazy, Suspense } from "react";
 import { useKavaBars } from "@/hooks/use-kava-bars";
 import { useLocation, calculateDistance } from "@/hooks/use-location";
 import KavaBarCard from "@/components/kava-bar-card";
@@ -22,6 +22,7 @@ type SortOption = "favorite" | "rating" | "distance" | "name";
 
 export default function Home() {
   const [search, setSearch] = useState("");
+  const [displayCount, setDisplayCount] = useState(48);
   const { data: kavaBars, isLoading } = useKavaBars();
   const [sortBy, setSortBy] = useState<SortOption>("distance");
   const [viewMode, setViewMode] = useState<"list" | "map">("list");
@@ -63,6 +64,36 @@ export default function Home() {
     },
     enabled: sortBy === "favorite",
   });
+
+  const { data: featuredBars } = useQuery({
+    queryKey: ['featuredBars'],
+    queryFn: async () => {
+      const res = await fetch('/api/kava-bars/featured');
+      if (!res.ok) throw new Error('Failed to fetch featured bars');
+      return res.json();
+    }
+  });
+
+  // Sort featured bars by distance from user
+  const sortedFeaturedBars = useMemo(() => {
+    if (!featuredBars || featuredBars.length === 0) return [];
+    if (!coordinates) return featuredBars; // No location, use as-is
+    
+    return featuredBars
+      .map((bar: any) => {
+        if (!bar.location?.lat || !bar.location?.lng) return { ...bar, distance: Infinity };
+        const dist = calculateDistance(
+          coordinates.latitude,
+          coordinates.longitude,
+          bar.location.lat,
+          bar.location.lng
+        );
+        return { ...bar, distance: dist };
+      })
+      .sort((a, b) => (a.distance ?? Infinity) - (b.distance ?? Infinity));
+  }, [featuredBars, coordinates]);
+
+  const featuredBar = sortedFeaturedBars?.[0];
 
   const melbourneBars = kavaBars?.filter(
     (bar) =>
@@ -154,104 +185,129 @@ export default function Home() {
   }
 
   return (
-    <div className="min-h-screen bg-[#121212]" id="home-content">
-      {/* Sticky Search Header */}
-      <div className="sticky top-0 z-20 bg-[#121212] pt-4 pb-2 px-4 shadow-md">
-        {/* Search Input with GPS Icon */}
-        <div className="relative w-full">
-          <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400" />
+    <div className="min-h-screen bg-[#1A1A1C]" id="home-content">
+      <div className="container mx-auto px-4 py-6">
+        {/* Simple Search Bar */}
+        <div className="mb-6">
           <Input
-            placeholder="Search by name, city, or state..."
+            placeholder="Search bars..."
             value={search}
             onChange={(e) => setSearch(e.target.value)}
-            className="w-full pl-10 pr-12 bg-[#1E1E1E] border-[#333] text-white placeholder:text-gray-500 rounded-xl h-12"
+            className="w-full bg-[#1E1E1E] border-[#333] text-white placeholder:text-gray-500 rounded-xl h-12"
           />
-          <button
-            onClick={requestLocation}
-            disabled={isLoadingLocation}
-            className={`absolute right-3 top-1/2 -translate-y-1/2 p-1.5 rounded-full transition-colors ${
-              coordinates 
-                ? "text-[#D35400] hover:bg-[#333]" 
-                : "text-gray-400 hover:text-[#D35400] hover:bg-[#333]"
-            } ${isLoadingLocation ? "animate-pulse" : ""}`}
-            title={coordinates ? "Location enabled" : "Enable location"}
-          >
-            <MapPin className="h-5 w-5" />
-          </button>
         </div>
 
-        {/* Filter Chips Row */}
-        <div className="flex gap-3 mt-3 overflow-x-auto pb-1 scrollbar-hide">
-          <Select value={sortBy} onValueChange={handleSortChange}>
-            <SelectTrigger className="bg-[#1E1E1E] border border-[#333] rounded-full px-4 py-1 text-sm text-gray-300 h-8 w-auto min-w-[120px]">
-              <SelectValue placeholder="Sort by..." />
-            </SelectTrigger>
-            <SelectContent className="bg-[#1E1E1E] border-[#333]">
-              {user && <SelectItem value="favorite">Favorites</SelectItem>}
-              <SelectItem value="rating">Rating</SelectItem>
-              <SelectItem value="distance" disabled={isLoadingLocation}>
-                Distance
-              </SelectItem>
-              <SelectItem value="name">Name</SelectItem>
-            </SelectContent>
-          </Select>
+        {/* Mobile: Swipeable featured bars */}
+        {sortedFeaturedBars.length > 0 && (
+          <div className="md:hidden mb-6 overflow-x-auto scrollbar-hide">
+            <div className="flex gap-4 pb-2">
+              {sortedFeaturedBars.map((bar: any) => (
+                <a
+                  key={bar.id}
+                  href={`/kava-bars/${bar.id}`}
+                  className="min-w-[280px] bg-gradient-to-br from-purple-500 via-pink-500 to-orange-500 rounded-xl overflow-hidden relative flex-shrink-0"
+                >
+                  <div className="absolute top-2 left-2 bg-[#D35400] text-white px-2 py-0.5 rounded-full text-xs font-semibold z-10">
+                    Featured
+                  </div>
+                  <img 
+                    src={bar.heroImageUrl || '/placeholder.jpg'} 
+                    alt={bar.name}
+                    className="w-full h-40 object-cover"
+                  />
+                  <div className="absolute bottom-0 left-0 right-0 bg-gradient-to-t from-black/80 to-transparent p-3">
+                    <h3 className="text-white font-bold text-lg">{bar.name}</h3>
+                    <p className="text-gray-300 text-xs">{bar.city}, {bar.state}</p>
+                    {bar.distance && bar.distance !== Infinity && (
+                      <p className="text-gray-400 text-xs mt-1">{bar.distance.toFixed(1)} mi away</p>
+                    )}
+                  </div>
+                </a>
+              ))}
+            </div>
+          </div>
+        )}
 
-          {coordinates && (
-            <span className="bg-[#1E1E1E] border border-[#333] rounded-full px-4 py-1 text-sm text-gray-300 flex items-center gap-2 whitespace-nowrap">
-              <MapPin className="h-3 w-3 text-[#D35400]" />
-              Near you
-            </span>
-          )}
-
-          <button
-            onClick={() => setViewMode(viewMode === "list" ? "map" : "list")}
-            className="bg-[#1E1E1E] border border-[#333] rounded-full px-4 py-1 text-sm text-gray-300 flex items-center gap-2 whitespace-nowrap hover:bg-[#252525] transition-colors ml-auto"
-          >
-            {viewMode === "list" ? (
-              <>
-                <Map className="h-3 w-3 text-[#D35400]" />
-                Map View
-              </>
-            ) : (
-              <>
-                <List className="h-3 w-3 text-[#D35400]" />
-                List View
-              </>
+        {/* Desktop: Featured Bar - Large Hero Card */}
+        {featuredBar && (
+          <div className="hidden md:block mb-8">
+            <div className="bg-gradient-to-br from-purple-500 via-pink-500 to-orange-500 rounded-2xl overflow-hidden relative">
+              <div className="absolute top-4 left-4 bg-[#D35400] text-white px-3 py-1 rounded-full text-sm font-semibold">
+                Featured
+              </div>
+              <img 
+                src={featuredBar.heroImageUrl || '/placeholder.jpg'} 
+                alt={featuredBar.name}
+                className="w-full h-64 object-cover"
+              />
+              <div className="absolute bottom-0 left-0 right-0 bg-gradient-to-t from-black/80 to-transparent p-6">
+                <h2 className="text-white font-bold text-2xl">{featuredBar.name}</h2>
+                <p className="text-gray-300 text-sm">{featuredBar.address}</p>
+              </div>
+            </div>
+            
+            {/* Desktop: See All Featured Bars button */}
+            {sortedFeaturedBars.length > 1 && (
+              <div className="hidden md:flex justify-center mt-4">
+                <button
+                  onClick={() => {/* TODO: navigate to featured bars page */}}
+                  className="bg-[#D35400] hover:bg-[#E67E22] text-white px-6 py-2 rounded-lg font-semibold transition-colors"
+                >
+                  See All Featured Bars
+                </button>
+              </div>
             )}
-          </button>
-        </div>
-      </div>
+          </div>
+        )}
 
-      {/* Map View */}
-      {viewMode === "map" && sortedBars && (
-        <div style={{ width: "100%", height: "calc(100vh - 160px)", position: "relative" }}>
-          <Suspense fallback={<div className="flex items-center justify-center h-full text-gray-400">Loading map...</div>}>
-            <MapView
-              bars={sortedBars}
-              center={coordinates ? { lat: coordinates.latitude, lng: coordinates.longitude } : undefined}
-              zoom={coordinates ? 10 : 4}
-              userLocation={coordinates ? { lat: coordinates.latitude, lng: coordinates.longitude } : undefined}
-            />
-          </Suspense>
-        </div>
-      )}
-
-      {/* Bar Listings */}
-      {viewMode === "list" && (
-      <div className="container mx-auto px-4 py-6">
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-          {sortedBars?.map((bar) => (
-            <KavaBarCard
-              key={bar.id}
-              bar={bar}
-              distance={
-                bar.distance !== Infinity ? bar.distance : undefined
+        {/* Bar Grid */}
+        <div className="grid grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
+          {sortedBars?.slice(0, displayCount).flatMap((bar, index) => {
+            const cards = [];
+            // Add the regular bar
+            cards.push(
+              <KavaBarCard
+                key={bar.id}
+                bar={bar}
+                distance={bar.distance !== Infinity ? bar.distance : undefined}
+              />
+            );
+            
+            // Every 9th position, insert next featured bar (skip the first one already shown at top)
+            if ((index + 1) % 9 === 0 && sortedFeaturedBars.length > 0) {
+              const featuredIndex = Math.floor((index + 1) / 9);
+              const nextFeatured = sortedFeaturedBars[featuredIndex];
+              if (nextFeatured) {
+                cards.push(
+                  <div key={`featured-${nextFeatured.id}`} className="relative">
+                    <div className="absolute top-3 left-3 bg-[#D35400] text-white px-3 py-1 rounded-full text-sm font-semibold z-10 shadow-md">
+                      ⭐ Featured
+                    </div>
+                    <KavaBarCard
+                      bar={nextFeatured}
+                      distance={nextFeatured.distance !== Infinity ? nextFeatured.distance : undefined}
+                    />
+                  </div>
+                );
               }
-            />
-          ))}
+            }
+            
+            return cards;
+          })}
         </div>
+
+        {/* Load More Button */}
+        {sortedBars && sortedBars.length > displayCount && (
+          <div className="flex justify-center mt-8">
+            <button
+              onClick={() => setDisplayCount(prev => prev + 48)}
+              className="bg-[#D35400] hover:bg-[#E67E22] text-white px-8 py-3 rounded-lg font-semibold transition-colors"
+            >
+              Show more bars ({sortedBars.length - displayCount} remaining)
+            </button>
+          </div>
+        )}
       </div>
-      )}
     </div>
   );
 }
