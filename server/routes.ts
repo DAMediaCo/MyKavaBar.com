@@ -598,6 +598,12 @@ Sitemap: https://mykavabar.com/sitemap.xml
     try {
       console.log("Fetching all kava bars with connection management...");
       const userId = req.user?.id || null;
+      
+      // Parse location params for distance filtering
+      const lat = parseFloat(req.query.lat as string);
+      const lng = parseFloat(req.query.lng as string);
+      const radius = parseFloat(req.query.radius as string) || 50; // default 50 miles
+
       // await sendNotificationEmail("david@mykavabar.com");
 
       // Define a fallback dataset in case database is unavailable
@@ -716,7 +722,7 @@ Sitemap: https://mykavabar.com/sitemap.xml
             WHERE k.verification_status != 'not_kava_bar'
             AND k.verification_status IS NOT NULL
             AND k.deleted_at IS NULL
-            ORDER BY k.is_sponsored DESC, k.rating DESC
+            ORDER BY k.is_sponsored DESC, k.rating DESC NULLS LAST
             LIMIT 1000
           `);
           },
@@ -799,7 +805,37 @@ Sitemap: https://mykavabar.com/sitemap.xml
         });
 
         console.log(`Returning ${validBars.length} bars from database`);
-        res.json(validBars);
+        
+        // Calculate distance and sort by proximity if lat/lng provided
+        let barsWithDistance = validBars.map((bar: any) => {
+          let loc = bar.location;
+          let distance: number | null = null;
+          if (!isNaN(lat) && !isNaN(lng) && loc?.lat && loc?.lng) {
+            const R = 3958.8; // Earth's radius in miles
+            const dLat = (loc.lat - lat) * Math.PI / 180;
+            const dLng = (loc.lng - lng) * Math.PI / 180;
+            const a = Math.sin(dLat/2)**2 + Math.cos(lat*Math.PI/180)*Math.cos(loc.lat*Math.PI/180)*Math.sin(dLng/2)**2;
+            distance = R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a));
+          }
+          return { ...bar, distance };
+        });
+        
+        // Filter by radius if provided
+        if (!isNaN(lat) && !isNaN(lng) && radius > 0) {
+          barsWithDistance = barsWithDistance.filter((b: any) => b.distance === null || b.distance <= radius);
+        }
+        
+        // Sort: sponsored first, then by distance (or rating if no location)
+        if (!isNaN(lat) && !isNaN(lng)) {
+          barsWithDistance.sort((a: any, b: any) => {
+            if (a.is_sponsored !== b.is_sponsored) return b.is_sponsored ? 1 : -1;
+            const distA = a.distance ?? 9999;
+            const distB = b.distance ?? 9999;
+            return distA - distB;
+          });
+        }
+        
+        res.json(barsWithDistance);
       } catch (databaseError) {
         console.error("Database error, using fallback data:", databaseError);
         console.log(`Returning ${fallbackBars.length} fallback bars`);
