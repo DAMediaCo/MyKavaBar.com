@@ -237,38 +237,61 @@ export default function Home() {
         {sortedFeaturedBars.length > 0 && (
           <div className="hidden md:block mb-8">
             <p className="text-[#D35400] text-xs font-bold uppercase tracking-widest mb-3">⭐ Featured</p>
-            <div className="flex gap-6 overflow-x-auto pb-4 scrollbar-hide">
-              {sortedFeaturedBars.map((bar: any) => (
-                <a 
-                  key={bar.id} 
-                  href={`/kava-bars/${bar.id}`} 
-                  className="relative min-w-[calc(50%-12px)] lg:min-w-[calc(33.333%-16px)] h-80 flex-shrink-0 rounded-2xl overflow-hidden block"
-                >
-                  {/* Image - bg-contain to show full image */}
-                  <div 
-                    className="absolute inset-0 bg-contain bg-no-repeat bg-center bg-black"
-                    style={{ backgroundImage: `url('${bar.heroImageUrl || bar.hero_image_url || bar.latestGalleryPhoto || bar.latest_gallery_photo || '/kava-bar-default-hero.jpg'}')` }}
-                  />
-                  {/* Gradient Overlay */}
-                  <div className="absolute inset-0 bg-gradient-to-t from-black/90 via-black/40 to-transparent" />
-                  {/* Content */}
-                  <div className="absolute bottom-0 left-0 right-0 p-6">
-                    <div className="flex items-center gap-2 mb-2">
-                      <span className="bg-[#D35400] text-white px-2 py-0.5 rounded-full text-xs font-semibold">⭐ Featured</span>
-                      {bar.rating && (
-                        <span className="bg-black/50 text-white px-2 py-0.5 rounded-full text-xs">⭐ {bar.rating}</span>
-                      )}
+            <div className="relative">
+              {/* Left Arrow */}
+              <button
+                onClick={() => document.getElementById('featured-scroll')?.scrollBy({ left: -400, behavior: 'smooth' })}
+                className="absolute left-0 top-1/2 -translate-y-1/2 z-10 bg-black/60 hover:bg-black/80 text-white p-3 rounded-full shadow-lg transition-colors"
+              >
+                <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor" className="w-6 h-6">
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M15.75 19.5L8.25 12l7.5-7.5" />
+                </svg>
+              </button>
+              
+              {/* Scroll Container */}
+              <div id="featured-scroll" className="flex gap-6 overflow-x-auto pb-4 scrollbar-hide px-12">
+                {sortedFeaturedBars.map((bar: any) => (
+                  <a 
+                    key={bar.id} 
+                    href={`/kava-bars/${bar.id}`} 
+                    className="relative min-w-[calc(50%-12px)] lg:min-w-[calc(33.333%-16px)] h-80 flex-shrink-0 rounded-2xl overflow-hidden block"
+                  >
+                    {/* Image - bg-contain to show full image */}
+                    <div 
+                      className="absolute inset-0 bg-contain bg-no-repeat bg-center bg-black"
+                      style={{ backgroundImage: `url('${bar.heroImageUrl || bar.hero_image_url || bar.latestGalleryPhoto || bar.latest_gallery_photo || '/kava-bar-default-hero.jpg'}')` }}
+                    />
+                    {/* Gradient Overlay */}
+                    <div className="absolute inset-0 bg-gradient-to-t from-black/90 via-black/40 to-transparent" />
+                    {/* Content */}
+                    <div className="absolute bottom-0 left-0 right-0 p-6">
+                      <div className="flex items-center gap-2 mb-2">
+                        <span className="bg-[#D35400] text-white px-2 py-0.5 rounded-full text-xs font-semibold">⭐ Featured</span>
+                        {bar.rating && (
+                          <span className="bg-black/50 text-white px-2 py-0.5 rounded-full text-xs">⭐ {bar.rating}</span>
+                        )}
+                      </div>
+                      <h3 className="text-white font-bold text-xl mb-1">{bar.name}</h3>
+                      <p className="text-gray-300 text-sm">
+                        {bar.address || `${bar.city}, ${bar.state}`}
+                        {bar.distance !== Infinity && bar.distance !== null && (
+                          <span className="ml-2">• {bar.distance?.toFixed(1)} mi</span>
+                        )}
+                      </p>
                     </div>
-                    <h3 className="text-white font-bold text-xl mb-1">{bar.name}</h3>
-                    <p className="text-gray-300 text-sm">
-                      {bar.address || `${bar.city}, ${bar.state}`}
-                      {bar.distance !== Infinity && bar.distance !== null && (
-                        <span className="ml-2">• {bar.distance?.toFixed(1)} mi</span>
-                      )}
-                    </p>
-                  </div>
-                </a>
-              ))}
+                  </a>
+                ))}
+              </div>
+
+              {/* Right Arrow */}
+              <button
+                onClick={() => document.getElementById('featured-scroll')?.scrollBy({ left: 400, behavior: 'smooth' })}
+                className="absolute right-0 top-1/2 -translate-y-1/2 z-10 bg-black/60 hover:bg-black/80 text-white p-3 rounded-full shadow-lg transition-colors"
+              >
+                <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor" className="w-6 h-6">
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M8.25 4.5l7.5 7.5-7.5 7.5" />
+                </svg>
+              </button>
             </div>
           </div>
         )}
