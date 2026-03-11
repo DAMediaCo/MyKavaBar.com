@@ -233,90 +233,43 @@ export default function Home() {
           </div>
         )}
 
-        {/* Desktop: Featured Bar - Full Bleed Hero */}
-        {featuredBar && (
+        {/* Desktop: Featured Bars - Horizontal Scroll, 2x Size, No Crop */}
+        {sortedFeaturedBars.length > 0 && (
           <div className="hidden md:block mb-8">
             <p className="text-[#D35400] text-xs font-bold uppercase tracking-widest mb-3">⭐ Featured</p>
-            {!showAllFeatured ? (
-              <div className="relative rounded-2xl overflow-hidden h-80">
-                {/* Hero Image - Full Bleed */}
-                <div 
-                  className="absolute inset-0 bg-cover bg-center"
-                  style={{ backgroundImage: `url('${featuredBar.heroImageUrl || featuredBar.hero_image_url || featuredBar.latestGalleryPhoto || featuredBar.latest_gallery_photo || '/kava-bar-default-hero.jpg'}')` }}
-                />
-                {/* Gradient Overlay */}
-                <div className="absolute inset-0 bg-gradient-to-t from-black/90 via-black/50 to-transparent" />
-                {/* Content Overlay */}
-                <div className="absolute bottom-0 left-0 right-0 p-6">
-                  <div className="flex items-center gap-2 mb-2">
-                    <span className="bg-[#D35400] text-white px-2 py-0.5 rounded-full text-xs font-semibold">⭐ Featured</span>
-                    {featuredBar.rating && (
-                      <span className="bg-black/50 text-white px-2 py-0.5 rounded-full text-xs">⭐ {featuredBar.rating}</span>
-                    )}
-                  </div>
-                  <h2 className="text-white font-bold text-2xl mb-1">{featuredBar.name}</h2>
-                  <p className="text-gray-300 text-sm">
-                    {featuredBar.address || `${featuredBar.city}, ${featuredBar.state}`}
-                    {featuredBar.distance !== Infinity && featuredBar.distance !== null && (
-                      <span className="ml-2">• {featuredBar.distance?.toFixed(1)} mi</span>
-                    )}
-                  </p>
-                  <button
-                    onClick={() => window.location.href = `/kava-bars/${featuredBar.id}`}
-                    className="mt-4 bg-[#D35400] hover:bg-[#E67E22] text-white px-6 py-2 rounded-lg font-semibold transition-colors inline-block"
-                  >
-                    View Details
-                  </button>
-                </div>
-                {sortedFeaturedBars.length > 1 && (
-                  <button
-                    onClick={() => setShowAllFeatured(true)}
-                    className="absolute top-4 right-4 bg-black/50 hover:bg-black/70 text-white px-4 py-2 rounded-lg font-semibold transition-colors"
-                  >
-                    View More ({sortedFeaturedBars.length - 1})
-                  </button>
-                )}
-              </div>
-            ) : (
-              <div>
-                {/* All Featured Bars - Full Bleed Grid */}
-                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-                  {sortedFeaturedBars.map((bar: any) => (
-                    <a key={bar.id} href={`/kava-bars/${bar.id}`} className="relative rounded-2xl overflow-hidden h-64 block">
-                      {/* Full Bleed Image */}
-                      <div 
-                        className="absolute inset-0 bg-cover bg-center"
-                        style={{ backgroundImage: `url('${bar.heroImageUrl || bar.hero_image_url || bar.latestGalleryPhoto || bar.latest_gallery_photo || '/kava-bar-default-hero.jpg'}')` }}
-                      />
-                      {/* Gradient Overlay */}
-                      <div className="absolute inset-0 bg-gradient-to-t from-black/90 via-black/30 to-transparent" />
-                      {/* Content */}
-                      <div className="absolute bottom-0 left-0 right-0 p-5">
-                        <div className="flex items-center gap-2 mb-2">
-                          <span className="bg-[#D35400] text-white px-2 py-0.5 rounded-full text-xs font-semibold">⭐ Featured</span>
-                          {bar.rating && (
-                            <span className="bg-black/50 text-white px-2 py-0.5 rounded-full text-xs">⭐ {bar.rating}</span>
-                          )}
-                        </div>
-                        <h3 className="text-white font-bold text-xl leading-tight">{bar.name}</h3>
-                        <p className="text-gray-300 text-sm mt-1">
-                          {bar.address || `${bar.city}, ${bar.state}`}
-                          {bar.distance !== Infinity && bar.distance !== null && (
-                            <span className="ml-2">• {bar.distance?.toFixed(1)} mi</span>
-                          )}
-                        </p>
-                      </div>
-                    </a>
-                  ))}
-                </div>
-                <button
-                  onClick={() => setShowAllFeatured(false)}
-                  className="mt-6 w-full bg-[#333] hover:bg-[#444] text-white px-6 py-3 rounded-lg font-semibold transition-colors"
+            <div className="flex gap-6 overflow-x-auto pb-4 scrollbar-hide">
+              {sortedFeaturedBars.map((bar: any) => (
+                <a 
+                  key={bar.id} 
+                  href={`/kava-bars/${bar.id}`} 
+                  className="relative min-w-[calc(50%-12px)] lg:min-w-[calc(33.333%-16px)] h-80 flex-shrink-0 rounded-2xl overflow-hidden block"
                 >
-                  Show Less
-                </button>
-              </div>
-            )}
+                  {/* Image - bg-contain to show full image */}
+                  <div 
+                    className="absolute inset-0 bg-contain bg-no-repeat bg-center bg-black"
+                    style={{ backgroundImage: `url('${bar.heroImageUrl || bar.hero_image_url || bar.latestGalleryPhoto || bar.latest_gallery_photo || '/kava-bar-default-hero.jpg'}')` }}
+                  />
+                  {/* Gradient Overlay */}
+                  <div className="absolute inset-0 bg-gradient-to-t from-black/90 via-black/40 to-transparent" />
+                  {/* Content */}
+                  <div className="absolute bottom-0 left-0 right-0 p-6">
+                    <div className="flex items-center gap-2 mb-2">
+                      <span className="bg-[#D35400] text-white px-2 py-0.5 rounded-full text-xs font-semibold">⭐ Featured</span>
+                      {bar.rating && (
+                        <span className="bg-black/50 text-white px-2 py-0.5 rounded-full text-xs">⭐ {bar.rating}</span>
+                      )}
+                    </div>
+                    <h3 className="text-white font-bold text-xl mb-1">{bar.name}</h3>
+                    <p className="text-gray-300 text-sm">
+                      {bar.address || `${bar.city}, ${bar.state}`}
+                      {bar.distance !== Infinity && bar.distance !== null && (
+                        <span className="ml-2">• {bar.distance?.toFixed(1)} mi</span>
+                      )}
+                    </p>
+                  </div>
+                </a>
+              ))}
+            </div>
           </div>
         )}
 
