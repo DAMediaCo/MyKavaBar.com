@@ -570,7 +570,8 @@ Sitemap: https://mykavabar.com/sitemap.xml
         WHERE k.verification_status != 'not_kava_bar' AND k.verification_status IS NOT NULL
           AND (k.business_status IS NULL OR k.business_status = 'OPERATIONAL')
           AND k.deleted_at IS NULL
-        ORDER BY k.is_sponsored DESC, k.rating DESC NULLS LAST LIMIT 200
+          AND k.is_sponsored = true
+        ORDER BY k.rating DESC NULLS LAST LIMIT 200
       `);
       let result = bars.rows.map((bar: any) => {
         let loc = bar.location;
