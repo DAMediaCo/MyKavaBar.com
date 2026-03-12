@@ -331,11 +331,7 @@ export default function Home() {
         ) : (
           <div className="h-[600px] rounded-xl overflow-hidden">
             {isLoadingLocation && <div className="flex items-center justify-center h-full text-gray-400">Loading map...</div>}
-            {!isLoadingLocation && (
-              <Suspense fallback={<div className="flex items-center justify-center h-full text-gray-400">Loading map...</div>}>
-                <MapView bars={sortedBars || []} userLocation={coordinates} />
-              </Suspense>
-            )}
+            {!isLoadingLocation && <MapView bars={sortedBars || []} userLocation={coordinates} />}
           </div>
         )}
 
