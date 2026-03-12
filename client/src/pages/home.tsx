@@ -329,13 +329,15 @@ export default function Home() {
             })}
           </div>
         ) : (
-          <div className="h-[600px] rounded-xl overflow-hidden">
-            {isLoadingLocation && <div className="flex items-center justify-center h-full text-gray-400">Loading map...</div>}
-            {!isLoadingLocation && (
-              <Suspense fallback={<div className="flex items-center justify-center h-full text-gray-400">Loading map...</div>}>
-                <MapView bars={sortedBars || []} userLocation={coordinates} />
-              </Suspense>
-            )}
+          <div className="h-[600px] rounded-xl overflow-hidden bg-[#1E1E1E] p-4 text-white">
+            <h3 className="font-bold mb-4">Map View - {(sortedBars || []).length} bars</h3>
+            <p className="text-gray-400 mb-2">Debug - First 3 bars with coordinates:</p>
+            {(sortedBars || []).slice(0, 3).map((bar: any) => (
+              <div key={bar.id} className="text-sm mb-2 p-2 bg-[#333] rounded">
+                <strong>{bar.name}</strong><br/>
+                Lat: {bar.location?.lat}, Lng: {bar.location?.lng}
+              </div>
+            ))}
           </div>
         )}
 
