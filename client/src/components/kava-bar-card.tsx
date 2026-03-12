@@ -104,7 +104,7 @@ export default function KavaBarCard({ bar, distance }: KavaBarCardProps) {
     <div className={`bg-[#1E1E1E] rounded-2xl overflow-hidden shadow-lg hover:-translate-y-1 transition-transform duration-200 ${bar.is_sponsored ? 'ring-4 ring-blue-500' : ''}`}>
       <Link href={`/kava-bars/${bar.id}`} className="block">
         <div 
-          className="h-44 w-full bg-cover bg-center relative"
+          className="h-36 w-full bg-cover bg-center relative"
           style={{ backgroundImage: `url('${heroImage}')` }}
         >
           {isOpen && !comingSoonText && (
@@ -131,8 +131,8 @@ export default function KavaBarCard({ bar, distance }: KavaBarCardProps) {
           />
         </div>
 
-        <div className="p-4 pt-4">
-          <div className="flex justify-between items-center mb-2">
+        <div className="p-3 pt-3">
+          <div className="flex justify-between items-center mb-1">
             <h3 className="text-lg font-bold text-[#f5f5f5] truncate pr-2">
               {bar.name}
             </h3>
@@ -148,7 +148,7 @@ export default function KavaBarCard({ bar, distance }: KavaBarCardProps) {
           </div>
 
           {displayVibes.length > 0 && (
-            <div className="flex gap-2 mb-3 flex-wrap">
+            <div className="flex gap-1 mb-2 flex-wrap">
               {displayVibes.map((vibe: string, index: number) => (
                 <span 
                   key={index}
@@ -160,14 +160,11 @@ export default function KavaBarCard({ bar, distance }: KavaBarCardProps) {
             </div>
           )}
 
-          <div className="text-gray-400 text-sm mb-4 leading-relaxed">
+          <div className="text-gray-400 text-sm mb-2 leading-tight">
             <p className="truncate">{bar.address}</p>
-            {bar.phone && (
-              <p className="opacity-60">{bar.phone}</p>
-            )}
           </div>
 
-          <div className="flex justify-between items-center border-t border-[#333] pt-4">
+          <div className="flex justify-between items-center">
             <div className="text-gray-400 text-sm flex items-center gap-1">
               <MapPin className="h-3.5 w-3.5" />
               <span>

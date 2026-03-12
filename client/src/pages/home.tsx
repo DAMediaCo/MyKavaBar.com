@@ -175,7 +175,7 @@ export default function Home() {
         <div className="space-y-4">
           <div className="h-8 bg-muted rounded w-1/3" />
           <div className="h-40 bg-muted rounded" />
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+          <div className="grid grid-cols-2 md:grid-cols-2 lg:grid-cols-3 gap-3">
             {[...Array(6)].map((_, i) => (
               <div key={i} className="h-64 bg-muted rounded" />
             ))}
@@ -203,7 +203,7 @@ export default function Home() {
           <div className="md:hidden mb-6 overflow-x-auto scrollbar-hide">
             <div className="flex gap-3 pb-2 px-4">
               {sortedFeaturedBars.map((bar: any) => (
-                <a key={bar.id} href={`/kava-bars/${bar.id}`} className="relative min-w-[75vw] h-44 flex-shrink-0 rounded-xl overflow-hidden block">
+                <a key={bar.id} href={`/kava-bars/${bar.id}`} className="relative min-w-[75vw] h-40 flex-shrink-0 rounded-xl overflow-hidden block">
                   {/* Full Bleed Image */}
                   <div 
                     className="absolute inset-0 bg-cover bg-center"
@@ -299,7 +299,7 @@ export default function Home() {
         )}
 
         {/* Bar Grid */}
-        <div className="grid grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
+        <div className="grid grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-3">
           {sortedBars?.slice(0, displayCount).flatMap((bar, index) => {
             const cards = [];
             // Add the regular bar
