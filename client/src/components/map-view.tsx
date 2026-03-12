@@ -113,9 +113,19 @@ export default function MapView({ bars, center, zoom = 4, userLocation }: MapVie
       }
     }, 1000);
     
+    // Mobile fix: invalidate size after mount
+    const invalidateTimer = setTimeout(() => {
+      const mapContainer = document.querySelector('.leaflet-container');
+      if (mapContainer && mapContainer._leaflet_id) {
+        console.log('Invalidating map size for mobile');
+        window.dispatchEvent(new Event('resize'));
+      }
+    }, 2000);
+    
     return () => {
       window.removeEventListener('resize', handleResize);
       clearTimeout(reloadTimer);
+      clearTimeout(invalidateTimer);
     };
   }, []);
   
