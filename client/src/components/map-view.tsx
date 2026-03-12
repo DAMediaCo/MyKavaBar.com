@@ -5,17 +5,19 @@ import { Loader2 } from 'lucide-react';
 import './map-styles.css';
 import L from 'leaflet';
 
-// Fix for Leaflet default icon paths by using static URLs
-// This ensures the images are available regardless of build configuration
-let DefaultIcon = L.icon({
-  iconUrl: 'https://cdn.jsdelivr.net/npm/leaflet@1.7.1/dist/images/marker-icon.png',
-  iconRetinaUrl: 'https://cdn.jsdelivr.net/npm/leaflet@1.7.1/dist/images/marker-icon-2x.png',
-  shadowUrl: 'https://cdn.jsdelivr.net/npm/leaflet@1.7.1/dist/images/marker-shadow.png',
-  iconSize: [25, 41],
-  iconAnchor: [12, 41],
-  popupAnchor: [1, -34],
-  shadowSize: [41, 41]
-});
+// Fix for Leaflet default icon paths - only run on client
+let DefaultIcon: L.Icon | null = null;
+if (typeof window !== 'undefined') {
+  DefaultIcon = L.icon({
+    iconUrl: 'https://cdn.jsdelivr.net/npm/leaflet@1.7.1/dist/images/marker-icon.png',
+    iconRetinaUrl: 'https://cdn.jsdelivr.net/npm/leaflet@1.7.1/dist/images/marker-icon-2x.png',
+    shadowUrl: 'https://cdn.jsdelivr.net/npm/leaflet@1.7.1/dist/images/marker-shadow.png',
+    iconSize: [25, 41],
+    iconAnchor: [12, 41],
+    popupAnchor: [1, -34],
+    shadowSize: [41, 41]
+  });
+}
 
 // Set the default icon for all markers
 L.Marker.prototype.options.icon = DefaultIcon;
