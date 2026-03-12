@@ -101,7 +101,7 @@ export default function KavaBarCard({ bar, distance }: KavaBarCardProps) {
   const displayVibes = Array.isArray(vibes) ? vibes.slice(0, 2) : [];
 
   return (
-    <div className="bg-[#1E1E1E] rounded-2xl overflow-hidden shadow-lg hover:-translate-y-1 transition-transform duration-200">
+    <div className={`bg-[#1E1E1E] rounded-2xl overflow-hidden shadow-lg hover:-translate-y-1 transition-transform duration-200 ${bar.is_sponsored ? 'ring-4 ring-blue-500' : ''}`}>
       <Link href={`/kava-bars/${bar.id}`} className="block">
         <div 
           className="h-44 w-full bg-cover bg-center relative"
@@ -117,11 +117,7 @@ export default function KavaBarCard({ bar, distance }: KavaBarCardProps) {
               {comingSoonText}
             </div>
           )}
-          {bar.is_sponsored && (
-            <div className="absolute top-3 left-3 bg-amber-500/90 text-white text-xs font-bold px-3 py-1 rounded-full backdrop-blur-sm">
-              SPONSORED
-            </div>
-          )}
+          
           {hasHappyHours && !comingSoonText && (
             <div className="absolute bottom-3 left-3 bg-purple-600/90 text-white text-xs font-bold px-3 py-1 rounded-full backdrop-blur-sm">
               🍹 HAPPY HOUR

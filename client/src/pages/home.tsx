@@ -209,16 +209,17 @@ export default function Home() {
                     className="absolute inset-0 bg-cover bg-center"
                     style={{ backgroundImage: `url('${bar.heroImageUrl || bar.hero_image_url || bar.latestGalleryPhoto || bar.latest_gallery_photo || '/kava-bar-default-hero.jpg'}')` }}
                   />
+                  {/* Featured Tag - Top Left */}
+                  <div className="absolute top-3 left-3 z-10">
+                    <span className="bg-[#D35400] text-white px-2 py-0.5 rounded-full text-xs font-semibold">⭐ Featured</span>
+                  </div>
                   {/* Gradient Overlay */}
                   <div className="absolute inset-0 bg-gradient-to-t from-black/90 via-black/30 to-transparent" />
-                  {/* Content */}
+                  {/* Content - Rating only at bottom */}
                   <div className="absolute bottom-0 left-0 right-0 p-4">
-                    <div className="flex items-center gap-2 mb-1">
-                      <span className="bg-[#D35400] text-white px-2 py-0.5 rounded-full text-xs font-semibold">⭐ Featured</span>
-                      {bar.rating && (
-                        <span className="bg-black/50 text-white px-2 py-0.5 rounded-full text-xs">⭐ {bar.rating}</span>
-                      )}
-                    </div>
+                    {bar.rating && (
+                      <span className="bg-black/50 text-white px-2 py-0.5 rounded-full text-xs">⭐ {bar.rating}</span>
+                    )}
                     <h3 className="text-white font-bold text-lg leading-tight">{bar.name}</h3>
                     <p className="text-gray-300 text-xs mt-1">
                       {bar.address || `${bar.city}, ${bar.state}`}
@@ -261,17 +262,18 @@ export default function Home() {
                       className="absolute inset-0 bg-contain bg-no-repeat bg-center bg-black"
                       style={{ backgroundImage: `url('${bar.heroImageUrl || bar.hero_image_url || bar.latestGalleryPhoto || bar.latest_gallery_photo || '/kava-bar-default-hero.jpg'}')` }}
                     />
+                    {/* Featured Tag - Top Left */}
+                    <div className="absolute top-4 left-4 z-10">
+                      <span className="bg-[#D35400] text-white px-3 py-1 rounded-full text-sm font-semibold">⭐ Featured</span>
+                    </div>
                     {/* Gradient Overlay */}
                     <div className="absolute inset-0 bg-gradient-to-t from-black/90 via-black/40 to-transparent" />
-                    {/* Content */}
+                    {/* Content - Rating only at bottom */}
                     <div className="absolute bottom-0 left-0 right-0 p-6">
-                      <div className="flex items-center gap-2 mb-2">
-                        <span className="bg-[#D35400] text-white px-2 py-0.5 rounded-full text-xs font-semibold">⭐ Featured</span>
-                        {bar.rating && (
-                          <span className="bg-black/50 text-white px-2 py-0.5 rounded-full text-xs">⭐ {bar.rating}</span>
-                        )}
-                      </div>
-                      <h3 className="text-white font-bold text-xl mb-1">{bar.name}</h3>
+                      {bar.rating && (
+                        <span className="bg-black/50 text-white px-2 py-0.5 rounded-full text-xs">⭐ {bar.rating}</span>
+                      )}
+                      <h3 className="text-white font-bold text-xl mb-1 mt-2">{bar.name}</h3>
                       <p className="text-gray-300 text-sm">
                         {bar.address || `${bar.city}, ${bar.state}`}
                         {bar.distance !== Infinity && bar.distance !== null && (
