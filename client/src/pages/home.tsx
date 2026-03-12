@@ -189,13 +189,24 @@ export default function Home() {
     <div className="min-h-screen bg-[#1A1A1C]" id="home-content">
       <div className="container mx-auto px-4 py-6">
         {/* Simple Search Bar */}
-        <div className="mb-6">
+        <div className="mb-4">
           <Input
             placeholder="Search bars..."
             value={search}
             onChange={(e) => setSearch(e.target.value)}
             className="w-full bg-[#1E1E1E] border-[#333] text-white placeholder:text-gray-500 rounded-xl h-12"
           />
+        </div>
+
+        {/* Map View Toggle Button */}
+        <div className="mb-4">
+          <button
+            onClick={() => setViewMode(viewMode === "list" ? "map" : "list")}
+            className="flex items-center gap-2 bg-[#1E1E1E] border border-[#333] text-white px-4 py-2 rounded-lg hover:bg-[#333] transition-colors text-sm font-medium"
+          >
+            <Map className="h-4 w-4" />
+            {viewMode === "list" ? "Map View" : "List View"}
+          </button>
         </div>
 
         {/* Mobile: Swipeable featured bars - Full Bleed */}
@@ -298,24 +309,31 @@ export default function Home() {
           </div>
         )}
 
-        {/* Bar Grid */}
-        <div className="grid grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-3">
-          {sortedBars?.slice(0, displayCount).flatMap((bar, index) => {
-            const cards = [];
-            // Add the regular bar
-            cards.push(
-              <KavaBarCard
-                key={bar.id}
-                bar={bar}
-                distance={bar.distance !== Infinity ? bar.distance : undefined}
-              />
-            );
-            
-            // Featured bars are now shown at the top, not inserted into the grid
-            
-            return cards;
-          })}
-        </div>
+        {/* Bar Grid or Map View */}
+        {viewMode === "list" ? (
+          <div className="grid grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-3">
+            {sortedBars?.slice(0, displayCount).flatMap((bar, index) => {
+              const cards = [];
+              // Add the regular bar
+              cards.push(
+                <KavaBarCard
+                  key={bar.id}
+                  bar={bar}
+                  distance={bar.distance !== Infinity ? bar.distance : undefined}
+                />
+              );
+              
+              // Featured bars are now shown at the top, not inserted into the grid
+              
+              return cards;
+            })}
+          </div>
+        ) : (
+          <div className="h-[600px] rounded-xl overflow-hidden">
+            {isLoadingLocation && <div className="flex items-center justify-center h-full text-gray-400">Loading map...</div>}
+            {!isLoadingLocation && <MapView bars={sortedBars || []} userLocation={coordinates} />}
+          </div>
+        )}
 
         {/* Load More Button */}
         {sortedBars && sortedBars.length > displayCount && (
