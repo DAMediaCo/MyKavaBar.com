@@ -188,25 +188,42 @@ export default function Home() {
   return (
     <div className="min-h-screen bg-[#1A1A1C]" id="home-content">
       <div className="container mx-auto px-4 py-6">
-        {/* Simple Search Bar */}
-        <div className="mb-4">
-          <Input
+        {/* Search Bar with embedded List/Map toggle */}
+        <div className="mb-4 flex items-center bg-[#1E1E1E] border border-[#333] rounded-xl h-12 px-3 gap-2">
+          <Search className="h-4 w-4 text-gray-500 flex-shrink-0" />
+          <input
             placeholder="Search bars..."
             value={search}
             onChange={(e) => setSearch(e.target.value)}
-            className="w-full bg-[#1E1E1E] border-[#333] text-white placeholder:text-gray-500 rounded-xl h-12"
+            className="flex-1 bg-transparent text-white placeholder:text-gray-500 outline-none text-sm"
           />
-        </div>
-
-        {/* Map View Toggle Button */}
-        <div className="mb-4">
-          <button
-            onClick={() => setViewMode(viewMode === "list" ? "map" : "list")}
-            className="flex items-center gap-2 bg-[#1E1E1E] border border-[#333] text-white px-4 py-2 rounded-lg hover:bg-[#333] transition-colors text-sm font-medium"
-          >
-            <Map className="h-4 w-4" />
-            {viewMode === "list" ? "Map View" : "List View"}
-          </button>
+          {/* Divider */}
+          <div className="w-px h-6 bg-[#444] flex-shrink-0" />
+          {/* Segmented toggle */}
+          <div className="flex items-center gap-0.5 flex-shrink-0">
+            <button
+              onClick={() => setViewMode("list")}
+              className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold transition-all ${
+                viewMode === "list"
+                  ? "bg-[#D35400] text-white"
+                  : "text-gray-400 hover:text-white"
+              }`}
+            >
+              <List className="h-3.5 w-3.5" />
+              <span className="hidden sm:inline">List</span>
+            </button>
+            <button
+              onClick={() => setViewMode("map")}
+              className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold transition-all ${
+                viewMode === "map"
+                  ? "bg-[#D35400] text-white"
+                  : "text-gray-400 hover:text-white"
+              }`}
+            >
+              <Map className="h-3.5 w-3.5" />
+              <span className="hidden sm:inline">Map</span>
+            </button>
+          </div>
         </div>
 
         {/* Mobile: Swipeable featured bars - Full Bleed */}
