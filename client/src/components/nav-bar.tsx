@@ -110,34 +110,7 @@ export default function NavBar() {
             </Link>
           ))}
 
-          {/* Admin Dropdown — visible to admins only */}
-          {user?.isAdmin && (
-            <>
-              <AdminNotifications />
-              <DropdownMenu>
-                <DropdownMenuTrigger asChild>
-                  <Button variant="ghost" className="flex items-center gap-2 text-[#D35400] hover:text-[#D35400]">
-                    <ShieldCheck className="h-4 w-4" />
-                    Admin
-                  </Button>
-                </DropdownMenuTrigger>
-                <DropdownMenuContent align="end" className="w-52">
-                  <DropdownMenuLabel className="text-xs text-muted-foreground uppercase tracking-wider">
-                    Admin Panel
-                  </DropdownMenuLabel>
-                  <DropdownMenuSeparator />
-                  {adminLinks.map((link) => (
-                    <Link key={link.href} href={link.href}>
-                      <DropdownMenuItem className="cursor-pointer">
-                        <span className="mr-2">{link.icon}</span>
-                        {link.label}
-                      </DropdownMenuItem>
-                    </Link>
-                  ))}
-                </DropdownMenuContent>
-              </DropdownMenu>
-            </>
-          )}
+          {user?.isAdmin && <AdminNotifications />}
 
           {user ? (
             <>
@@ -176,6 +149,22 @@ export default function NavBar() {
                         Bar Owner Dashboard
                       </DropdownMenuItem>
                     </Link>
+                  )}
+                  {user.isAdmin && (
+                    <>
+                      <DropdownMenuSeparator />
+                      <DropdownMenuLabel className="text-xs text-[#D35400] uppercase tracking-wider flex items-center gap-1 py-1">
+                        <ShieldCheck className="h-3 w-3" /> Admin
+                      </DropdownMenuLabel>
+                      {adminLinks.map((link) => (
+                        <Link key={link.href} href={link.href}>
+                          <DropdownMenuItem className="cursor-pointer">
+                            <span className="mr-2">{link.icon}</span>
+                            {link.label}
+                          </DropdownMenuItem>
+                        </Link>
+                      ))}
+                    </>
                   )}
                   <DropdownMenuSeparator />
                   <DropdownMenuItem
