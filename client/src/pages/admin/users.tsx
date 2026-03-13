@@ -22,7 +22,13 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { useToast } from "@/hooks/use-toast";
-import { UserPlus, Search, Edit, Ban } from "lucide-react";
+import { UserPlus, Search, Edit, Ban, Info } from "lucide-react";
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipProvider,
+  TooltipTrigger,
+} from "@/components/ui/tooltip";
 import { z } from "zod";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
@@ -365,14 +371,29 @@ export default function AdminUsersPage() {
               <TableCell>{user.role}</TableCell>
               <TableCell>
                 {user.status === "banned" ? (
-                  <div className="space-y-1">
+                  <div className="flex items-center gap-1.5">
                     <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-semibold bg-red-900/40 text-red-400 border border-red-800">
                       <Ban className="h-3 w-3" /> Banned
                     </span>
                     {user.banReason && (
-                      <p className="text-xs text-gray-400 max-w-[180px] truncate" title={user.banReason}>
-                        Reason: {user.banReason}
-                      </p>
+                      <TooltipProvider>
+                        <Tooltip>
+                          <TooltipTrigger asChild>
+                            <button className="text-gray-400 hover:text-white transition-colors">
+                              <Info className="h-4 w-4" />
+                            </button>
+                          </TooltipTrigger>
+                          <TooltipContent side="right" className="max-w-[260px] bg-[#1E1E1E] border border-[#444] text-white p-3">
+                            <p className="text-xs font-semibold text-red-400 mb-1">Ban Reason</p>
+                            <p className="text-sm">{user.banReason}</p>
+                            {user.bannedAt && (
+                              <p className="text-xs text-gray-400 mt-1">
+                                Banned: {new Date(user.bannedAt).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" })}
+                              </p>
+                            )}
+                          </TooltipContent>
+                        </Tooltip>
+                      </TooltipProvider>
                     )}
                   </div>
                 ) : (
