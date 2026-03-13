@@ -1,4 +1,4 @@
-import { sendNotificationEmail, sendPasswordResetEmail } from "./email";
+
 import type { Express, Request, Response } from "express";
 import { type Server } from "http";
 import fetch from "node-fetch";
@@ -1622,32 +1622,12 @@ Sitemap: https://mykavabar.com/sitemap.xml
       // Generate reset link
       const resetLink = `${req.protocol}://${req.get("host")}/reset-password/${resetToken.token}`;
 
-      try {
-        // Send password reset email
-        await sendPasswordResetEmail(email, resetLink);
-        res.json({
-          message:
-            "If an account exists for this email, you will receive a password reset link.",
-        });
-      } catch (emailError: any) {
-        console.error("Password reset email error:", emailError);
-        // Delete the created token since email failed
-        await db
-          .delete(passwordResetTokens)
-          .where(eq(passwordResetTokens.id, resetToken.id));
-
-        // In development, provide more detailed error
-        if (process.env.NODE_ENV !== "production") {
-          res.status(500).json({
-            message: "Failed to send password reset email",
-            details: emailError.message,
-          });
-        } else {
-          res
-            .status(500)
-            .json({ message: "Failed to process password reset request" });
-        }
-      }
+      // Email sending removed — log the reset link for now
+      console.log(`[PASSWORD RESET] Link for ${email}: ${resetLink}`);
+      res.json({
+        message:
+          "If an account exists for this email, you will receive a password reset link.",
+      });
     } catch (error: any) {
       console.error("Password reset error:", error);
       res
@@ -2404,7 +2384,7 @@ Sitemap: https://mykavabar.com/sitemap.xml
       console.log("Sending WebSocket notification:", notificationPayload);
       notifyAdmins(wss, notificationPayload);
       // Send email about the bar added
-      await sendNotificationEmail("info@mykavabar.com");
+      // Email notification removed
       res.json(request);
     } catch (error: any) {
       console.error("Error creating verification request:", error);
