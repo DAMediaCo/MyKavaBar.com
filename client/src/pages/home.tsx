@@ -335,13 +335,15 @@ export default function Home() {
               <MapView
                 bars={sortedBars || []}
                 userLocation={coordinates ? { lat: coordinates.latitude, lng: coordinates.longitude } : undefined}
+                center={coordinates ? { lat: coordinates.latitude, lng: coordinates.longitude } : undefined}
+                zoom={coordinates ? 10 : 4}
               />
             )}
           </div>
         )}
 
-        {/* Load More Button */}
-        {sortedBars && sortedBars.length > displayCount && (
+        {/* Load More Button — list view only */}
+        {viewMode === "list" && sortedBars && sortedBars.length > displayCount && (
           <div className="flex justify-center mt-8">
             <button
               onClick={() => setDisplayCount(prev => prev + 48)}
