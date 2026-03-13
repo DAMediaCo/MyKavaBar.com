@@ -101,11 +101,7 @@ if (process.env.NODE_ENV === "production") {
             "https://www.googletagmanager.com",
             "https://www.google-analytics.com",
             "https://ssl.google-analytics.com",
-            "https://pagead2.googlesyndication.com",
-            "https://googleads.g.doubleclick.net",
-            "https://adservice.google.com",
-            "https://ep2.adtrafficquality.google",
-            "https://*.adtrafficquality.google",
+
           ],
           styleSrc: [
             "'self'",
@@ -119,14 +115,9 @@ if (process.env.NODE_ENV === "production") {
             "wss:",
             "ws:",
             "https://www.google-analytics.com",
-            "https://stats.g.doubleclick.net",
           ],
           fontSrc: ["'self'", "data:", "https:", "https://fonts.gstatic.com"],
-          frameSrc: [
-            "'self'",
-            "https://googleads.g.doubleclick.net",
-            "https://bid.g.doubleclick.net",
-          ],
+          frameSrc: ["'self'"],
           objectSrc: ["'none'"],
           mediaSrc: ["'self'"],
 

@@ -1,6 +1,6 @@
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { History, Beaker, BookOpen, Leaf, Heart, Sprout } from "lucide-react";
-import { GoogleAd } from "@/components/ui/google-ad";
+
 import { ScrollArea } from "@/components/ui/scroll-area";
 
 export default function KavaHistory() {
@@ -144,15 +144,7 @@ export default function KavaHistory() {
               </CardContent>
             </Card>
 
-            {/* Add Google Ad after the main content */}
-            <div className="mt-8">
-              <GoogleAd
-                client="pub-4689433820915825"
-                slot="5678901234"
-                format="auto"
-                responsive={true}
-              />
-            </div>
+
           </div>
         </ScrollArea>
       </div>
