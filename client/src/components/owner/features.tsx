@@ -179,7 +179,7 @@ export const Features: React.FC<FeaturesProps> = ({ barId }) => {
         withCredentials: true,
       }),
     onSuccess: () => {
-      queryClient.invalidateQueries(["barFeaturesFull", barId]);
+      queryClient.invalidateQueries({ queryKey: ["barFeaturesFull", barId] });
       setEditingFeature({ categoryId: null, featureId: null, name: null });
       reset({ name: "" });
       toast({ title: "Success", description: "Feature added successfully!" });
@@ -205,7 +205,7 @@ export const Features: React.FC<FeaturesProps> = ({ barId }) => {
         { withCredentials: true },
       ),
     onSuccess: () => {
-      queryClient.invalidateQueries(["barFeaturesFull", barId]);
+      queryClient.invalidateQueries({ queryKey: ["barFeaturesFull", barId] });
       setEditingFeature({ categoryId: null, featureId: null, name: null });
       reset({ name: "" });
       toast({ title: "Updated", description: "Feature updated successfully!" });
@@ -229,7 +229,7 @@ export const Features: React.FC<FeaturesProps> = ({ barId }) => {
         withCredentials: true,
       }),
     onSuccess: () => {
-      queryClient.invalidateQueries(["barFeaturesFull", barId]);
+      queryClient.invalidateQueries({ queryKey: ["barFeaturesFull", barId] });
       setDeleteDialog({
         open: false,
         categoryId: null,
@@ -268,7 +268,7 @@ export const Features: React.FC<FeaturesProps> = ({ barId }) => {
         },
       ),
     onSuccess: () => {
-      queryClient.invalidateQueries(["barFeaturesFull", barId]);
+      queryClient.invalidateQueries({ queryKey: ["barFeaturesFull", barId] });
       toast({
         title: "Success",
         description: "Master features updated successfully.",
@@ -299,7 +299,7 @@ export const Features: React.FC<FeaturesProps> = ({ barId }) => {
         },
       ),
     onSuccess: () => {
-      queryClient.invalidateQueries(["barFeaturesFull", barId]);
+      queryClient.invalidateQueries({ queryKey: ["barFeaturesFull", barId] });
       toast({ title: "Success", description: "Feature favorite toggled." });
     },
     onError: () => {

@@ -372,7 +372,7 @@ export default function ManageBar() {
         title: "Success",
         description: result.warning || "Event created successfully",
       });
-      queryClient.invalidateQueries([`/api/bars/${id}/events`]);
+      queryClient.invalidateQueries({ queryKey: [`/api/bars/${id}/events`] });
     },
     onError: (error: Error) => {
       toast({
@@ -417,7 +417,7 @@ export default function ManageBar() {
         title: "Success",
         description: result.warning || "Event updated successfully",
       });
-      queryClient.invalidateQueries([`/api/bars/${id}/events`]);
+      queryClient.invalidateQueries({ queryKey: [`/api/bars/${id}/events`] });
     },
     onError: (error: Error) => {
       toast({
@@ -447,7 +447,7 @@ export default function ManageBar() {
         title: "Success",
         description: "Event deleted successfully",
       });
-      queryClient.invalidateQueries([`/api/bars/${id}/events`]);
+      queryClient.invalidateQueries({ queryKey: [`/api/bars/${id}/events`] });
     },
     onError: (error: Error) => {
       toast({
@@ -583,7 +583,7 @@ export default function ManageBar() {
         title: "Success",
         description: "Kavatender verified successfully!",
       });
-      queryClient.invalidateQueries([`/api/kavatenders/${id}`]);
+      queryClient.invalidateQueries({ queryKey: [`/api/kavatenders/${id}`] });
     },
     onError: (error) => {
       toast({
@@ -614,7 +614,7 @@ export default function ManageBar() {
         title: "Success",
         description: "Kavatender removed successfully!",
       });
-      queryClient.invalidateQueries([`/api/kavatenders/${id}`]);
+      queryClient.invalidateQueries({ queryKey: [`/api/kavatenders/${id}`] });
     },
     onError: (error) => {
       toast({

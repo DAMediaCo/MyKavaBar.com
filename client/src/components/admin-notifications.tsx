@@ -54,7 +54,7 @@ export default function AdminNotifications() {
 
         if (data.type === 'VERIFICATION_REQUEST') {
           // Invalidate the query to refetch the latest data
-          queryClient.invalidateQueries(['/api/admin/verification-requests']);
+          queryClient.invalidateQueries({ queryKey: ['/api/admin/verification-requests'] });
 
           toast({
             title: "New Verification Request",
@@ -110,8 +110,8 @@ export default function AdminNotifications() {
       return response.json();
     },
     onSuccess: () => {
-      queryClient.invalidateQueries(['/api/admin/verification-requests']);
-      queryClient.invalidateQueries(['/api/kava-bars']); // Refresh bar data
+      queryClient.invalidateQueries({ queryKey: ['/api/admin/verification-requests'] });
+      queryClient.invalidateQueries({ queryKey: ['/api/kava-bars'] }); // Refresh bar data
       toast({
         title: "Request Approved",
         description: "The verification request has been approved.",
@@ -143,7 +143,7 @@ export default function AdminNotifications() {
       return response.json();
     },
     onSuccess: () => {
-      queryClient.invalidateQueries(['/api/admin/verification-requests']);
+      queryClient.invalidateQueries({ queryKey: ['/api/admin/verification-requests'] });
       toast({
         title: "Request Denied",
         description: "The verification request has been denied.",

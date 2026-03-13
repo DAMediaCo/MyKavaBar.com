@@ -224,7 +224,7 @@ export default function BarEvents({ barId, ownerId, address }: BarEventsProps) {
         title: "Success",
         description: "Event created successfully",
       });
-      queryClient.invalidateQueries([`/api/bars/${id}/events`]);
+      queryClient.invalidateQueries({ queryKey: [`/api/bars/${id}/events`] });
       setIsAddEventOpen(false);
     },
     onError: (error: Error) => {

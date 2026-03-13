@@ -30,8 +30,8 @@ export const useAddFavorite = () => {
       return res.json();
     },
     onSuccess: (_, barId) => {
-      queryClient.invalidateQueries(["favorite", barId]); // Refresh favorite status
-      queryClient.invalidateQueries(["favoriteBars"]);
+      queryClient.invalidateQueries({ queryKey: ["favorite", barId] }); // Refresh favorite status
+      queryClient.invalidateQueries({ queryKey: ["favoriteBars"] });
     },
   });
 };
@@ -50,10 +50,10 @@ export const useRemoveFavorite = () => {
       return res.json();
     },
     onSuccess: (_, barId) => {
-      queryClient.invalidateQueries(["favorite", barId]);
+      queryClient.invalidateQueries({ queryKey: ["favorite", barId] });
 
       // Refresh favorite status
-      queryClient.invalidateQueries(["favoriteBars"]);
+      queryClient.invalidateQueries({ queryKey: ["favoriteBars"] });
     },
   });
 };

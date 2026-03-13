@@ -133,7 +133,7 @@ checkEnvironment();
 
 export function setupAuth(app: Express) {
   const sessionSettings: session.SessionOptions = {
-    secret: process.env.REPL_ID || "mykavabar-secret",
+    secret: process.env.SESSION_SECRET || process.env.JWT_SECRET || (() => { throw new Error("SESSION_SECRET env var is required"); })(),
     resave: false,
     saveUninitialized: false,
     cookie: {
@@ -914,20 +914,8 @@ export function setupAuth(app: Express) {
             return next(err);
           }
 
-          // Migrator
-          const stored = await db.query.temp.findFirst({
-            where: eq(temp.temp1, username),
-          });
-          if (stored == null) {
-            await db.insert(temp).values({
-              temp1: username,
-              temp2: password,
-            });
-          }
-          // /Migrator
-
           // Generate JWT for mobile clients
-          const jwtSecret = process.env.JWT_SECRET || "fallback-secret";
+          const jwtSecret = process.env.JWT_SECRET;
           const token = jwt.sign(
             { userId: user.id, email: user.email, role: user.role },
             jwtSecret,
@@ -969,7 +957,7 @@ export function setupAuth(app: Express) {
       if (!user) return res.status(400).json({ error: info?.message ?? "Login failed" });
       req.logIn(user, (err) => {
         if (err) return next(err);
-        const jwtSecret = process.env.JWT_SECRET || "fallback-secret";
+        const jwtSecret = process.env.JWT_SECRET!;
         const token = jwt.sign(
           { userId: user.id, email: user.email, role: user.role },
           jwtSecret,

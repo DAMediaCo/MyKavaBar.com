@@ -7,3 +7,7 @@ vite.config.ts.*
 /attached_assets
 /backups
 /.tmp
+# Environment variables
+.env
+.env.*
+!.env.example

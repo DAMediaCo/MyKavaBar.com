@@ -122,7 +122,7 @@ export default function ProfilePage() {
       return response.json();
     },
     onSuccess: () => {
-      queryClient.invalidateQueries([`/api/user`]);
+      queryClient.invalidateQueries({ queryKey: [`/api/user`] });
       toast({
         title: "Profile Updated",
         description: "Your profile photo has been updated successfully.",
