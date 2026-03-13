@@ -1,1096 +1,754 @@
-import { useParams } from "wouter";
+import { useParams, useLocation } from "wouter";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { Button } from "@/components/ui/button";
 import KavatendersTable from "@/components/kavatenders-table";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Edit, Loader2, Plus, Trash2 } from "lucide-react";
+import {
+  ArrowLeft, Edit, Loader2, Plus, Trash2, Clock, CalendarDays,
+  Users, BarChart2, Star, Sun, ImageIcon, CheckCircle2, XCircle,
+  ChevronRight, Shield,
+} from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { useForm, useWatch } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
 import {
-  Form,
-  FormControl,
-  FormField,
-  FormItem,
-  FormLabel,
-  FormMessage,
+  Form, FormControl, FormField, FormItem, FormLabel, FormMessage,
 } from "@/components/ui/form";
 import { Input } from "@/components/ui/input";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Separator } from "@/components/ui/separator";
 import { EventForm, type EventFormValues } from "@/components/event-form";
 import {
-  Dialog,
-  DialogContent,
-  DialogHeader,
-  DialogTitle,
-  DialogTrigger,
+  Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger,
 } from "@/components/ui/dialog";
 import { useState } from "react";
-import { Label } from "@/components/ui/label";
 import { EventRsvpTab } from "@/components/owner/events-rsvp-tab";
 import { Features } from "@/components/owner/features";
 import { HappyHours } from "@/components/owner/happy-hours";
 import ComingSoonForm from "@/components/owner/coming-soon-form";
-import { ImageIcon } from "lucide-react";
 import { useUser } from "@/hooks/use-user";
+import { cn } from "@/lib/utils";
 
 const daysOfWeek = [
-  "Sunday",
-  "Monday",
-  "Tuesday",
-  "Wednesday",
-  "Thursday",
-  "Friday",
-  "Saturday",
+  "Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday",
 ] as const;
+
 const isHHMM24 = (time: string) => {
-  // allow empty for "closed"
   if (!time) return true;
-  const m = /^([01]\d|2[0-3]):([0-5]\d)$/.exec(time);
-  return !!m;
+  return /^([01]\d|2[0-3]):([0-5]\d)$/.test(time);
 };
 
 const hoursFormSchema = z.object({
-  hours: z.array(
-    z.object({
-      day: z.enum(daysOfWeek),
-      open: z
-        .string()
-        .refine(isHHMM24, "Open time must be HH:MM (00:00–23:59)"),
-      close: z
-        .string()
-        .refine(isHHMM24, "Close time must be HH:MM (00:00–23:59)"),
-    }),
-  ),
+  hours: z.array(z.object({
+    day: z.enum(daysOfWeek),
+    open: z.string().refine(isHHMM24, "Must be HH:MM"),
+    close: z.string().refine(isHHMM24, "Must be HH:MM"),
+  })),
 });
-const kavaBarUpdateSchema = z
-  .object({
-    comingSoon: z.boolean(),
-    grandOpeningDate: z.string().nullable().optional(),
-  })
-  .refine(
-    (data) => {
-      if (data.grandOpeningDate && !data.comingSoon) {
-        return false;
-      }
-      return true;
-    },
-    {
-      message: "You must enable Coming Soon if you set a Grand Opening Date",
-      path: ["comingSoon"],
-    },
-  );
 
 type HoursFormValues = z.infer<typeof hoursFormSchema>;
 
+// ── Tab definition ──────────────────────────────────────────────────────────
+const TABS = [
+  { value: "details",    label: "Details",      icon: Edit },
+  { value: "hours",      label: "Hours",        icon: Clock },
+  { value: "events",     label: "Events",       icon: CalendarDays },
+  { value: "staff",      label: "Staff",        icon: Users },
+  { value: "rsvp",       label: "RSVP Stats",   icon: BarChart2 },
+  { value: "features",   label: "Features",     icon: Star },
+  { value: "happyHours", label: "Happy Hours",  icon: Sun },
+];
+
 export default function ManageBar() {
   const { id } = useParams<{ id: string }>();
+  const [, navigate] = useLocation();
   const { toast } = useToast();
   const queryClient = useQueryClient();
+  const { user } = useUser();
+
+  // ── Local state ──────────────────────────────────────────────────────────
   const [isModalOpen, setIsModalOpen] = useState(false);
-  const [selectedEvent, setSelectedEvent] = useState<(EventFormValues & { id: number; photoUrl?: string | null }) | null>(
-    null,
-  );
+  const [selectedEvent, setSelectedEvent] = useState<(EventFormValues & { id: number; photoUrl?: string | null }) | null>(null);
+  const [addEventOpen, setAddEventOpen] = useState(false);
+  const [phoneNumber, setPhoneNumber] = useState("");
+  const [isVerifying, setIsVerifying] = useState(false);
+  const [heroImageFile, setHeroImageFile] = useState<File | null>(null);
+  const [heroImagePreview, setHeroImagePreview] = useState<string | null>(null);
+  const [isUploadingHeroImage, setIsUploadingHeroImage] = useState(false);
 
-  const handleEdit = (event: EventFormValues & { id: number; photoUrl?: string | null }) => {
-    setSelectedEvent(event); // Store event data
-    setIsModalOpen(true); // Open modal
-  };
-
-  const handleCloseModal = () => {
-    setIsModalOpen(false);
-    setSelectedEvent(null);
-  };
-  const [open, setOpen] = useState(false);
+  // ── Hours form ───────────────────────────────────────────────────────────
   const form = useForm<HoursFormValues>({
     resolver: zodResolver(hoursFormSchema),
     defaultValues: {
-      hours: daysOfWeek.map((day) => ({
-        day,
-        open: "09:00",
-        close: "22:00",
-      })),
+      hours: daysOfWeek.map((day) => ({ day, open: "09:00", close: "22:00" })),
     },
   });
 
-  // Use the watch function to monitor changes
-  const watchedHours = useWatch({
-    control: form.control,
-    name: "hours",
-  });
-
-  // Update the error handling in the fetch query
-  const {
-    data: bar,
-    isLoading: isLoadingBarQuery,
-    error: barError,
-  } = useQuery({
+  // ── Bar query ────────────────────────────────────────────────────────────
+  const { data: bar, isLoading: isLoadingBar, error: barError } = useQuery({
     queryKey: [`/api/kava-bars/${id}`],
     queryFn: async () => {
-      console.log("Fetching bar details:", id);
       const response = await fetch(`/api/kava-bars/${id}`, {
         credentials: "include",
-        headers: {
-          Accept: "application/json",
-          "Cache-Control": "no-cache",
-        },
+        headers: { Accept: "application/json", "Cache-Control": "no-cache" },
       });
-
-      console.log("Response status:", response.status);
-
       if (!response.ok) {
-        const errorData = await response.json();
-        console.error("Bar details error response:", errorData);
-        throw new Error(
-          errorData.error || errorData.details || "Failed to fetch bar details",
-        );
+        const err = await response.json();
+        throw new Error(err.error || "Failed to fetch bar details");
       }
-
       const data = await response.json();
+
+      // Parse hours into form values
       if (data?.hours) {
-        console.log("data hours exist:", data);
+        const to24 = (time: string): string => {
+          const match = time.match(/(\d{1,2}):?(\d{2})?\s*(AM|PM)?/i);
+          if (!match) return "";
+          let [, h, m = "00", period] = match;
+          let hour = parseInt(h, 10);
+          const min = parseInt(m, 10);
+          if (period) {
+            period = period.toUpperCase();
+            if (period === "PM" && hour !== 12) hour += 12;
+            if (period === "AM" && hour === 12) hour = 0;
+          }
+          return `${String(hour).padStart(2, "0")}:${String(min).padStart(2, "0")}`;
+        };
 
-        const convertedHours = data.hours
-          .map((entry: string, index: number) => {
-            if (!entry.includes(":")) {
-              console.error(`Skipping invalid entry at index ${index}:`, entry);
-              return null;
-            }
+        const converted = data.hours.map((entry: string) => {
+          const [day, timeRange] = entry.split(": ");
+          if (!timeRange || timeRange.toLowerCase() === "closed")
+            return { day, open: "", close: "" };
+          const clean = timeRange.replace(/\s*[\u2013\u2014–-]\s*/g, " - ").trim();
+          const [o, c] = clean.split(" - ").map((t: string) => t.trim());
+          return { day, open: to24(o), close: to24(c) };
+        }).filter(Boolean);
 
-            const [day, timeRange] = entry.split(": ");
-
-            if (!timeRange) {
-              console.error(`Invalid time range at index ${index}:`, entry);
-              return null;
-            }
-            console.log(`Day: ${day}, Time: ${timeRange}`);
-
-            // Check if the bar is closed
-            if (timeRange.toLowerCase() === "closed") {
-              return {
-                day,
-                open: "",
-                close: "",
-              };
-            }
-
-            // Normalize different dash types and remove potential hidden characters
-            const cleanTimeRange = timeRange
-              .replace(/\s*[\u2013\u2014–-]\s*/g, " - ")
-              .trim();
-            console.log(`Cleaned time range: ${cleanTimeRange}`);
-
-            let [openTime, closeTime] = cleanTimeRange
-              .split(" - ")
-              .map((t) => t.trim());
-            console.log(`Open time: ${openTime}, Close time: ${closeTime}`);
-
-            if (!openTime || !closeTime) {
-              console.error(
-                `Missing open or close time at index ${index}:`,
-                entry,
-              );
-              return null;
-            }
-
-            const to24HourFormat = (time: string) => {
-              if (!time) {
-                console.error(`Invalid time passed to conversion:`, time);
-                return null;
-              }
-
-              // Ensure clean extraction of time
-              const match = time.match(/(\d{1,2}):?(\d{2})?\s*(AM|PM)?/i);
-              if (!match) {
-                console.error(`Invalid time format:`, time);
-                return null;
-              }
-
-              let [, hour, minute = "00", period] = match;
-              hour = parseInt(hour, 10);
-              minute = parseInt(minute, 10);
-
-              console.log(
-                `Extracted - Hour: ${hour}, Minute: ${minute}, Period: ${period}`,
-              );
-
-              if (isNaN(hour) || isNaN(minute)) {
-                console.error(`Invalid hour/minute format:`, time);
-                return null;
-              }
-
-              // Convert AM/PM format to 24-hour format
-              if (period) {
-                period = period.toUpperCase();
-                if (period === "PM" && hour !== 12) hour += 12;
-                if (period === "AM" && hour === 12) hour = 0;
-              }
-
-              // Ensure formatted output
-              const formattedHour = hour.toString().padStart(2, "0");
-              const formattedMinute = minute.toString().padStart(2, "0");
-
-              const formattedTime = `${formattedHour}:${formattedMinute}`;
-              console.log(`Formatted time: ${formattedTime}`);
-              return formattedTime;
-            };
-
-            return {
-              day,
-              open: to24HourFormat(openTime),
-              close: to24HourFormat(closeTime),
-            };
-          })
-          .filter(Boolean); // Remove null values
-
-        // Reset form with new values
-        form.reset({ hours: convertedHours });
+        form.reset({ hours: converted });
       }
-
-      console.log("Successfully fetched bar details:", {
-        id: data.id,
-        name: data.name,
-        owner_id: data.owner_id,
-        hasHours: !!data.hours,
-        hasLocation: !!data.location,
-      });
       return data;
     },
     retry: 1,
-    retryDelay: 1000,
-    onError: (error: any) => {
-      console.error("Query error:", error);
-      toast({
-        title: "Error Loading Bar",
-        description:
-          error.message || "Please check your permissions and try again.",
-        variant: "destructive",
-      });
-    },
-    onSuccess: (data: any) => {
-      console.log("Data was fetched successfully", data);
-    },
   });
 
   const { data: events = [], isLoading: isLoadingEvents } = useQuery({
     queryKey: [`/api/bars/${id}/events`],
     queryFn: async () => {
-      const response = await fetch(`/api/bars/${id}/events`, {
-        credentials: "include",
-      });
-
-      if (!response.ok) {
-        const errorData = await response.json().catch(() => ({}));
-        throw new Error(errorData.message || "Failed to fetch events");
-      }
-
-      return response.json();
+      const r = await fetch(`/api/bars/${id}/events`, { credentials: "include" });
+      if (!r.ok) throw new Error("Failed to fetch events");
+      return r.json();
     },
-    enabled: !!bar, // Only fetch events if bar data is available
+    enabled: !!bar,
   });
 
   const { data: kavaTenders = [], isLoading: isLoadingKavatenders } = useQuery({
     queryKey: [`/api/kavatenders/${id}`],
     queryFn: async () => {
-      const response = await fetch(`/api/kavatenders/${id}`, {
-        credentials: "include",
-      });
-
-      if (!response.ok) {
-        const errorData = await response.json().catch(() => ({}));
-        throw new Error(errorData.message || "Failed to fetch kavatenders");
-      }
-
-      return response.json();
+      const r = await fetch(`/api/kavatenders/${id}`, { credentials: "include" });
+      if (!r.ok) throw new Error("Failed to fetch kavatenders");
+      return r.json();
     },
     enabled: !!bar,
   });
 
+  // ── Mutations ────────────────────────────────────────────────────────────
   const updateHoursMutation = useMutation({
     mutationFn: async (data: HoursFormValues) => {
-      const response = await fetch(`/api/kava-bars/${id}/hours`, {
+      const r = await fetch(`/api/kava-bars/${id}/hours`, {
         method: "PUT",
-        headers: {
-          "Content-Type": "application/json",
-        },
+        headers: { "Content-Type": "application/json" },
         body: JSON.stringify(data),
         credentials: "include",
       });
-
-      if (!response.ok) {
-        const errorData = await response.json().catch(() => ({}));
-        throw new Error(errorData.message || "Failed to update hours");
-      }
-
-      return response.json();
+      if (!r.ok) throw new Error((await r.json().catch(() => ({}))).message || "Failed to update hours");
+      return r.json();
     },
-    onSuccess: () => {
-      toast({
-        title: "Success",
-        description: "Hours of operation updated successfully",
-      });
-    },
-    onError: (error: Error) => {
-      toast({
-        variant: "destructive",
-        title: "Error",
-        description: error.message,
-      });
-    },
+    onSuccess: () => toast({ title: "Hours updated" }),
+    onError: (e: Error) => toast({ variant: "destructive", title: "Error", description: e.message }),
   });
 
   const createEventMutation = useMutation({
     mutationFn: async ({ data, photo }: { data: EventFormValues; photo?: File }) => {
-      const formData = new FormData();
-      formData.append("title", data.title);
-      if (data.description) formData.append("description", data.description);
-      formData.append("dayOfWeek", String(data.dayOfWeek));
-      formData.append("startTime", data.startTime);
-      formData.append("endTime", data.endTime);
-      formData.append("isRecurring", String(data.isRecurring));
-      if (data.startDate) formData.append("startDate", data.startDate);
-      if (data.endDate) formData.append("endDate", data.endDate);
-      if (photo) formData.append("photo", photo);
-
-      const response = await fetch(`/api/bars/${id}/events`, {
-        method: "POST",
-        body: formData,
-        credentials: "include",
-      });
-
-      if (!response.ok) {
-        const errorData = await response.json().catch(() => ({}));
-        throw new Error(errorData.message || "Failed to create event");
-      }
-
-      return response.json();
+      const fd = new FormData();
+      fd.append("title", data.title);
+      if (data.description) fd.append("description", data.description);
+      fd.append("dayOfWeek", String(data.dayOfWeek));
+      fd.append("startTime", data.startTime);
+      fd.append("endTime", data.endTime);
+      fd.append("isRecurring", String(data.isRecurring));
+      if (data.startDate) fd.append("startDate", data.startDate);
+      if (data.endDate) fd.append("endDate", data.endDate);
+      if (photo) fd.append("photo", photo);
+      const r = await fetch(`/api/bars/${id}/events`, { method: "POST", body: fd, credentials: "include" });
+      if (!r.ok) throw new Error((await r.json().catch(() => ({}))).message || "Failed to create event");
+      return r.json();
     },
-    onSuccess: (result) => {
-      toast({
-        title: "Success",
-        description: result.warning || "Event created successfully",
-      });
+    onSuccess: (res) => {
+      toast({ title: "Event created", description: res.warning });
       queryClient.invalidateQueries({ queryKey: [`/api/bars/${id}/events`] });
+      setAddEventOpen(false);
     },
-    onError: (error: Error) => {
-      toast({
-        variant: "destructive",
-        title: "Error",
-        description: error.message,
-      });
-    },
+    onError: (e: Error) => toast({ variant: "destructive", title: "Error", description: e.message }),
   });
+
   const updateEventMutation = useMutation({
-    mutationFn: async ({
-      eventId,
-      data,
-      photo,
-    }: { eventId: number; data: EventFormValues; photo?: File }) => {
-      const formData = new FormData();
-      formData.append("title", data.title);
-      if (data.description) formData.append("description", data.description);
-      formData.append("dayOfWeek", String(data.dayOfWeek));
-      formData.append("startTime", data.startTime);
-      formData.append("endTime", data.endTime);
-      formData.append("isRecurring", String(data.isRecurring));
-      if (data.startDate) formData.append("startDate", data.startDate);
-      if (data.endDate) formData.append("endDate", data.endDate);
-      if (photo) formData.append("photo", photo);
-
-      const response = await fetch(`/api/bars/${id}/events/${eventId}`, {
-        method: "PUT",
-        body: formData,
-        credentials: "include",
-      });
-
-      if (!response.ok) {
-        const errorData = await response.json().catch(() => ({}));
-        throw new Error(errorData.message || "Failed to update event");
-      }
-
-      return response.json();
+    mutationFn: async ({ eventId, data, photo }: { eventId: number; data: EventFormValues; photo?: File }) => {
+      const fd = new FormData();
+      fd.append("title", data.title);
+      if (data.description) fd.append("description", data.description);
+      fd.append("dayOfWeek", String(data.dayOfWeek));
+      fd.append("startTime", data.startTime);
+      fd.append("endTime", data.endTime);
+      fd.append("isRecurring", String(data.isRecurring));
+      if (data.startDate) fd.append("startDate", data.startDate);
+      if (data.endDate) fd.append("endDate", data.endDate);
+      if (photo) fd.append("photo", photo);
+      const r = await fetch(`/api/bars/${id}/events/${eventId}`, { method: "PUT", body: fd, credentials: "include" });
+      if (!r.ok) throw new Error((await r.json().catch(() => ({}))).message || "Failed to update event");
+      return r.json();
     },
-    onSuccess: (result) => {
-      toast({
-        title: "Success",
-        description: result.warning || "Event updated successfully",
-      });
+    onSuccess: () => {
+      toast({ title: "Event updated" });
       queryClient.invalidateQueries({ queryKey: [`/api/bars/${id}/events`] });
+      setIsModalOpen(false);
+      setSelectedEvent(null);
     },
-    onError: (error: Error) => {
-      toast({
-        variant: "destructive",
-        title: "Error",
-        description: error.message,
-      });
-    },
+    onError: (e: Error) => toast({ variant: "destructive", title: "Error", description: e.message }),
   });
 
   const deleteEventMutation = useMutation({
     mutationFn: async (eventId: number) => {
-      const response = await fetch(`/api/bars/${id}/events/${eventId}`, {
-        method: "DELETE",
-        credentials: "include",
-      });
-
-      if (!response.ok) {
-        const errorData = await response.json().catch(() => ({}));
-        throw new Error(errorData.message || "Failed to delete event");
-      }
-
-      return response.json();
+      const r = await fetch(`/api/bars/${id}/events/${eventId}`, { method: "DELETE", credentials: "include" });
+      if (!r.ok) throw new Error("Failed to delete event");
+      return r.json();
     },
     onSuccess: () => {
-      toast({
-        title: "Success",
-        description: "Event deleted successfully",
-      });
+      toast({ title: "Event deleted" });
       queryClient.invalidateQueries({ queryKey: [`/api/bars/${id}/events`] });
     },
-    onError: (error: Error) => {
-      toast({
-        variant: "destructive",
-        title: "Error",
-        description: error.message,
-      });
-    },
+    onError: (e: Error) => toast({ variant: "destructive", title: "Error", description: e.message }),
   });
 
-  const [phoneNumber, setPhoneNumber] = useState("");
-  const [isVerifying, setIsVerifying] = useState(false);
-  const [comingSoon, setComingSoon] = useState(bar?.comingSoon ?? false);
-  const [grandOpeningDate, setGrandOpeningDate] = useState<Date | undefined>(
-    bar?.grandOpeningDate ?? undefined,
-  );
-  const [heroImageFile, setHeroImageFile] = useState<File | null>(null);
-  const [heroImagePreview, setHeroImagePreview] = useState<string | null>(null);
-  const [isUploadingHeroImage, setIsUploadingHeroImage] = useState(false);
-  const { user } = useUser();
+  const verifyKavatenderMutation = useMutation({
+    mutationFn: async () => {
+      const r = await fetch("/api/kavatenders/verify", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ phoneNumber, barId: id }),
+        credentials: "include",
+      });
+      if (!r.ok) throw new Error((await r.json().catch(() => ({}))).message || "Failed to verify kavatender");
+      return r.json();
+    },
+    onSuccess: () => {
+      toast({ title: "Kavatender verified!" });
+      queryClient.invalidateQueries({ queryKey: [`/api/kavatenders/${id}`] });
+      setPhoneNumber("");
+    },
+    onError: (e: Error) => toast({ variant: "destructive", title: "Error", description: e.message }),
+  });
 
+  const deleteKavatenderMutation = useMutation({
+    mutationFn: async (userId: string) => {
+      const r = await fetch(`/api/kavatenders/${id}`, {
+        method: "DELETE",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ userId }),
+        credentials: "include",
+      });
+      if (!r.ok) throw new Error("Failed to remove kavatender");
+      return r.json();
+    },
+    onSuccess: () => {
+      toast({ title: "Kavatender removed" });
+      queryClient.invalidateQueries({ queryKey: [`/api/kavatenders/${id}`] });
+    },
+    onError: (e: Error) => toast({ variant: "destructive", title: "Error", description: e.message }),
+  });
+
+  // ── Hero image handlers ──────────────────────────────────────────────────
   const handleHeroImageChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
-
     if (!file.type.startsWith("image/")) {
-      toast({
-        title: "Invalid file type",
-        description: "Please select an image file (JPG, PNG, etc.)",
-        variant: "destructive",
-      });
-      return;
+      toast({ title: "Invalid file type", variant: "destructive" }); return;
     }
-
     if (file.size > 10 * 1024 * 1024) {
-      toast({
-        title: "File too large",
-        description: "Please select an image under 10MB",
-        variant: "destructive",
-      });
-      return;
+      toast({ title: "File too large (max 10MB)", variant: "destructive" }); return;
     }
-
     setHeroImageFile(file);
     setHeroImagePreview(URL.createObjectURL(file));
   };
 
   const uploadHeroImage = async () => {
     if (!heroImageFile) return;
-    
     setIsUploadingHeroImage(true);
     try {
-      const formData = new FormData();
-      formData.append("heroImage", heroImageFile);
-
-      const response = await fetch(`/api/kava-bars/${id}/hero-image`, {
-        method: "POST",
-        body: formData,
-        credentials: "include",
-      });
-
-      if (!response.ok) {
-        const errorData = await response.json().catch(() => ({}));
-        throw new Error(errorData.error || "Failed to upload hero image");
-      }
-
-      toast({
-        title: "Success",
-        description: "Hero image uploaded successfully",
-      });
-      
+      const fd = new FormData();
+      fd.append("heroImage", heroImageFile);
+      const r = await fetch(`/api/kava-bars/${id}/hero-image`, { method: "POST", body: fd, credentials: "include" });
+      if (!r.ok) throw new Error((await r.json().catch(() => ({}))).error || "Upload failed");
+      toast({ title: "Hero image uploaded" });
       setHeroImageFile(null);
       setHeroImagePreview(null);
       queryClient.invalidateQueries({ queryKey: [`/api/kava-bars/${id}`] });
-    } catch (error: any) {
-      toast({
-        variant: "destructive",
-        title: "Upload failed",
-        description: error.message,
-      });
-    } finally {
-      setIsUploadingHeroImage(false);
-    }
+    } catch (e: any) {
+      toast({ variant: "destructive", title: "Upload failed", description: e.message });
+    } finally { setIsUploadingHeroImage(false); }
   };
 
   const removeHeroImage = async () => {
     setIsUploadingHeroImage(true);
     try {
-      const response = await fetch(`/api/kava-bars/${id}/hero-image`, {
-        method: "PUT",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ heroImageUrl: "" }),
-        credentials: "include",
+      const r = await fetch(`/api/kava-bars/${id}/hero-image`, {
+        method: "PUT", headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ heroImageUrl: "" }), credentials: "include",
       });
-
-      if (!response.ok) {
-        throw new Error("Failed to remove hero image");
-      }
-
-      toast({
-        title: "Success",
-        description: "Hero image removed",
-      });
+      if (!r.ok) throw new Error("Failed to remove hero image");
+      toast({ title: "Hero image removed — reverted to default" });
       queryClient.invalidateQueries({ queryKey: [`/api/kava-bars/${id}`] });
-    } catch (error: any) {
-      toast({
-        variant: "destructive",
-        title: "Error",
-        description: error.message,
-      });
-    } finally {
-      setIsUploadingHeroImage(false);
-    }
+    } catch (e: any) {
+      toast({ variant: "destructive", title: "Error", description: e.message });
+    } finally { setIsUploadingHeroImage(false); }
   };
 
-  const verifyKavatenderMutation = useMutation({
-    mutationFn: async () => {
-      const response = await fetch("/api/kavatenders/verify", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ phoneNumber, barId: id }),
-        credentials: "include",
-      });
-
-      if (!response.ok) {
-        const errorData = await response.json().catch(() => ({}));
-        throw new Error(errorData.message || "Failed to verify kavatender");
-      }
-      return response.json();
-    },
-    onSuccess: () => {
-      toast({
-        title: "Success",
-        description: "Kavatender verified successfully!",
-      });
-      queryClient.invalidateQueries({ queryKey: [`/api/kavatenders/${id}`] });
-    },
-    onError: (error) => {
-      toast({
-        variant: "destructive",
-        title: "Error",
-        description: error.message,
-      });
-    },
-  });
-
-  const deleteKavatenderMutation = useMutation({
-    mutationFn: async (userId: string) => {
-      const response = await fetch(`/api/kavatenders/${id}`, {
-        method: "DELETE",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ userId }),
-        credentials: "include",
-      });
-
-      if (!response.ok) {
-        const errorData = await response.json().catch(() => ({}));
-        throw new Error(errorData.message || "Failed to remove kavatender");
-      }
-      return response.json();
-    },
-    onSuccess: () => {
-      toast({
-        title: "Success",
-        description: "Kavatender removed successfully!",
-      });
-      queryClient.invalidateQueries({ queryKey: [`/api/kavatenders/${id}`] });
-    },
-    onError: (error) => {
-      toast({
-        variant: "destructive",
-        title: "Error",
-        description: error.message,
-      });
-    },
-  });
-  const handleDeleteKavatender = (userId: number) => {
-    deleteKavatenderMutation.mutate(userId);
-  };
-  const handleVerifyKavatender = (e: React.FormEvent) => {
-    e.preventDefault();
-    setIsVerifying(true);
-    verifyKavatenderMutation.mutate();
-    setIsVerifying(false);
-  };
-
-  function onSubmit(data: HoursFormValues) {
-    updateHoursMutation.mutate(data);
-  }
-
-  function handleCreateEvent(data: EventFormValues, photo?: File) {
-    createEventMutation.mutate({ data, photo }, {
-      onSuccess: () => {
-        setOpen(false); // Close the dialog on successful creation
-      },
-    });
-  }
-
-  const isLoading =
-    isLoadingBarQuery || isLoadingEvents || isLoadingKavatenders;
-
-  if (isLoading) {
+  // ── Loading / error states ───────────────────────────────────────────────
+  if (isLoadingBar) {
     return (
-      <div className="container mx-auto px-4 py-8">
-        <div className="flex items-center justify-center">
-          <Loader2 className="h-8 w-8 animate-spin" />
+      <div className="min-h-screen bg-[#111112] flex items-center justify-center">
+        <Loader2 className="h-8 w-8 animate-spin text-[#D35400]" />
+      </div>
+    );
+  }
+
+  if (barError || !bar) {
+    return (
+      <div className="min-h-screen bg-[#111112] flex items-center justify-center">
+        <div className="text-center space-y-4">
+          <p className="text-red-400 text-lg">{barError instanceof Error ? barError.message : "Bar not found"}</p>
+          <Button variant="outline" onClick={() => navigate("/owner-dashboard")}>
+            <ArrowLeft className="h-4 w-4 mr-2" /> Back to Dashboard
+          </Button>
         </div>
       </div>
     );
   }
 
-  // Update the error display component
-  if (barError) {
-    return (
-      <div className="container mx-auto px-4 py-8">
-        <Card>
-          <CardHeader>
-            <CardTitle className="text-red-600">
-              Error Loading Bar Details
-            </CardTitle>
-          </CardHeader>
-          <CardContent className="pt-6">
-            <p className="text-center text-muted-foreground mb-4">
-              {barError instanceof Error
-                ? barError.message
-                : "Failed to load bar details"}
-            </p>
-            <div className="flex justify-center">
-              <Button
-                className="mt-4"
-                onClick={() =>
-                  queryClient.invalidateQueries({
-                    queryKey: [`/api/kava-bars/${id}`],
-                  })
-                }
-              >
-                Retry Loading
-              </Button>
-            </div>
-          </CardContent>
-        </Card>
-      </div>
-    );
-  }
+  // ── Status badge ─────────────────────────────────────────────────────────
+  const statusBadge = bar.comingSoon
+    ? { label: "Coming Soon", className: "bg-blue-900/40 text-blue-400 border-blue-800" }
+    : bar.businessStatus === "operational"
+    ? { label: "Active", className: "bg-green-900/40 text-green-400 border-green-800" }
+    : { label: "Inactive", className: "bg-zinc-800 text-zinc-400 border-zinc-700" };
 
-  if (!bar) {
-    return (
-      <div className="container mx-auto px-4 py-8">
-        <Card>
-          <CardContent className="pt-6">
-            <p className="text-center text-red-500">Bar not found</p>
-          </CardContent>
-        </Card>
-      </div>
-    );
-  }
-
+  // ── Render ───────────────────────────────────────────────────────────────
   return (
-    <div className="container mx-auto px-4 py-8">
-      <h1 className="text-3xl font-bold mb-8">Manage {bar.name}</h1>
+    <div className="min-h-screen bg-[#111112] text-white">
+      {/* ── Page Header ── */}
+      <div className="border-b border-[#2a2a2b] bg-[#161617]">
+        <div className="container mx-auto px-4 py-4">
+          <button
+            onClick={() => navigate("/owner-dashboard")}
+            className="flex items-center gap-1.5 text-sm text-gray-400 hover:text-white transition-colors mb-3"
+          >
+            <ArrowLeft className="h-4 w-4" />
+            Back to Dashboard
+          </button>
+          <div className="flex items-center justify-between flex-wrap gap-3">
+            <div>
+              <h1 className="text-2xl font-bold text-white">{bar.name}</h1>
+              <p className="text-sm text-gray-400 mt-0.5">{bar.address}</p>
+            </div>
+            <span className={cn("inline-flex items-center px-2.5 py-1 rounded-full text-xs font-semibold border", statusBadge.className)}>
+              {statusBadge.label}
+            </span>
+          </div>
+        </div>
+      </div>
 
-      <Tabs defaultValue="details" className="space-y-4">
-        <TabsList className="flex space-x-4 overflow-x-auto no-scrollbar flex-nowrap pl-4">
-          {" "}
-          <TabsTrigger value="details">Details</TabsTrigger>
-          <TabsTrigger value="hours">Hours</TabsTrigger>
-          <TabsTrigger value="events">Events</TabsTrigger>
-          <TabsTrigger value="staff">Staff</TabsTrigger>
-        </TabsList>
-
-        <TabsList className="flex space-x-4 overflow-x-auto no-scrollbar flex-nowrap pl-4">
-          <TabsTrigger value="rsvp">RSVP Stats</TabsTrigger>
-          <TabsTrigger value="features">Features</TabsTrigger>
-          <TabsTrigger value="happyHours">Happy Hours</TabsTrigger>
-        </TabsList>
-
-        <TabsContent value="staff">
-          <Card>
-            <CardHeader>
-              <CardTitle>Verify Kavatender</CardTitle>
-            </CardHeader>
-            <CardContent>
-              <form onSubmit={handleVerifyKavatender} className="space-y-4">
-                <div>
-                  <Label htmlFor="phone">Phone Number</Label>
-                  <Input
-                    id="phone"
-                    type="tel"
-                    placeholder="(555) 555-5555"
-                    value={phoneNumber}
-                    onChange={(e) => setPhoneNumber(e.target.value)}
-                  />
-                </div>
-                <Button type="submit" disabled={isVerifying}>
-                  {isVerifying ? (
-                    <>
-                      <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                      Verifying...
-                    </>
-                  ) : (
-                    "Verify Kavatender"
-                  )}
-                </Button>
-              </form>
-            </CardContent>
-            <CardContent>
-              {isLoadingKavatenders ? (
-                <h1>Loading...</h1>
-              ) : (
-                <KavatendersTable
-                  kavaTenders={kavaTenders || []}
-                  onRemove={handleDeleteKavatender}
-                />
-              )}
-            </CardContent>
-          </Card>
-        </TabsContent>
-
-        <TabsContent value="details">
-          <Card>
-            <CardHeader>
-              <CardTitle>Bar Details</CardTitle>
-            </CardHeader>
-            <CardContent>
-              <div className="space-y-6">
-                <div>
-                  <h3 className="font-medium">Address</h3>
-                  <p className="text-muted-foreground">{bar.address}</p>
-                </div>
-                <div>
-                  <h3 className="font-medium">Phone</h3>
-                  <p className="text-muted-foreground">
-                    {bar.phone || "Not provided"}
-                  </p>
-                </div>
-                
-                <Separator />
-                
-                <div className="space-y-4">
-                  <h3 className="font-medium flex items-center gap-2">
-                    <ImageIcon className="h-5 w-5" />
-                    Hero Image
-                  </h3>
-                  <p className="text-sm text-muted-foreground">
-                    Upload a hero image that will be displayed on your bar's card in listings. This helps attract customers to your bar.
-                  </p>
-                  <div className="bg-muted/50 rounded-lg p-3 text-sm">
-                    <p className="font-medium mb-1">Recommended:</p>
-                    <ul className="text-muted-foreground space-y-1">
-                      <li>• Aspect ratio: 16:9 (landscape orientation)</li>
-                      <li>• Minimum size: 1200 x 675 pixels</li>
-                      <li>• Max file size: 10MB</li>
-                      <li>• Best results: High-quality photo of your bar interior or exterior</li>
-                    </ul>
-                  </div>
-                  
-                  {/* Current / Preview image */}
-                  <div className="rounded-lg overflow-hidden border">
-                    <img
-                      src={heroImagePreview || bar.heroImageUrl || "/kava-bar-default-hero.jpg"}
-                      alt={`${bar.name} hero image`}
-                      className="w-full h-48 object-cover"
-                      onError={(e) => {
-                        (e.target as HTMLImageElement).src = "/kava-bar-default-hero.jpg";
-                      }}
-                    />
-                    <div className="px-3 py-1.5 text-xs text-muted-foreground bg-muted/40 flex items-center justify-between">
-                      {heroImagePreview ? (
-                        <span className="text-amber-500 font-medium">Preview — click Upload to save</span>
-                      ) : bar.heroImageUrl ? (
-                        <span>Current hero image</span>
-                      ) : (
-                        <span className="text-muted-foreground italic">Default stock image (no custom hero set)</span>
-                      )}
-                    </div>
-                  </div>
-
-                  <div className="flex flex-col sm:flex-row gap-3">
-                    <input
-                      type="file"
-                      accept="image/*"
-                      onChange={handleHeroImageChange}
-                      className="hidden"
-                      id="hero-image-upload"
-                      disabled={isUploadingHeroImage}
-                    />
-                    <label htmlFor="hero-image-upload" className="flex-1">
-                      <Button variant="outline" className="w-full" asChild disabled={isUploadingHeroImage}>
-                        <span>
-                          <ImageIcon className="mr-2 h-4 w-4" />
-                          {heroImageFile ? heroImageFile.name : "Choose Image"}
-                        </span>
-                      </Button>
-                    </label>
-                    {heroImageFile && (
-                      <Button onClick={uploadHeroImage} disabled={isUploadingHeroImage}>
-                        {isUploadingHeroImage ? (
-                          <><Loader2 className="mr-2 h-4 w-4 animate-spin" />Uploading...</>
-                        ) : "Upload"}
-                      </Button>
-                    )}
-                  </div>
-
-                  {/* Delete hero image — only shown when a custom one is set */}
-                  {bar.heroImageUrl && !heroImagePreview && (
-                    <div className="flex items-start gap-3 rounded-lg border border-red-900/40 bg-red-950/20 p-3">
-                      <div className="flex-1">
-                        <p className="text-sm font-medium text-red-400">Delete Hero Image</p>
-                        <p className="text-xs text-muted-foreground mt-0.5">Removes your custom hero image and reverts to the default stock image.</p>
-                      </div>
-                      <Button
-                        variant="destructive"
-                        size="sm"
-                        onClick={removeHeroImage}
-                        disabled={isUploadingHeroImage}
-                        className="shrink-0"
-                      >
-                        {isUploadingHeroImage ? <Loader2 className="h-4 w-4 animate-spin" /> : "Delete"}
-                      </Button>
-                    </div>
-                  )}
-                </div>
-                
-                <Separator />
-                
-                <ComingSoonForm bar={bar} />
-              </div>
-            </CardContent>
-          </Card>
-        </TabsContent>
-
-        <TabsContent value="hours">
-          <Card>
-            <CardHeader>
-              <CardTitle className="text-center">Hours of Operation</CardTitle>
-            </CardHeader>
-            <CardContent>
-              <Form {...form}>
-                <form
-                  onSubmit={form.handleSubmit(onSubmit)}
-                  className="space-y-6 flex flex-col items-center" // center all content in form vertically and horizontally
+      {/* ── Tabs ── */}
+      <div className="container mx-auto px-4 py-6">
+        <Tabs defaultValue="details">
+          {/* Tab Bar */}
+          <div className="mb-6 overflow-x-auto no-scrollbar">
+            <TabsList className="inline-flex h-auto bg-[#1E1E1F] border border-[#2a2a2b] rounded-xl p-1 gap-0.5 min-w-max">
+              {TABS.map(({ value, label, icon: Icon }) => (
+                <TabsTrigger
+                  key={value}
+                  value={value}
+                  className="flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium text-gray-400
+                    data-[state=active]:bg-[#D35400] data-[state=active]:text-white
+                    hover:text-white transition-all"
                 >
-                  {daysOfWeek.map((day, index) => {
-                    return (
-                      <div key={day}>
-                        <p className="w-full sm:w-24 font-medium text-center sm:text-left">
-                          {day}
-                        </p>
-                        <br />
-                        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-start gap-6 sm:gap-4 flex-wrap">
-                          {/* Open Field */}
-                          {/* Open Field */}
-                          <FormField
-                            control={form.control}
-                            name={`hours.${index}.open`}
-                            render={({ field }) => (
-                              <FormItem className="flex flex-col items-center sm:items-start justify-center gap-1 min-w-[220px]">
-                                <FormLabel className="text-sm font-semibold">
-                                  Open
-                                </FormLabel>
-                                <FormControl>
-                                  <Input
-                                    type="time"
-                                    value={field.value || ""} // expects "HH:MM"
-                                    onChange={(e) =>
-                                      field.onChange(e.target.value)
-                                    }
-                                    className="w-28 text-center"
-                                  />
-                                </FormControl>
-                                <FormMessage />
-                              </FormItem>
-                            )}
-                          />
+                  <Icon className="h-4 w-4" />
+                  <span className="hidden sm:inline">{label}</span>
+                  <span className="sm:hidden">{label.split(" ")[0]}</span>
+                </TabsTrigger>
+              ))}
+            </TabsList>
+          </div>
 
-                          {/* Close Field */}
-                          <FormField
-                            control={form.control}
-                            name={`hours.${index}.close`}
-                            render={({ field }) => (
-                              <FormItem className="flex flex-col items-center sm:items-start justify-center gap-1 min-w-[220px]">
-                                <FormLabel className="text-sm font-semibold">
-                                  Close
-                                </FormLabel>
-                                <FormControl>
-                                  <Input
-                                    type="time"
-                                    value={field.value || ""} // expects "HH:MM"
-                                    onChange={(e) =>
-                                      field.onChange(e.target.value)
-                                    }
-                                    className="w-28 text-center"
-                                  />
-                                </FormControl>
-                                <FormMessage />
-                              </FormItem>
+          {/* ──────────────────────────────────────────────────────────────── */}
+          {/* DETAILS TAB */}
+          {/* ──────────────────────────────────────────────────────────────── */}
+          <TabsContent value="details" className="space-y-5">
+            {/* Info card */}
+            <div className="rounded-xl border border-[#2a2a2b] bg-[#1a1a1b] p-5 space-y-4">
+              <h2 className="text-sm font-semibold text-[#D35400] uppercase tracking-wider flex items-center gap-2">
+                <Edit className="h-4 w-4" /> Bar Info
+              </h2>
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                <div>
+                  <p className="text-xs text-gray-500 mb-1">Address</p>
+                  <p className="text-sm text-gray-200">{bar.address || "—"}</p>
+                </div>
+                <div>
+                  <p className="text-xs text-gray-500 mb-1">Phone</p>
+                  <p className="text-sm text-gray-200">{bar.phone || "Not provided"}</p>
+                </div>
+                {bar.website && (
+                  <div>
+                    <p className="text-xs text-gray-500 mb-1">Website</p>
+                    <a href={bar.website} target="_blank" rel="noopener noreferrer" className="text-sm text-[#D35400] hover:underline">
+                      {bar.website}
+                    </a>
+                  </div>
+                )}
+              </div>
+            </div>
+
+            {/* Hero image card */}
+            <div className="rounded-xl border border-[#2a2a2b] bg-[#1a1a1b] p-5 space-y-4">
+              <h2 className="text-sm font-semibold text-[#D35400] uppercase tracking-wider flex items-center gap-2">
+                <ImageIcon className="h-4 w-4" /> Hero Image
+              </h2>
+              <p className="text-xs text-gray-400">
+                Displayed on your bar's listing card. Recommended: 16:9, min 1200×675px, max 10MB.
+              </p>
+
+              {/* Preview */}
+              <div className="rounded-lg overflow-hidden border border-[#2a2a2b]">
+                <img
+                  src={heroImagePreview || bar.heroImageUrl || "/kava-bar-default-hero.jpg"}
+                  alt={bar.name}
+                  className="w-full h-44 object-cover"
+                  onError={(e) => { (e.target as HTMLImageElement).src = "/kava-bar-default-hero.jpg"; }}
+                />
+                <div className="px-3 py-1.5 bg-[#111112] text-xs text-gray-500 flex items-center justify-between">
+                  {heroImagePreview
+                    ? <span className="text-amber-400 font-medium">Preview — click Upload to save</span>
+                    : bar.heroImageUrl
+                    ? <span>Current hero image</span>
+                    : <span className="italic">Default stock image</span>}
+                </div>
+              </div>
+
+              {/* Upload controls */}
+              <div className="flex gap-3">
+                <input type="file" accept="image/*" onChange={handleHeroImageChange} className="hidden" id="hero-image-upload" disabled={isUploadingHeroImage} />
+                <label htmlFor="hero-image-upload" className="flex-1">
+                  <Button variant="outline" className="w-full border-[#333] bg-[#1E1E1F] hover:bg-[#2a2a2b]" asChild disabled={isUploadingHeroImage}>
+                    <span><ImageIcon className="h-4 w-4 mr-2" />{heroImageFile ? heroImageFile.name : "Choose Image"}</span>
+                  </Button>
+                </label>
+                {heroImageFile && (
+                  <Button onClick={uploadHeroImage} disabled={isUploadingHeroImage} className="bg-[#D35400] hover:bg-[#b84800] text-white">
+                    {isUploadingHeroImage ? <Loader2 className="h-4 w-4 animate-spin" /> : "Upload"}
+                  </Button>
+                )}
+              </div>
+
+              {/* Delete */}
+              {bar.heroImageUrl && !heroImagePreview && (
+                <div className="flex items-center justify-between rounded-lg border border-red-900/40 bg-red-950/20 px-4 py-3">
+                  <div>
+                    <p className="text-sm font-medium text-red-400">Delete Hero Image</p>
+                    <p className="text-xs text-gray-500 mt-0.5">Reverts to the default stock image.</p>
+                  </div>
+                  <Button variant="destructive" size="sm" onClick={removeHeroImage} disabled={isUploadingHeroImage}>
+                    {isUploadingHeroImage ? <Loader2 className="h-4 w-4 animate-spin" /> : "Delete"}
+                  </Button>
+                </div>
+              )}
+            </div>
+
+            {/* Coming Soon */}
+            <div className="rounded-xl border border-[#2a2a2b] bg-[#1a1a1b] p-5">
+              <h2 className="text-sm font-semibold text-[#D35400] uppercase tracking-wider mb-4">Coming Soon Settings</h2>
+              <ComingSoonForm bar={bar} />
+            </div>
+          </TabsContent>
+
+          {/* ──────────────────────────────────────────────────────────────── */}
+          {/* HOURS TAB */}
+          {/* ──────────────────────────────────────────────────────────────── */}
+          <TabsContent value="hours">
+            <div className="rounded-xl border border-[#2a2a2b] bg-[#1a1a1b] p-5">
+              <h2 className="text-sm font-semibold text-[#D35400] uppercase tracking-wider flex items-center gap-2 mb-5">
+                <Clock className="h-4 w-4" /> Hours of Operation
+              </h2>
+              <Form {...form}>
+                <form onSubmit={form.handleSubmit((data) => updateHoursMutation.mutate(data))} className="space-y-3">
+                  {/* Column headers */}
+                  <div className="hidden sm:grid grid-cols-[140px_1fr_1fr] gap-4 text-xs text-gray-500 uppercase tracking-wider px-1 mb-1">
+                    <span>Day</span><span>Opens</span><span>Closes</span>
+                  </div>
+
+                  {daysOfWeek.map((day, index) => {
+                    const open = form.watch(`hours.${index}.open`);
+                    const close = form.watch(`hours.${index}.close`);
+                    const isClosed = !open && !close;
+
+                    return (
+                      <div key={day} className={cn(
+                        "grid grid-cols-1 sm:grid-cols-[140px_1fr_1fr] gap-3 items-center rounded-lg px-4 py-3 border transition-colors",
+                        isClosed
+                          ? "border-[#2a2a2b] bg-[#161617] opacity-60"
+                          : "border-[#333] bg-[#1E1E1F]"
+                      )}>
+                        {/* Day + closed toggle */}
+                        <div className="flex items-center justify-between sm:justify-start gap-3">
+                          <span className="text-sm font-medium text-white">{day}</span>
+                          <button
+                            type="button"
+                            onClick={() => {
+                              if (isClosed) {
+                                form.setValue(`hours.${index}.open`, "09:00");
+                                form.setValue(`hours.${index}.close`, "22:00");
+                              } else {
+                                form.setValue(`hours.${index}.open`, "");
+                                form.setValue(`hours.${index}.close`, "");
+                              }
+                            }}
+                            className={cn("text-xs px-2 py-0.5 rounded-full border transition-colors", isClosed
+                              ? "border-gray-600 text-gray-500 hover:border-[#D35400] hover:text-[#D35400]"
+                              : "border-green-700 text-green-400 hover:border-red-700 hover:text-red-400"
                             )}
-                          />
+                          >
+                            {isClosed ? "Closed" : "Open"}
+                          </button>
                         </div>
 
-                        {index < daysOfWeek.length - 1 && (
-                          <Separator className="my-4" />
-                        )}
+                        {/* Open time */}
+                        <FormField control={form.control} name={`hours.${index}.open`} render={({ field }) => (
+                          <FormItem className="space-y-1">
+                            <FormLabel className="text-xs text-gray-500 sm:hidden">Opens</FormLabel>
+                            <FormControl>
+                              <Input
+                                type="time"
+                                {...field}
+                                disabled={isClosed}
+                                className="bg-[#111112] border-[#333] text-white disabled:opacity-30 h-9"
+                              />
+                            </FormControl>
+                            <FormMessage className="text-xs" />
+                          </FormItem>
+                        )} />
+
+                        {/* Close time */}
+                        <FormField control={form.control} name={`hours.${index}.close`} render={({ field }) => (
+                          <FormItem className="space-y-1">
+                            <FormLabel className="text-xs text-gray-500 sm:hidden">Closes</FormLabel>
+                            <FormControl>
+                              <Input
+                                type="time"
+                                {...field}
+                                disabled={isClosed}
+                                className="bg-[#111112] border-[#333] text-white disabled:opacity-30 h-9"
+                              />
+                            </FormControl>
+                            <FormMessage className="text-xs" />
+                          </FormItem>
+                        )} />
                       </div>
                     );
                   })}
-                  <Button
-                    type="submit"
-                    disabled={updateHoursMutation.isPending}
-                    className="w-full"
-                  >
-                    {updateHoursMutation.isPending ? (
-                      <>
-                        <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                        Updating Hours...
-                      </>
-                    ) : (
-                      "Update Hours"
-                    )}
-                  </Button>
+
+                  <div className="pt-2">
+                    <Button type="submit" disabled={updateHoursMutation.isPending} className="w-full bg-[#D35400] hover:bg-[#b84800] text-white">
+                      {updateHoursMutation.isPending ? <><Loader2 className="h-4 w-4 mr-2 animate-spin" />Saving...</> : "Save Hours"}
+                    </Button>
+                  </div>
                 </form>
               </Form>
-            </CardContent>
-          </Card>
-        </TabsContent>
+            </div>
+          </TabsContent>
 
-        <TabsContent value="events">
-          <Card>
-            <CardHeader className="flex flex-row items-center justify-between">
-              <CardTitle>Event Schedule</CardTitle>
-              <Dialog open={open} onOpenChange={setOpen}>
-                <DialogTrigger asChild>
-                  <Button onClick={() => setOpen(true)}>
-                    <Plus className="h-4 w-4 mr-2" />
-                    Add Event
-                  </Button>
-                </DialogTrigger>
-                <DialogContent>
-                  <DialogHeader>
-                    <DialogTitle>Add New Event</DialogTitle>
-                  </DialogHeader>
-                  {open && (
-                    <EventForm
-                      key="create-event-form"
-                      onSubmit={handleCreateEvent}
-                      isSubmitting={createEventMutation.isPending}
-                    />
-                  )}
-                </DialogContent>
-              </Dialog>
-            </CardHeader>
-            <CardContent>
+          {/* ──────────────────────────────────────────────────────────────── */}
+          {/* EVENTS TAB */}
+          {/* ──────────────────────────────────────────────────────────────── */}
+          <TabsContent value="events">
+            <div className="rounded-xl border border-[#2a2a2b] bg-[#1a1a1b] p-5">
+              <div className="flex items-center justify-between mb-5">
+                <h2 className="text-sm font-semibold text-[#D35400] uppercase tracking-wider flex items-center gap-2">
+                  <CalendarDays className="h-4 w-4" /> Events
+                </h2>
+                <Dialog open={addEventOpen} onOpenChange={setAddEventOpen}>
+                  <DialogTrigger asChild>
+                    <Button className="bg-[#D35400] hover:bg-[#b84800] text-white h-8 text-xs px-3">
+                      <Plus className="h-3.5 w-3.5 mr-1.5" /> Add Event
+                    </Button>
+                  </DialogTrigger>
+                  <DialogContent className="bg-[#1a1a1b] border-[#2a2a2b]">
+                    <DialogHeader><DialogTitle className="text-white">Add New Event</DialogTitle></DialogHeader>
+                    {addEventOpen && (
+                      <EventForm
+                        key="create-event-form"
+                        onSubmit={(data, photo) => createEventMutation.mutate({ data, photo })}
+                        isSubmitting={createEventMutation.isPending}
+                      />
+                    )}
+                  </DialogContent>
+                </Dialog>
+              </div>
+
               {isLoadingEvents ? (
-                <div className="flex justify-center p-4">
-                  <Loader2 className="h-6 w-6 animate-spin" />
-                </div>
+                <div className="flex justify-center py-8"><Loader2 className="h-6 w-6 animate-spin text-[#D35400]" /></div>
               ) : events.length === 0 ? (
-                <p className="text-muted-foreground text-center py-4">
-                  No events scheduled yet
-                </p>
+                <div className="text-center py-10 text-gray-500">
+                  <CalendarDays className="h-10 w-10 mx-auto mb-3 opacity-30" />
+                  <p>No events yet. Add your first event above.</p>
+                </div>
               ) : (
-                <div className="space-y-4">
+                <div className="space-y-2">
                   {events.map((event: any) => (
-                    <Card key={event.id}>
-                      <CardContent className="pt-6">
-                        <div className="flex justify-between items-start">
-                          <div>
-                            <h3 className="font-medium">{event.title}</h3>
-                            {event.description && (
-                              <p className="text-sm text-muted-foreground mt-1">
-                                {event.description}
-                              </p>
-                            )}
-                            <p className="text-sm mt-2">
-                              {daysOfWeek[event.dayOfWeek]},{" "}
-                              {event.startTime.slice(0, 5)} -{" "}
-                              {event.endTime.slice(0, 5)}
-                            </p>
-                          </div>
-                          <div className="flex gap-2">
-                            <Button
-                              variant="ghost"
-                              size="icon"
-                              onClick={() => handleEdit(event)}
-                            >
-                              <Edit className="h-4 w-4" />
-                            </Button>
-                            <Button
-                              variant="ghost"
-                              size="icon"
-                              onClick={() =>
-                                deleteEventMutation.mutate(event.id)
-                              }
-                              disabled={deleteEventMutation.isPending}
-                            >
-                              <Trash2 className="h-4 w-4" />
-                            </Button>
-                          </div>
+                    <div key={event.id} className="flex items-center justify-between rounded-lg border border-[#2a2a2b] bg-[#111112] px-4 py-3 hover:border-[#333] transition-colors">
+                      <div className="flex items-center gap-3">
+                        <div className="w-8 h-8 rounded-lg bg-[#D35400]/10 border border-[#D35400]/20 flex items-center justify-center flex-shrink-0">
+                          <CalendarDays className="h-4 w-4 text-[#D35400]" />
                         </div>
-                      </CardContent>
-                    </Card>
+                        <div>
+                          <p className="text-sm font-medium text-white">{event.title}</p>
+                          <p className="text-xs text-gray-500 mt-0.5">
+                            {daysOfWeek[event.dayOfWeek]} · {event.startTime?.slice(0, 5)} – {event.endTime?.slice(0, 5)}
+                          </p>
+                          {event.description && <p className="text-xs text-gray-400 mt-0.5 line-clamp-1">{event.description}</p>}
+                        </div>
+                      </div>
+                      <div className="flex items-center gap-1 flex-shrink-0">
+                        <Button variant="ghost" size="icon" className="h-8 w-8 text-gray-400 hover:text-white" onClick={() => { setSelectedEvent(event); setIsModalOpen(true); }}>
+                          <Edit className="h-3.5 w-3.5" />
+                        </Button>
+                        <Button variant="ghost" size="icon" className="h-8 w-8 text-gray-400 hover:text-red-400" onClick={() => deleteEventMutation.mutate(event.id)} disabled={deleteEventMutation.isPending}>
+                          <Trash2 className="h-3.5 w-3.5" />
+                        </Button>
+                      </div>
+                    </div>
                   ))}
-
-                  {/* Edit Event Modal */}
-                  <Dialog open={isModalOpen} onOpenChange={setIsModalOpen}>
-                    <DialogContent>
-                      <DialogHeader>
-                        <DialogTitle>Edit Event</DialogTitle>
-                      </DialogHeader>
-                      {selectedEvent && (
-                        <EventForm
-                          onSubmit={(data, photo) => {
-                            console.log("Event update data ", data);
-                            updateEventMutation.mutate({
-                              eventId: selectedEvent.id,
-                              data,
-                              photo,
-                            });
-                            handleCloseModal();
-                          }}
-                          defaultValues={selectedEvent}
-                          existingPhotoUrl={selectedEvent.photoUrl}
-                          isSubmitting={updateEventMutation.isPending}
-                        />
-                      )}
-                    </DialogContent>
-                  </Dialog>
                 </div>
               )}
-            </CardContent>
-          </Card>
-        </TabsContent>
-        <TabsContent value="rsvp">
-          <EventRsvpTab barId={Number(id)} />
-        </TabsContent>
+            </div>
 
-        <TabsContent value="features">
-          <Features barId={Number(id)} />
-        </TabsContent>
-        <TabsContent value="happyHours">
-          <HappyHours barId={Number(id)} />
-        </TabsContent>
-      </Tabs>
+            {/* Edit event modal */}
+            <Dialog open={isModalOpen} onOpenChange={(o) => { setIsModalOpen(o); if (!o) setSelectedEvent(null); }}>
+              <DialogContent className="bg-[#1a1a1b] border-[#2a2a2b]">
+                <DialogHeader><DialogTitle className="text-white">Edit Event</DialogTitle></DialogHeader>
+                {selectedEvent && (
+                  <EventForm
+                    onSubmit={(data, photo) => updateEventMutation.mutate({ eventId: selectedEvent.id, data, photo })}
+                    defaultValues={selectedEvent}
+                    existingPhotoUrl={selectedEvent.photoUrl}
+                    isSubmitting={updateEventMutation.isPending}
+                  />
+                )}
+              </DialogContent>
+            </Dialog>
+          </TabsContent>
+
+          {/* ──────────────────────────────────────────────────────────────── */}
+          {/* STAFF TAB */}
+          {/* ──────────────────────────────────────────────────────────────── */}
+          <TabsContent value="staff" className="space-y-5">
+            {/* Add kavatender */}
+            <div className="rounded-xl border border-[#2a2a2b] bg-[#1a1a1b] p-5">
+              <h2 className="text-sm font-semibold text-[#D35400] uppercase tracking-wider flex items-center gap-2 mb-4">
+                <Shield className="h-4 w-4" /> Add Kavatender
+              </h2>
+              <p className="text-xs text-gray-400 mb-4">Enter the phone number of a registered user to add them as a kavatender for this bar.</p>
+              <form onSubmit={(e) => { e.preventDefault(); setIsVerifying(true); verifyKavatenderMutation.mutate(); setIsVerifying(false); }} className="flex gap-3">
+                <Input
+                  placeholder="Phone number"
+                  value={phoneNumber}
+                  onChange={(e) => setPhoneNumber(e.target.value)}
+                  className="bg-[#111112] border-[#333] text-white placeholder:text-gray-600 flex-1"
+                />
+                <Button type="submit" disabled={verifyKavatenderMutation.isPending || !phoneNumber} className="bg-[#D35400] hover:bg-[#b84800] text-white">
+                  {verifyKavatenderMutation.isPending ? <Loader2 className="h-4 w-4 animate-spin" /> : "Add"}
+                </Button>
+              </form>
+            </div>
+
+            {/* Kavatenders list */}
+            <div className="rounded-xl border border-[#2a2a2b] bg-[#1a1a1b] p-5">
+              <h2 className="text-sm font-semibold text-[#D35400] uppercase tracking-wider flex items-center gap-2 mb-4">
+                <Users className="h-4 w-4" /> Current Staff ({kavaTenders.length})
+              </h2>
+              {isLoadingKavatenders ? (
+                <div className="flex justify-center py-6"><Loader2 className="h-5 w-5 animate-spin text-[#D35400]" /></div>
+              ) : kavaTenders.length === 0 ? (
+                <div className="text-center py-8 text-gray-500">
+                  <Users className="h-8 w-8 mx-auto mb-2 opacity-30" />
+                  <p className="text-sm">No kavatenders added yet.</p>
+                </div>
+              ) : (
+                <div className="space-y-2">
+                  {kavaTenders.map((kt: any) => (
+                    <div key={kt.id} className="flex items-center justify-between rounded-lg border border-[#2a2a2b] bg-[#111112] px-4 py-3">
+                      <div className="flex items-center gap-3">
+                        <div className="w-8 h-8 rounded-full bg-[#D35400]/10 border border-[#D35400]/20 flex items-center justify-center text-[#D35400] text-xs font-bold">
+                          {(kt.username || kt.firstName || "K")[0].toUpperCase()}
+                        </div>
+                        <div>
+                          <p className="text-sm font-medium text-white">{kt.username || `${kt.firstName} ${kt.lastName}`}</p>
+                          <p className="text-xs text-gray-500">{kt.phoneNumber || kt.email || "—"}</p>
+                        </div>
+                      </div>
+                      <Button variant="ghost" size="sm" className="text-gray-400 hover:text-red-400 text-xs" onClick={() => deleteKavatenderMutation.mutate(String(kt.id))} disabled={deleteKavatenderMutation.isPending}>
+                        Remove
+                      </Button>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+          </TabsContent>
+
+          {/* ──────────────────────────────────────────────────────────────── */}
+          {/* RSVP STATS TAB */}
+          {/* ──────────────────────────────────────────────────────────────── */}
+          <TabsContent value="rsvp">
+            <div className="rounded-xl border border-[#2a2a2b] bg-[#1a1a1b] p-5">
+              <h2 className="text-sm font-semibold text-[#D35400] uppercase tracking-wider flex items-center gap-2 mb-5">
+                <BarChart2 className="h-4 w-4" /> RSVP Stats
+              </h2>
+              <EventRsvpTab barId={Number(id)} />
+            </div>
+          </TabsContent>
+
+          {/* ──────────────────────────────────────────────────────────────── */}
+          {/* FEATURES TAB */}
+          {/* ──────────────────────────────────────────────────────────────── */}
+          <TabsContent value="features">
+            <div className="rounded-xl border border-[#2a2a2b] bg-[#1a1a1b] p-5">
+              <h2 className="text-sm font-semibold text-[#D35400] uppercase tracking-wider flex items-center gap-2 mb-5">
+                <Star className="h-4 w-4" /> Bar Features & Amenities
+              </h2>
+              <Features barId={Number(id)} />
+            </div>
+          </TabsContent>
+
+          {/* ──────────────────────────────────────────────────────────────── */}
+          {/* HAPPY HOURS TAB */}
+          {/* ──────────────────────────────────────────────────────────────── */}
+          <TabsContent value="happyHours">
+            <div className="rounded-xl border border-[#2a2a2b] bg-[#1a1a1b] p-5">
+              <h2 className="text-sm font-semibold text-[#D35400] uppercase tracking-wider flex items-center gap-2 mb-5">
+                <Sun className="h-4 w-4" /> Happy Hours
+              </h2>
+              <HappyHours barId={Number(id)} />
+            </div>
+          </TabsContent>
+        </Tabs>
+      </div>
     </div>
   );
 }
