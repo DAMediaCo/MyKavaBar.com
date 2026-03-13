@@ -28,6 +28,7 @@ import { HappyHours } from "@/components/owner/happy-hours";
 import ComingSoonForm from "@/components/owner/coming-soon-form";
 import { useUser } from "@/hooks/use-user";
 import { cn } from "@/lib/utils";
+import { ScheduleBuilder, type ScheduleRow, to12 } from "@/components/owner/schedule-builder";
 
 const daysOfWeek = [
   "Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday",
@@ -66,6 +67,10 @@ export default function ManageBar() {
   const queryClient = useQueryClient();
   const { user } = useUser();
 
+  // ── Schedule builder state ───────────────────────────────────────────────
+  const [scheduleRows, setScheduleRows] = useState<ScheduleRow[]>([]);
+  const [isSavingHours, setIsSavingHours] = useState(false);
+
   // ── Local state ──────────────────────────────────────────────────────────
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [selectedEvent, setSelectedEvent] = useState<(EventFormValues & { id: number; photoUrl?: string | null }) | null>(null);
@@ -98,11 +103,11 @@ export default function ManageBar() {
       }
       const data = await response.json();
 
-      // Parse hours into form values
+      // Parse hours into schedule builder rows
       if (data?.hours) {
-        const to24 = (time: string): string => {
+        const parse24 = (time: string): string => {
           const match = time.match(/(\d{1,2}):?(\d{2})?\s*(AM|PM)?/i);
-          if (!match) return "";
+          if (!match) return "10:00";
           let [, h, m = "00", period] = match;
           let hour = parseInt(h, 10);
           const min = parseInt(m, 10);
@@ -113,19 +118,28 @@ export default function ManageBar() {
           }
           return `${String(hour).padStart(2, "0")}:${String(min).padStart(2, "0")}`;
         };
-
-        const converted = data.hours.map((entry: string) => {
+        const DAYS_LIST = ["Sunday","Monday","Tuesday","Wednesday","Thursday","Friday","Saturday"];
+        const rangeMap: Record<string, boolean[]> = {};
+        data.hours.forEach((entry: string) => {
           const [day, timeRange] = entry.split(": ");
-          if (!timeRange || timeRange.toLowerCase() === "closed")
-            return { day, open: "", close: "" };
-          const clean = timeRange.replace(/\s*[\u2013\u2014–-]\s*/g, " - ").trim();
-          const [o, c] = clean.split(" - ").map((t: string) => t.trim());
-          return { day, open: to24(o), close: to24(c) };
-        }).filter(Boolean);
-
-        form.reset({ hours: converted });
+          if (!timeRange) return;
+          const dayIdx = DAYS_LIST.indexOf(day);
+          if (dayIdx === -1) return;
+          const clean = timeRange.replace(/\s*[\u2013\u2014\u2013\u2014–-]\s*/g, " - ").trim();
+          if (clean.toLowerCase() === "closed") return;
+          if (!rangeMap[clean]) rangeMap[clean] = Array(7).fill(false);
+          rangeMap[clean][dayIdx] = true;
+        });
+        const built = Object.entries(rangeMap).map(([range, days]) => {
+          const parts = range.split(" - ").map((t: string) => t.trim());
+          return { open: parse24(parts[0] || ""), close: parse24(parts[1] || ""), days };
+        });
+        setScheduleRows(built.length > 0 ? built : [{ open: "10:00", close: "22:00", days: Array(7).fill(false) }]);
+      } else {
+        setScheduleRows([{ open: "10:00", close: "22:00", days: Array(7).fill(false) }]);
       }
       return data;
+
     },
     retry: 1,
   });
@@ -482,94 +496,51 @@ export default function ManageBar() {
           {/* HOURS TAB */}
           {/* ──────────────────────────────────────────────────────────────── */}
           <TabsContent value="hours">
-            <div className="rounded-xl border border-[#2a2a2b] bg-[#1a1a1b] p-5">
-              <h2 className="text-sm font-semibold text-[#D35400] uppercase tracking-wider flex items-center gap-2 mb-5">
-                <Clock className="h-4 w-4" /> Hours of Operation
-              </h2>
-              <Form {...form}>
-                <form onSubmit={form.handleSubmit((data) => updateHoursMutation.mutate(data))} className="space-y-3">
-                  {/* Column headers */}
-                  <div className="hidden sm:grid grid-cols-[140px_1fr_1fr] gap-4 text-xs text-gray-500 uppercase tracking-wider px-1 mb-1">
-                    <span>Day</span><span>Opens</span><span>Closes</span>
-                  </div>
-
-                  {daysOfWeek.map((day, index) => {
-                    const open = form.watch(`hours.${index}.open`);
-                    const close = form.watch(`hours.${index}.close`);
-                    const isClosed = !open && !close;
-
-                    return (
-                      <div key={day} className={cn(
-                        "grid grid-cols-1 sm:grid-cols-[140px_1fr_1fr] gap-3 items-center rounded-lg px-4 py-3 border transition-colors",
-                        isClosed
-                          ? "border-[#2a2a2b] bg-[#161617] opacity-60"
-                          : "border-[#333] bg-[#1E1E1F]"
-                      )}>
-                        {/* Day + closed toggle */}
-                        <div className="flex items-center justify-between sm:justify-start gap-3">
-                          <span className="text-sm font-medium text-white">{day}</span>
-                          <button
-                            type="button"
-                            onClick={() => {
-                              if (isClosed) {
-                                form.setValue(`hours.${index}.open`, "09:00");
-                                form.setValue(`hours.${index}.close`, "22:00");
-                              } else {
-                                form.setValue(`hours.${index}.open`, "");
-                                form.setValue(`hours.${index}.close`, "");
-                              }
-                            }}
-                            className={cn("text-xs px-2 py-0.5 rounded-full border transition-colors", isClosed
-                              ? "border-gray-600 text-gray-500 hover:border-[#D35400] hover:text-[#D35400]"
-                              : "border-green-700 text-green-400 hover:border-red-700 hover:text-red-400"
-                            )}
-                          >
-                            {isClosed ? "Closed" : "Open"}
-                          </button>
-                        </div>
-
-                        {/* Open time */}
-                        <FormField control={form.control} name={`hours.${index}.open`} render={({ field }) => (
-                          <FormItem className="space-y-1">
-                            <FormLabel className="text-xs text-gray-500 sm:hidden">Opens</FormLabel>
-                            <FormControl>
-                              <Input
-                                type="time"
-                                {...field}
-                                disabled={isClosed}
-                                className="bg-[#111112] border-[#333] text-white disabled:opacity-30 h-9"
-                              />
-                            </FormControl>
-                            <FormMessage className="text-xs" />
-                          </FormItem>
-                        )} />
-
-                        {/* Close time */}
-                        <FormField control={form.control} name={`hours.${index}.close`} render={({ field }) => (
-                          <FormItem className="space-y-1">
-                            <FormLabel className="text-xs text-gray-500 sm:hidden">Closes</FormLabel>
-                            <FormControl>
-                              <Input
-                                type="time"
-                                {...field}
-                                disabled={isClosed}
-                                className="bg-[#111112] border-[#333] text-white disabled:opacity-30 h-9"
-                              />
-                            </FormControl>
-                            <FormMessage className="text-xs" />
-                          </FormItem>
-                        )} />
-                      </div>
-                    );
-                  })}
-
-                  <div className="pt-2">
-                    <Button type="submit" disabled={updateHoursMutation.isPending} className="w-full bg-[#D35400] hover:bg-[#b84800] text-white">
-                      {updateHoursMutation.isPending ? <><Loader2 className="h-4 w-4 mr-2 animate-spin" />Saving...</> : "Save Hours"}
-                    </Button>
-                  </div>
-                </form>
-              </Form>
+            <div className="rounded-xl border border-[#2a2a2b] bg-[#1a1a1b] p-5 space-y-5">
+              <div>
+                <h2 className="text-sm font-semibold text-[#D35400] uppercase tracking-wider flex items-center gap-2">
+                  <Clock className="h-4 w-4" /> Hours of Operation
+                </h2>
+                <p className="text-xs text-gray-500 mt-1">
+                  Set a time range, then check which days it applies to. Add another row for days with different hours.
+                </p>
+              </div>
+              <ScheduleBuilder rows={scheduleRows} onChange={setScheduleRows} />
+              <Button
+                onClick={async () => {
+                  setIsSavingHours(true);
+                  try {
+                    const DAYS_LIST = ["Sunday","Monday","Tuesday","Wednesday","Thursday","Friday","Saturday"];
+                    const fmt12 = (t: string) => {
+                      const { h, m, period } = to12(t);
+                      return `${h}:${m} ${period}`;
+                    };
+                    const hoursArray: string[] = [];
+                    DAYS_LIST.forEach((day, di) => {
+                      const row = scheduleRows.find(r => r.days[di]);
+                      if (row) hoursArray.push(`${day}: ${fmt12(row.open)} - ${fmt12(row.close)}`);
+                      else hoursArray.push(`${day}: Closed`);
+                    });
+                    const r = await fetch(`/api/kava-bars/${id}/hours`, {
+                      method: "PUT",
+                      headers: { "Content-Type": "application/json" },
+                      body: JSON.stringify({ hours: hoursArray }),
+                      credentials: "include",
+                    });
+                    if (!r.ok) throw new Error("Failed to save hours");
+                    toast({ title: "Hours saved" });
+                    queryClient.invalidateQueries({ queryKey: [`/api/kava-bars/${id}`] });
+                  } catch (e: any) {
+                    toast({ variant: "destructive", title: "Error", description: e.message });
+                  } finally {
+                    setIsSavingHours(false);
+                  }
+                }}
+                disabled={isSavingHours}
+                className="w-full bg-[#D35400] hover:bg-[#b84800] text-white"
+              >
+                {isSavingHours ? <><Loader2 className="h-4 w-4 mr-2 animate-spin" />Saving...</> : "Save Hours"}
+              </Button>
             </div>
           </TabsContent>
 
