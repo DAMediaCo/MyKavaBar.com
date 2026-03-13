@@ -663,17 +663,20 @@ export default function ManageBar() {
               ) : (
                 <div className="space-y-2">
                   {kavaTenders.map((kt: any) => (
-                    <div key={kt.id} className="flex items-center justify-between rounded-lg border border-[#2a2a2b] bg-[#111112] px-4 py-3">
+                    <div key={kt.userId} className="flex items-center justify-between rounded-lg border border-[#2a2a2b] bg-[#111112] px-4 py-3">
                       <div className="flex items-center gap-3">
                         <div className="w-8 h-8 rounded-full bg-[#D35400]/10 border border-[#D35400]/20 flex items-center justify-center text-[#D35400] text-xs font-bold">
-                          {(kt.username || kt.firstName || "K")[0].toUpperCase()}
+                          {(kt.name || "K")[0].toUpperCase()}
                         </div>
                         <div>
-                          <p className="text-sm font-medium text-white">{kt.username || `${kt.firstName} ${kt.lastName}`}</p>
-                          <p className="text-xs text-gray-500">{kt.phoneNumber || kt.email || "—"}</p>
+                          <p className="text-sm font-medium text-white">{kt.name || "Unknown"}</p>
+                          <div className="flex items-center gap-2 mt-0.5">
+                            {kt.phoneNumber && <p className="text-xs text-gray-500">{kt.phoneNumber}</p>}
+                            {kt.position && <span className="text-xs text-[#D35400] border border-[#D35400]/30 rounded-full px-1.5 py-0.5">{kt.position}</span>}
+                          </div>
                         </div>
                       </div>
-                      <Button variant="ghost" size="sm" className="text-gray-400 hover:text-red-400 text-xs" onClick={() => deleteKavatenderMutation.mutate(String(kt.id))} disabled={deleteKavatenderMutation.isPending}>
+                      <Button variant="ghost" size="sm" className="text-gray-400 hover:text-red-400 text-xs" onClick={() => deleteKavatenderMutation.mutate(String(kt.userId))} disabled={deleteKavatenderMutation.isPending}>
                         Remove
                       </Button>
                     </div>
