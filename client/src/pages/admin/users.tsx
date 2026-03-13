@@ -61,6 +61,8 @@ export default function AdminUsersPage() {
   const [banUser, setBanUser] = useState<any | null>(null);
   const [banReason, setBanReason] = useState("");
   const [isBanning, setIsBanning] = useState(false);
+  const [unbanUser, setUnbanUser] = useState<any | null>(null);
+  const [isUnbanning, setIsUnbanning] = useState(false);
 
   async function handleBan() {
     if (!banUser || !banReason.trim()) return;
@@ -84,6 +86,28 @@ export default function AdminUsersPage() {
       toast({ title: "Ban Failed", description: err.message, variant: "destructive" });
     } finally {
       setIsBanning(false);
+    }
+  }
+
+  async function handleUnban() {
+    if (!unbanUser) return;
+    setIsUnbanning(true);
+    try {
+      const resp = await fetch(`/api/admin/users/${unbanUser.id}/unban`, {
+        method: "POST",
+        credentials: "include",
+      });
+      if (!resp.ok) {
+        const data = await resp.json().catch(() => null);
+        throw new Error(data?.error || "Failed to unban user");
+      }
+      queryClient.invalidateQueries({ queryKey: ["/api/admin/users"] });
+      toast({ title: "User Unbanned", description: `${unbanUser.username} has been restored to active status.` });
+      setUnbanUser(null);
+    } catch (err: any) {
+      toast({ title: "Unban Failed", description: err.message, variant: "destructive" });
+    } finally {
+      setIsUnbanning(false);
     }
   }
 
@@ -341,9 +365,16 @@ export default function AdminUsersPage() {
               <TableCell>{user.role}</TableCell>
               <TableCell>
                 {user.status === "banned" ? (
-                  <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-semibold bg-red-900/40 text-red-400 border border-red-800">
-                    <Ban className="h-3 w-3" /> Banned
-                  </span>
+                  <div className="space-y-1">
+                    <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-semibold bg-red-900/40 text-red-400 border border-red-800">
+                      <Ban className="h-3 w-3" /> Banned
+                    </span>
+                    {user.banReason && (
+                      <p className="text-xs text-gray-400 max-w-[180px] truncate" title={user.banReason}>
+                        Reason: {user.banReason}
+                      </p>
+                    )}
+                  </div>
                 ) : (
                   <span className="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-semibold bg-green-900/40 text-green-400 border border-green-800">
                     Active
@@ -356,7 +387,7 @@ export default function AdminUsersPage() {
                   <Button variant="ghost" size="sm" onClick={() => setEditUser(user)} title="Edit user">
                     <Edit className="h-4 w-4" />
                   </Button>
-                  {user.status !== "banned" && (
+                  {user.status !== "banned" ? (
                     <Button
                       variant="ghost"
                       size="sm"
@@ -365,6 +396,16 @@ export default function AdminUsersPage() {
                       title="Ban user"
                     >
                       <Ban className="h-4 w-4" />
+                    </Button>
+                  ) : (
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      onClick={() => setUnbanUser(user)}
+                      className="text-green-500 hover:text-green-400 hover:bg-green-900/20"
+                      title="Unban user"
+                    >
+                      ✓ Unban
                     </Button>
                   )}
                 </div>
@@ -380,6 +421,27 @@ export default function AdminUsersPage() {
           ))}
         </TableBody>
       </Table>
+
+      {/* Unban Confirmation Dialog */}
+      <Dialog open={!!unbanUser} onOpenChange={(open) => { if (!open) setUnbanUser(null); }}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle className="text-green-500">Unban User</DialogTitle>
+            <DialogDescription>
+              Restore <strong>{unbanUser?.username}</strong> to active status and remove their phone number{unbanUser?.phoneNumber ? ` (${unbanUser.phoneNumber})` : ""} from the blacklist.
+              {unbanUser?.banReason && (
+                <span className="block mt-2 text-yellow-400 text-sm">⚠️ They were banned for: <em>{unbanUser.banReason}</em></span>
+              )}
+            </DialogDescription>
+          </DialogHeader>
+          <DialogFooter className="gap-2">
+            <Button variant="outline" onClick={() => setUnbanUser(null)}>Cancel</Button>
+            <Button onClick={handleUnban} disabled={isUnbanning} className="bg-green-700 hover:bg-green-600 text-white">
+              {isUnbanning ? "Unbanning..." : "Confirm Unban"}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
 
       {/* Ban Confirmation Dialog */}
       <Dialog open={!!banUser} onOpenChange={(open) => { if (!open) { setBanUser(null); setBanReason(""); } }}>

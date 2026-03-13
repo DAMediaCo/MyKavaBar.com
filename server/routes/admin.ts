@@ -7,7 +7,7 @@ import {
   userActivityLogs,
   kavaBars,
 } from "@db/schema";
-import { and, eq, ne, or } from "drizzle-orm";
+import { and, eq, ne, or, inArray } from "drizzle-orm";
 import { requireAdmin } from "../middleware/admin";
 import { crypto } from "../utils/crypto";
 import { fetchKavaBarsByCoordinates } from "../scripts/fetch-by-coordinates";
@@ -68,19 +68,33 @@ router.get("/users", requireAdmin, async (req, res) => {
       },
     });
 
-    // Set appropriate headers for CORS and caching
-    res.set({
-      "Cache-Control": "no-store",
-      Pragma: "no-cache",
-    });
+    // Fetch ban reasons for banned users
+    const bannedPhones = usersList
+      .filter(u => u.status === "banned" && u.phoneNumber)
+      .map(u => u.phoneNumber!);
 
-    res.json(usersList);
+    let banReasonMap: Record<string, { reason: string | null; bannedAt: Date }> = {};
+    if (bannedPhones.length > 0) {
+      const bans = await db
+        .select({ phoneNumber: bannedPhoneNumbers.phoneNumber, reason: bannedPhoneNumbers.reason, bannedAt: bannedPhoneNumbers.bannedAt })
+        .from(bannedPhoneNumbers)
+        .where(inArray(bannedPhoneNumbers.phoneNumber, bannedPhones));
+      bans.forEach(b => { banReasonMap[b.phoneNumber] = { reason: b.reason, bannedAt: b.bannedAt }; });
+    }
+
+    const usersWithBanInfo = usersList.map(u => ({
+      ...u,
+      banReason: u.status === "banned" && u.phoneNumber ? (banReasonMap[u.phoneNumber]?.reason ?? null) : null,
+      bannedAt: u.status === "banned" && u.phoneNumber ? (banReasonMap[u.phoneNumber]?.bannedAt ?? null) : null,
+    }));
+
+    res.set({ "Cache-Control": "no-store", Pragma: "no-cache" });
+    res.json(usersWithBanInfo);
   } catch (error: any) {
     console.error("Error fetching users:", error);
     res.status(500).json({
       error: "Failed to fetch users",
-      details:
-        process.env.NODE_ENV === "development" ? error.message : undefined,
+      details: process.env.NODE_ENV === "development" ? error.message : undefined,
     });
   }
 });
@@ -514,6 +528,42 @@ router.post("/users/:id/ban", requireAdmin, async (req, res) => {
     res.json({ message: "User banned successfully" });
   } catch (error: any) {
     console.error("Error banning user:", error);
+    res.status(500).json({ error: error.message });
+  }
+});
+
+// Unban user
+router.post("/users/:id/unban", requireAdmin, async (req, res) => {
+  try {
+    const userId = parseInt(req.params.id);
+
+    const [user] = await db.select().from(users).where(eq(users.id, userId)).limit(1);
+    if (!user) return res.status(404).json({ error: "User not found" });
+    if (user.status !== "banned") return res.status(400).json({ error: "User is not banned" });
+
+    // Restore user status to active
+    await db
+      .update(users)
+      .set({ status: "active", statusChangedAt: new Date(), statusChangedBy: req.user?.id, updatedAt: new Date() })
+      .where(eq(users.id, userId));
+
+    // Remove phone from banned list
+    if (user.phoneNumber) {
+      await db.delete(bannedPhoneNumbers).where(eq(bannedPhoneNumbers.phoneNumber, user.phoneNumber));
+    }
+
+    // Log the unban
+    await db.insert(userActivityLogs).values({
+      userId,
+      activityType: "user_unbanned",
+      details: { unbannedBy: req.user?.id, phoneNumber: user.phoneNumber },
+      ipAddress: req.ip,
+      userAgent: req.get("user-agent"),
+    });
+
+    res.json({ message: "User unbanned successfully" });
+  } catch (error: any) {
+    console.error("Error unbanning user:", error);
     res.status(500).json({ error: error.message });
   }
 });
