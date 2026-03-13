@@ -104,6 +104,8 @@ if (process.env.NODE_ENV === "production") {
             "https://pagead2.googlesyndication.com",
             "https://googleads.g.doubleclick.net",
             "https://adservice.google.com",
+            "https://ep2.adtrafficquality.google",
+            "https://*.adtrafficquality.google",
           ],
           styleSrc: [
             "'self'",

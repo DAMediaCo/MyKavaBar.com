@@ -81,21 +81,15 @@ export async function fetchApi<T>(
       let errorData: any;
       
       try {
-        // First try to parse as JSON in case the server sent a JSON error response
         errorData = await response.json();
-        console.error(`API Error (${response.status}):`, errorData);
       } catch (e) {
-        // If not JSON, get as text
         errorData = await response.text();
-        console.error(`API Error (${response.status}):`, errorData);
       }
-      
+
       // Handle specific error cases
       if (response.status === 401) {
-        // Handle unauthorized access
-        console.warn('Authentication required');
-        // Don't show toast for auth errors, they're handled by the auth system
-        throw new Error(`Unauthorized: ${typeof errorData === 'object' ? errorData?.error || 'Authentication required' : errorData}`);
+        // 401 is expected for unauthenticated users — don't log as error
+        throw new Error(`Unauthorized: ${typeof errorData === 'object' ? errorData?.error || 'Not authenticated' : errorData}`);
       } else if (response.status === 429) {
         // Rate limiting
         toast({
@@ -147,7 +141,10 @@ export async function fetchApi<T>(
     
     return data as T;
   } catch (error: any) {
-    console.error('API Request Failed:', error);
+    // Don't log 401s as errors — they're expected for unauthenticated users
+    if (!error.message?.includes('Unauthorized')) {
+      console.error('API Request Failed:', error);
+    }
     
     // Handle abort errors (timeouts) specially
     if (error.name === 'AbortError') {
