@@ -804,24 +804,27 @@ export default function ManageBar() {
                     </ul>
                   </div>
                   
-                  {(bar.heroImageUrl || heroImagePreview) && (
-                    <div className="rounded-lg overflow-hidden border">
-                      <img 
-                        src={heroImagePreview || bar.heroImageUrl} 
-                        alt={`${bar.name} hero image`}
-                        className="w-full h-48 object-cover"
-                        onError={(e) => {
-                          (e.target as HTMLImageElement).src = "/kava-bar-default-hero.jpg";
-                        }}
-                      />
-                      {heroImagePreview && (
-                        <div className="p-2 bg-amber-500/10 text-amber-600 text-sm text-center">
-                          Preview - Click "Upload" to save
-                        </div>
+                  {/* Current / Preview image */}
+                  <div className="rounded-lg overflow-hidden border">
+                    <img
+                      src={heroImagePreview || bar.heroImageUrl || "/kava-bar-default-hero.jpg"}
+                      alt={`${bar.name} hero image`}
+                      className="w-full h-48 object-cover"
+                      onError={(e) => {
+                        (e.target as HTMLImageElement).src = "/kava-bar-default-hero.jpg";
+                      }}
+                    />
+                    <div className="px-3 py-1.5 text-xs text-muted-foreground bg-muted/40 flex items-center justify-between">
+                      {heroImagePreview ? (
+                        <span className="text-amber-500 font-medium">Preview — click Upload to save</span>
+                      ) : bar.heroImageUrl ? (
+                        <span>Current hero image</span>
+                      ) : (
+                        <span className="text-muted-foreground italic">Default stock image (no custom hero set)</span>
                       )}
                     </div>
-                  )}
-                  
+                  </div>
+
                   <div className="flex flex-col sm:flex-row gap-3">
                     <input
                       type="file"
@@ -840,30 +843,31 @@ export default function ManageBar() {
                       </Button>
                     </label>
                     {heroImageFile && (
-                      <Button 
-                        onClick={uploadHeroImage}
-                        disabled={isUploadingHeroImage}
-                      >
+                      <Button onClick={uploadHeroImage} disabled={isUploadingHeroImage}>
                         {isUploadingHeroImage ? (
-                          <>
-                            <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                            Uploading...
-                          </>
-                        ) : (
-                          "Upload"
-                        )}
+                          <><Loader2 className="mr-2 h-4 w-4 animate-spin" />Uploading...</>
+                        ) : "Upload"}
                       </Button>
                     )}
                   </div>
-                  
+
+                  {/* Delete hero image — only shown when a custom one is set */}
                   {bar.heroImageUrl && !heroImagePreview && (
-                    <Button 
-                      variant="outline"
-                      onClick={removeHeroImage}
-                      disabled={isUploadingHeroImage}
-                    >
-                      Remove Hero Image
-                    </Button>
+                    <div className="flex items-start gap-3 rounded-lg border border-red-900/40 bg-red-950/20 p-3">
+                      <div className="flex-1">
+                        <p className="text-sm font-medium text-red-400">Delete Hero Image</p>
+                        <p className="text-xs text-muted-foreground mt-0.5">Removes your custom hero image and reverts to the default stock image.</p>
+                      </div>
+                      <Button
+                        variant="destructive"
+                        size="sm"
+                        onClick={removeHeroImage}
+                        disabled={isUploadingHeroImage}
+                        className="shrink-0"
+                      >
+                        {isUploadingHeroImage ? <Loader2 className="h-4 w-4 animate-spin" /> : "Delete"}
+                      </Button>
+                    </div>
                   )}
                 </div>
                 
