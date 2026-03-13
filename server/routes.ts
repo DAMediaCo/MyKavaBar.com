@@ -1,4 +1,5 @@
 
+import { sendPasswordResetEmail, sendNotificationEmail } from "./email";
 import type { Express, Request, Response } from "express";
 import { type Server } from "http";
 import fetch from "node-fetch";
@@ -1622,12 +1623,14 @@ Sitemap: https://mykavabar.com/sitemap.xml
       // Generate reset link
       const resetLink = `${req.protocol}://${req.get("host")}/reset-password/${resetToken.token}`;
 
-      // Email sending removed — log the reset link for now
-      console.log(`[PASSWORD RESET] Link for ${email}: ${resetLink}`);
-      res.json({
-        message:
-          "If an account exists for this email, you will receive a password reset link.",
-      });
+      try {
+        await sendPasswordResetEmail(email, resetLink);
+        res.json({ message: "If an account exists for this email, you will receive a password reset link." });
+      } catch (emailError: any) {
+        console.error("Password reset email error:", emailError);
+        await db.delete(passwordResetTokens).where(eq(passwordResetTokens.id, resetToken.id));
+        res.status(500).json({ message: "Failed to process password reset request" });
+      }
     } catch (error: any) {
       console.error("Password reset error:", error);
       res
@@ -2384,7 +2387,7 @@ Sitemap: https://mykavabar.com/sitemap.xml
       console.log("Sending WebSocket notification:", notificationPayload);
       notifyAdmins(wss, notificationPayload);
       // Send email about the bar added
-      // Email notification removed
+      await sendNotificationEmail("info@mykavabar.com", "New Bar Verification Request", "A new bar has been submitted for verification. Check the admin dashboard.").catch(console.error);
       res.json(request);
     } catch (error: any) {
       console.error("Error creating verification request:", error);
