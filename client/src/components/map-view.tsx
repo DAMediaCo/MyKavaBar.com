@@ -19,8 +19,10 @@ if (typeof window !== 'undefined') {
   });
 }
 
-// Set the default icon for all markers
-L.Marker.prototype.options.icon = DefaultIcon;
+// Set the default icon for all markers (only if we successfully created it)
+if (DefaultIcon) {
+  L.Marker.prototype.options.icon = DefaultIcon;
+}
 
 // Create simple dot icons instead of SVG for better browser compatibility
 const userIcon = L.divIcon({

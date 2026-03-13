@@ -329,9 +329,14 @@ export default function Home() {
             })}
           </div>
         ) : (
-          <div className="h-[600px] rounded-xl overflow-hidden">
+          <div className="h-[450px] md:h-[600px] rounded-xl overflow-hidden">
             {isLoadingLocation && <div className="flex items-center justify-center h-full text-gray-400">Loading map...</div>}
-            {!isLoadingLocation && <MapView bars={sortedBars || []} userLocation={coordinates} />}
+            {!isLoadingLocation && (
+              <MapView
+                bars={sortedBars || []}
+                userLocation={coordinates ? { lat: coordinates.latitude, lng: coordinates.longitude } : undefined}
+              />
+            )}
           </div>
         )}
 
