@@ -20,6 +20,7 @@ import {
   insertUserSchema,
   phoneVerificationCodes,
   passwordResetTokens,
+  bannedPhoneNumbers,
   temp,
   user_auth_providers,
 } from "@db/schema";
@@ -181,6 +182,12 @@ export function setupAuth(app: Express) {
         if (!isMatch) {
           console.log("Password mismatch for user:", username);
           return done(null, false, { message: "Incorrect password." });
+        }
+
+        // Block banned users from logging in
+        if (user.status === "banned") {
+          console.log("Banned user attempted login:", username);
+          return done(null, false, { message: "Your account has been banned. Contact support if you believe this is an error." });
         }
 
         console.log("User authenticated successfully:", {
@@ -773,6 +780,16 @@ export function setupAuth(app: Express) {
 
       if (existingPhoneNumber)
         return res.status(409).json({ error: "Phone number already exists" });
+
+      // Block banned phone numbers from re-registering
+      const [bannedPhone] = await db
+        .select()
+        .from(bannedPhoneNumbers)
+        .where(eq(bannedPhoneNumbers.phoneNumber, phoneNumber))
+        .limit(1);
+
+      if (bannedPhone)
+        return res.status(403).json({ error: "This phone number is not eligible to register." });
 
       const hashedPassword = await crypto.hash(password);
       const [newUser] = await db
