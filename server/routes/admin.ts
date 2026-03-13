@@ -477,41 +477,38 @@ router.post("/users/:id/ban", requireAdmin, async (req, res) => {
       return res.status(404).json({ error: "User not found" });
     }
 
-    // Start a transaction to update user status and add phone to banned list
-    await db.transaction(async (tx) => {
-      // Update user status to banned
-      await tx
-        .update(users)
-        .set({
-          status: "banned",
-          statusChangedAt: new Date(),
-          statusChangedBy: req.user?.id,
-          updatedAt: new Date(),
-        })
-        .where(eq(users.id, userId));
+    // Update user status to banned
+    await db
+      .update(users)
+      .set({
+        status: "banned",
+        statusChangedAt: new Date(),
+        statusChangedBy: req.user?.id,
+        updatedAt: new Date(),
+      })
+      .where(eq(users.id, userId));
 
-      // If user has a phone number, add it to banned numbers
-      if (user.phoneNumber && req.user?.id) {
-        await tx.insert(bannedPhoneNumbers).values({
-          phoneNumber: user.phoneNumber, // Match the schema field
-          reason,
-          bannedBy: req.user.id, // Match the schema field
-          notes: `User ${user.username} banned`,
-        });
-      }
-
-      // Log the ban
-      await tx.insert(userActivityLogs).values({
-        userId,
-        activityType: "user_banned",
-        details: {
-          bannedBy: req.user?.id,
-          reason,
-          phoneNumber: user.phoneNumber,
-        },
-        ipAddress: req.ip,
-        userAgent: req.get("user-agent"),
+    // Blacklist their phone number if they have one
+    if (user.phoneNumber && req.user?.id) {
+      await db.insert(bannedPhoneNumbers).values({
+        phoneNumber: user.phoneNumber,
+        reason,
+        bannedBy: req.user.id,
+        notes: `User ${user.username} banned`,
       });
+    }
+
+    // Log the ban activity
+    await db.insert(userActivityLogs).values({
+      userId,
+      activityType: "user_banned",
+      details: {
+        bannedBy: req.user?.id,
+        reason,
+        phoneNumber: user.phoneNumber,
+      },
+      ipAddress: req.ip,
+      userAgent: req.get("user-agent"),
     });
 
     res.json({ message: "User banned successfully" });
