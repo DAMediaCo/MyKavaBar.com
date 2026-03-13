@@ -20,8 +20,9 @@ import {
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { Textarea } from "@/components/ui/textarea";
 import { useToast } from "@/hooks/use-toast";
-import { UserPlus, Search, Edit } from "lucide-react";
+import { UserPlus, Search, Edit, Ban } from "lucide-react";
 import { z } from "zod";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
@@ -57,6 +58,34 @@ export default function AdminUsersPage() {
   const [isAddUserOpen, setIsAddUserOpen] = useState(false);
   const [searchQuery, setSearchQuery] = useState("");
   const [editUser, setEditUser] = useState<any | null>(null);
+  const [banUser, setBanUser] = useState<any | null>(null);
+  const [banReason, setBanReason] = useState("");
+  const [isBanning, setIsBanning] = useState(false);
+
+  async function handleBan() {
+    if (!banUser || !banReason.trim()) return;
+    setIsBanning(true);
+    try {
+      const resp = await fetch(`/api/admin/users/${banUser.id}/ban`, {
+        method: "POST",
+        credentials: "include",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ reason: banReason }),
+      });
+      if (!resp.ok) {
+        const data = await resp.json().catch(() => null);
+        throw new Error(data?.error || "Failed to ban user");
+      }
+      queryClient.invalidateQueries({ queryKey: ["/api/admin/users"] });
+      toast({ title: "User Banned", description: `${banUser.username} has been banned and their phone number blacklisted.` });
+      setBanUser(null);
+      setBanReason("");
+    } catch (err: any) {
+      toast({ title: "Ban Failed", description: err.message, variant: "destructive" });
+    } finally {
+      setIsBanning(false);
+    }
+  }
 
   // Query for users
   const {
@@ -301,28 +330,49 @@ export default function AdminUsersPage() {
             <TableHead>Role</TableHead>
             <TableHead>Status</TableHead>
             <TableHead>Phone</TableHead>
-            <TableHead>Edit</TableHead>
+            <TableHead>Actions</TableHead>
           </TableRow>
         </TableHeader>
         <TableBody>
           {filteredUsers.map((user: any) => (
-            <TableRow key={user.id}>
-              <TableCell>{user.username}</TableCell>
+            <TableRow key={user.id} className={user.status === "banned" ? "opacity-50" : ""}>
+              <TableCell className="font-medium">{user.username}</TableCell>
               <TableCell>{user.email}</TableCell>
               <TableCell>{user.role}</TableCell>
-              <TableCell>{user.status}</TableCell>
+              <TableCell>
+                {user.status === "banned" ? (
+                  <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-semibold bg-red-900/40 text-red-400 border border-red-800">
+                    <Ban className="h-3 w-3" /> Banned
+                  </span>
+                ) : (
+                  <span className="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-semibold bg-green-900/40 text-green-400 border border-green-800">
+                    Active
+                  </span>
+                )}
+              </TableCell>
               <TableCell>{user.phoneNumber}</TableCell>
               <TableCell>
-                <Button variant="ghost" onClick={() => setEditUser(user)}>
-                  <Edit className="h-4 w-4" />
-                </Button>
+                <div className="flex items-center gap-2">
+                  <Button variant="ghost" size="sm" onClick={() => setEditUser(user)} title="Edit user">
+                    <Edit className="h-4 w-4" />
+                  </Button>
+                  {user.status !== "banned" && (
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      onClick={() => { setBanUser(user); setBanReason(""); }}
+                      className="text-red-500 hover:text-red-400 hover:bg-red-900/20"
+                      title="Ban user"
+                    >
+                      <Ban className="h-4 w-4" />
+                    </Button>
+                  )}
+                </div>
                 {editUser?.id === user.id && (
                   <EditUserDialog
                     user={user}
                     open={!!editUser}
-                    setOpen={(open) => {
-                      if (!open) setEditUser(null);
-                    }}
+                    setOpen={(open) => { if (!open) setEditUser(null); }}
                   />
                 )}
               </TableCell>
@@ -330,6 +380,42 @@ export default function AdminUsersPage() {
           ))}
         </TableBody>
       </Table>
+
+      {/* Ban Confirmation Dialog */}
+      <Dialog open={!!banUser} onOpenChange={(open) => { if (!open) { setBanUser(null); setBanReason(""); } }}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2 text-red-500">
+              <Ban className="h-5 w-5" /> Ban User
+            </DialogTitle>
+            <DialogDescription>
+              This will permanently ban <strong>{banUser?.username}</strong> and blacklist their phone number{banUser?.phoneNumber ? ` (${banUser.phoneNumber})` : ""}. They will not be able to log in or re-register with this phone number.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-3 py-2">
+            <Label htmlFor="ban-reason">Reason for ban <span className="text-red-500">*</span></Label>
+            <Textarea
+              id="ban-reason"
+              placeholder="e.g. Posted explicit content, repeated profanity in reviews..."
+              value={banReason}
+              onChange={(e) => setBanReason(e.target.value)}
+              rows={3}
+            />
+          </div>
+          <DialogFooter className="gap-2">
+            <Button variant="outline" onClick={() => { setBanUser(null); setBanReason(""); }}>
+              Cancel
+            </Button>
+            <Button
+              variant="destructive"
+              onClick={handleBan}
+              disabled={isBanning || !banReason.trim()}
+            >
+              {isBanning ? "Banning..." : "Confirm Ban"}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
