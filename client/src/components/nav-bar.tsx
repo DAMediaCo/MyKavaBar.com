@@ -26,6 +26,7 @@ import {
   Trophy,
   Award,
   Calendar,
+  ShieldCheck,
 } from "lucide-react";
 
 import { Link, useLocation } from "wouter";
@@ -76,6 +77,14 @@ export default function NavBar() {
     },
   ];
 
+  const adminLinks = [
+    { href: "/admin/manage-bars",       label: "Manage Bars",         icon: <ListPlus className="h-4 w-4" /> },
+    { href: "/admin/users",             label: "Manage Users",        icon: <Users className="h-4 w-4" /> },
+    { href: "/admin/manage-features",   label: "Manage Features",     icon: <Settings className="h-4 w-4" /> },
+    { href: "/admin/payouts",           label: "Referral Payouts",    icon: <DollarSign className="h-4 w-4" /> },
+    { href: "/admin/verification-codes",label: "Verification Codes",  icon: <Shield className="h-4 w-4" /> },
+  ];
+
   function handleSheetNav(to: string) {
     setSheetOpen(false);
     navigate(to);
@@ -92,21 +101,42 @@ export default function NavBar() {
 
         {/* Desktop Navigation */}
         <div className="hidden md:flex items-center space-x-2">
-          {navLinks
-            .filter((l) => l.show)
-            .map((link) => (
-              <Link key={link.href} href={link.href}>
-                <Button variant="ghost" className="flex items-center gap-2">
-                  {link.icon}
-                  {link.label}
-                </Button>
-              </Link>
-            ))}
+          {navLinks.filter((l) => l.show).map((link) => (
+            <Link key={link.href} href={link.href}>
+              <Button variant="ghost" className="flex items-center gap-2">
+                {link.icon}
+                {link.label}
+              </Button>
+            </Link>
+          ))}
 
-          {user && user.isAdmin && (
-            <div className="flex items-center">
+          {/* Admin Dropdown — visible to admins only */}
+          {user?.isAdmin && (
+            <>
               <AdminNotifications />
-            </div>
+              <DropdownMenu>
+                <DropdownMenuTrigger asChild>
+                  <Button variant="ghost" className="flex items-center gap-2 text-[#D35400] hover:text-[#D35400]">
+                    <ShieldCheck className="h-4 w-4" />
+                    Admin
+                  </Button>
+                </DropdownMenuTrigger>
+                <DropdownMenuContent align="end" className="w-52">
+                  <DropdownMenuLabel className="text-xs text-muted-foreground uppercase tracking-wider">
+                    Admin Panel
+                  </DropdownMenuLabel>
+                  <DropdownMenuSeparator />
+                  {adminLinks.map((link) => (
+                    <Link key={link.href} href={link.href}>
+                      <DropdownMenuItem className="cursor-pointer">
+                        <span className="mr-2">{link.icon}</span>
+                        {link.label}
+                      </DropdownMenuItem>
+                    </Link>
+                  ))}
+                </DropdownMenuContent>
+              </DropdownMenu>
+            </>
           )}
 
           {user ? (
@@ -123,11 +153,7 @@ export default function NavBar() {
                   </Button>
                 </DropdownMenuTrigger>
                 <DropdownMenuContent align="end" className="w-56">
-                  <DropdownMenuLabel>
-                    <div className="flex justify-between items-center">
-                      <span>{user.username}</span>
-                    </div>
-                  </DropdownMenuLabel>
+                  <DropdownMenuLabel>{user.username}</DropdownMenuLabel>
                   <DropdownMenuSeparator />
                   <Link href="/profile">
                     <DropdownMenuItem className="cursor-pointer">
@@ -151,47 +177,9 @@ export default function NavBar() {
                       </DropdownMenuItem>
                     </Link>
                   )}
-                  {user.role === "admin" && (
-                    <Link href="/admin/manage-features">
-                      <DropdownMenuItem className="cursor-pointer">
-                        <Settings className="h-4 w-4 mr-2" />
-                        Manage features
-                      </DropdownMenuItem>
-                    </Link>
-                  )}
-                  {user.isAdmin && (
-                    <>
-                      <Link href="/admin/verification-codes">
-                        <DropdownMenuItem className="cursor-pointer">
-                          <Shield className="h-4 w-4 mr-2" />
-                          Verification Codes
-                        </DropdownMenuItem>
-                      </Link>
-                      <Link href="/admin/payouts">
-                        <DropdownMenuItem className="cursor-pointer">
-                          <DollarSign className="h-4 w-4 mr-2" />
-                          Referral Payouts
-                        </DropdownMenuItem>
-                      </Link>
-                      <Link href="/admin/manage-bars">
-                        <DropdownMenuItem className="cursor-pointer">
-                          <ListPlus className="h-4 w-4 mr-2" />
-                          Manage Bars
-                        </DropdownMenuItem>
-                      </Link>
-                      <Link href="/admin/users">
-                        <DropdownMenuItem className="cursor-pointer">
-                          <Users className="h-4 w-4 mr-2" />
-                          Manage Users
-                        </DropdownMenuItem>
-                      </Link>
-                    </>
-                  )}
+                  <DropdownMenuSeparator />
                   <DropdownMenuItem
-                    onClick={() => {
-                      logout();
-                      navigate("/");
-                    }}
+                    onClick={() => { logout(); navigate("/"); }}
                     className="text-sm"
                   >
                     <LogOut className="h-4 w-4 mr-2" />
@@ -212,11 +200,7 @@ export default function NavBar() {
 
         {/* Mobile Hamburger Menu */}
         <div className="md:hidden flex items-center space-x-2">
-          {user && user.isAdmin && (
-            <div className="flex items-center">
-              <AdminNotifications />
-            </div>
-          )}
+          {user?.isAdmin && <AdminNotifications />}
           <ThemeToggle />
           <Sheet open={sheetOpen} onOpenChange={setSheetOpen}>
             <SheetTrigger asChild>
@@ -224,123 +208,77 @@ export default function NavBar() {
                 <Menu className="h-6 w-6" />
               </Button>
             </SheetTrigger>
-            <SheetContent side="right" className="w-[250px] p-0">
+            <SheetContent side="right" className="w-[250px] p-0 overflow-y-auto">
               <SheetHeader className="border-b p-4 mb-2">
                 <h2 className="text-xl font-bold tracking-tight text-black dark:text-white">
                   MyKava<span className="text-[#D35400]">Bar</span>
                 </h2>
               </SheetHeader>
               <div className="p-4 flex flex-col space-y-3">
-                {navLinks
-                  .filter((l) => l.show)
-                  .map((link) => (
-                    <Button
-                      key={link.href}
-                      variant="ghost"
-                      className="w-full flex justify-start gap-2"
-                      onClick={() => handleSheetNav(link.href)}
-                    >
-                      {link.icon}
-                      {link.label}
-                    </Button>
-                  ))}
+                {navLinks.filter((l) => l.show).map((link) => (
+                  <Button
+                    key={link.href}
+                    variant="ghost"
+                    className="w-full flex justify-start gap-2"
+                    onClick={() => handleSheetNav(link.href)}
+                  >
+                    {link.icon}
+                    {link.label}
+                  </Button>
+                ))}
+
                 {user ? (
                   <>
-                    <Button
-                      variant="ghost"
-                      className="w-full flex justify-start gap-2"
-                      onClick={() => handleSheetNav("/profile")}
-                    >
+                    <Button variant="ghost" className="w-full flex justify-start gap-2" onClick={() => handleSheetNav("/profile")}>
                       <User className="h-4 w-4 mr-2" />
                       Edit Profile
                     </Button>
                     {user.role === "kavatender" && (
-                      <Button
-                        variant="ghost"
-                        className="w-full flex justify-start gap-2"
-                        onClick={() => handleSheetNav("/referrals")}
-                      >
+                      <Button variant="ghost" className="w-full flex justify-start gap-2" onClick={() => handleSheetNav("/referrals")}>
                         <Share className="h-4 w-4 mr-2" />
                         Referrals
                       </Button>
                     )}
                     {(user.role === "bar_owner" || user.role === "admin") && (
-                      <Button
-                        variant="ghost"
-                        className="w-full flex justify-start gap-2"
-                        onClick={() => handleSheetNav("/owner-dashboard")}
-                      >
+                      <Button variant="ghost" className="w-full flex justify-start gap-2" onClick={() => handleSheetNav("/owner-dashboard")}>
                         <Building2 className="h-4 w-4 mr-2" />
                         Bar Owner Dashboard
                       </Button>
                     )}
-                    {user.role === "admin" && (
-                      <Button
-                        variant="ghost"
-                        className="w-full flex justify-start gap-2"
-                        onClick={() => handleSheetNav("/admin/manage-features")}
-                      >
-                        <Settings className="h-4 w-4 mr-2" />
-                        Manage features
-                      </Button>
-                    )}
+
+                    {/* Admin Section — mobile */}
                     {user.isAdmin && (
                       <>
-                        <Button
-                          variant="ghost"
-                          className="w-full flex justify-start gap-2"
-                          onClick={() =>
-                            handleSheetNav("/admin/verification-codes")
-                          }
-                        >
-                          <Shield className="h-4 w-4 mr-2" />
-                          Verification Codes
-                        </Button>
-                        <Button
-                          variant="ghost"
-                          className="w-full flex justify-start gap-2"
-                          onClick={() => handleSheetNav("/admin/payouts")}
-                        >
-                          <DollarSign className="h-4 w-4 mr-2" />
-                          Referral Payouts
-                        </Button>
-                        <Button
-                          variant="ghost"
-                          className="w-full flex justify-start gap-2"
-                          onClick={() => handleSheetNav("/admin/manage-bars")}
-                        >
-                          <ListPlus className="h-4 w-4 mr-2" />
-                          Manage Bars
-                        </Button>
-                        <Button
-                          variant="ghost"
-                          className="w-full flex justify-start gap-2"
-                          onClick={() => handleSheetNav("/admin/users")}
-                        >
-                          <Users className="h-4 w-4 mr-2" />
-                          Manage Users
-                        </Button>
+                        <div className="border-t pt-3">
+                          <p className="text-xs text-[#D35400] font-semibold uppercase tracking-wider mb-2 px-1 flex items-center gap-1">
+                            <ShieldCheck className="h-3 w-3" /> Admin
+                          </p>
+                          {adminLinks.map((link) => (
+                            <Button
+                              key={link.href}
+                              variant="ghost"
+                              className="w-full flex justify-start gap-2 mb-1"
+                              onClick={() => handleSheetNav(link.href)}
+                            >
+                              {link.icon}
+                              {link.label}
+                            </Button>
+                          ))}
+                        </div>
                       </>
                     )}
+
                     <Button
                       variant="outline"
                       className="w-full flex justify-start gap-2"
-                      onClick={() => {
-                        setSheetOpen(false);
-                        logout();
-                        navigate("/");
-                      }}
+                      onClick={() => { setSheetOpen(false); logout(); navigate("/"); }}
                     >
                       <LogOut className="h-4 w-4 mr-2" />
                       Logout
                     </Button>
                   </>
                 ) : (
-                  <Button
-                    variant="outline"
-                    className="w-full"
-                    onClick={() => handleSheetNav("/auth")}
-                  >
+                  <Button variant="outline" className="w-full" onClick={() => handleSheetNav("/auth")}>
                     Sign In
                   </Button>
                 )}
