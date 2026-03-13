@@ -150,3 +150,11 @@ html.dark [name="termly-terms"] {
 html.dark [name="termly-terms"] * {
   color: white !important;
 }
+/* Hide scrollbars but keep scroll functionality */
+.scrollbar-none {
+  -ms-overflow-style: none;
+  scrollbar-width: none;
+}
+.scrollbar-none::-webkit-scrollbar {
+  display: none;
+}

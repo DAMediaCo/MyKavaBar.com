@@ -380,22 +380,22 @@ export default function ManageBar() {
       </div>
 
       {/* ── Tabs ── */}
-      <div className="container mx-auto px-4 py-6">
+      <div className="container mx-auto px-4 py-4 sm:py-6 max-w-3xl">
         <Tabs defaultValue="details">
-          {/* Tab Bar */}
-          <div className="mb-6 overflow-x-auto no-scrollbar">
+          {/* Tab Bar — scrollable on mobile */}
+          <div className="mb-6 -mx-4 px-4 overflow-x-auto scrollbar-none" style={{ WebkitOverflowScrolling: "touch" }}>
             <TabsList className="inline-flex h-auto bg-[#1E1E1F] border border-[#2a2a2b] rounded-xl p-1 gap-0.5 min-w-max">
               {TABS.map(({ value, label, icon: Icon }) => (
                 <TabsTrigger
                   key={value}
                   value={value}
-                  className="flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium text-gray-400
+                  className="flex items-center gap-1.5 px-3 py-2.5 rounded-lg text-sm font-medium text-gray-400 min-h-[44px]
                     data-[state=active]:bg-[#D35400] data-[state=active]:text-white
-                    hover:text-white transition-all"
+                    hover:text-white transition-all whitespace-nowrap"
                 >
-                  <Icon className="h-4 w-4" />
-                  <span className="hidden sm:inline">{label}</span>
-                  <span className="sm:hidden">{label.split(" ")[0]}</span>
+                  <Icon className="h-4 w-4 flex-shrink-0" />
+                  <span className="hidden xs:inline">{label}</span>
+                  <span className="xs:hidden text-[11px]">{label.split(" ")[0]}</span>
                 </TabsTrigger>
               ))}
             </TabsList>
