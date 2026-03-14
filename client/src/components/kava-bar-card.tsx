@@ -86,17 +86,18 @@ export default function KavaBarCard({ bar, distance, size = "small" }: KavaBarCa
   const imgHeight = size === "hero" ? "h-52" : size === "wide" ? "h-40" : "h-36";
 
   return (
-    <div className={`h-full bg-[#1E1E1E] rounded-2xl overflow-hidden shadow-lg hover:-translate-y-1 transition-transform duration-200 ${bar.is_sponsored ? "ring-2 ring-[#D35400]" : ""}`}>
+    <div className={`group h-full bg-[#1E1E1E] rounded-2xl overflow-hidden shadow-lg hover:-translate-y-1 transition-transform duration-200 ${bar.is_sponsored ? "ring-2 ring-[#D35400]" : ""}`}>
       <Link href={`/kava-bars/${bar.id}`} className="flex flex-col h-full">
-        {/* Hero image */}
-        <div
-          className={`${imgHeight} w-full bg-cover bg-center relative flex-shrink-0`}
-          style={{ backgroundImage: `url('${getHeroImage()}')` }}
-        >
-          {/* Gradient overlay on hero cards so text pops */}
-          {size === "hero" && (
-            <div className="absolute inset-0 bg-gradient-to-t from-black/60 via-transparent to-transparent" />
-          )}
+        {/* Hero image — object-cover ensures any aspect ratio fills the box cleanly */}
+        <div className={`${imgHeight} w-full relative flex-shrink-0 overflow-hidden bg-[#111]`}>
+          <img
+            src={getHeroImage()}
+            alt={bar.name}
+            className="w-full h-full object-cover object-[center_30%] transition-transform duration-300 group-hover:scale-105"
+            onError={() => setImageError(true)}
+          />
+          {/* Always-on gradient — unifies look across all image styles/ratios */}
+          <div className="absolute inset-0 bg-gradient-to-t from-black/50 via-black/10 to-transparent" />
 
           {!comingSoonText && weekdayText && weekdayText.length > 0 && (
             <div className={`absolute top-3 right-3 text-white text-xs font-bold px-2.5 py-1 rounded-full backdrop-blur-sm ${openStatus.isOpen ? "bg-green-500/90" : "bg-gray-700/90"}`}>
@@ -108,13 +109,11 @@ export default function KavaBarCard({ bar, distance, size = "small" }: KavaBarCa
               {comingSoonText}
             </div>
           )}
-          {/* Featured badge */}
           {(bar.is_featured || bar.is_sponsored) && (
             <div className="absolute top-3 left-3 bg-[#D35400]/90 text-white text-[0.6rem] font-bold px-2 py-0.5 rounded-full backdrop-blur-sm uppercase tracking-wider">
               Featured
             </div>
           )}
-          <img src={getHeroImage()} alt="" className="hidden" onError={() => setImageError(true)} />
         </div>
 
         {/* Card body */}
