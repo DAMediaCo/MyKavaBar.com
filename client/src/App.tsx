@@ -161,12 +161,6 @@ function Router() {
               <MyRsvpsPage />
             </ProtectedRoute>
           </Route>
-          <Route path="/passport">
-            <ProtectedRoute isAllowed={!!user}>
-              <PassportPage />
-            </ProtectedRoute>
-          </Route>
-          <Route path="/leaderboard" component={LeaderboardPage} />
           <Route path="/referrals">
             <ProtectedRoute isAllowed={!!user && user.role === "kavatender"}>
               <Referral />
@@ -231,7 +225,7 @@ function Router() {
 function App() {
   return (
     <QueryClientProvider client={queryClient}>
-      <ThemeProvider defaultTheme="light" storageKey="mykavabar-theme">
+      <ThemeProvider defaultTheme="dark" storageKey="mykavabar-theme">
         <OnboardingProvider>
           <Router />
           <Toaster />

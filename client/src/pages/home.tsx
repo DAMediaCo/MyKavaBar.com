@@ -2,9 +2,7 @@ import { useState, useEffect, useMemo, lazy, Suspense } from "react";
 import { useKavaBars } from "@/hooks/use-kava-bars";
 import { useLocation, calculateDistance } from "@/hooks/use-location";
 import KavaBarCard from "@/components/kava-bar-card";
-import { Input } from "@/components/ui/input";
 import { useQuery } from "@tanstack/react-query";
-
 import {
   Select,
   SelectContent,
@@ -12,7 +10,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { Search, MapPin, Map, List } from "lucide-react";
+import { Search, Map, List } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { useUser } from "@/hooks/use-user";
 
@@ -26,8 +24,6 @@ export default function Home() {
   const { data: kavaBars, isLoading } = useKavaBars();
   const [sortBy, setSortBy] = useState<SortOption>("distance");
   const [viewMode, setViewMode] = useState<"list" | "map">("list");
-  const [radius] = useState<number>(5000);
-  const [showAllFeatured, setShowAllFeatured] = useState(false);
   const { user } = useUser();
   const {
     coordinates,
@@ -188,25 +184,41 @@ export default function Home() {
   return (
     <div className="min-h-screen bg-[#1A1A1C]" id="home-content">
       <div className="container mx-auto px-4 py-6">
-        {/* Search Bar with embedded List/Map toggle */}
-        <div className="mb-4 flex items-center bg-[#1E1E1E] border border-[#333] rounded-xl h-12 px-3 gap-2">
-          <Search className="h-4 w-4 text-gray-500 flex-shrink-0" />
-          <input
-            placeholder="Search bars..."
-            value={search}
-            onChange={(e) => setSearch(e.target.value)}
-            className="flex-1 bg-transparent text-white placeholder:text-gray-500 outline-none text-sm"
-          />
-          {/* Divider */}
-          <div className="w-px h-6 bg-[#444] flex-shrink-0" />
-          {/* Segmented toggle */}
-          <div className="flex items-center gap-0.5 flex-shrink-0">
+        {/* Search Bar + Sort + List/Map toggle */}
+        <div className="mb-4 flex items-center gap-2">
+          {/* Search input */}
+          <div className="flex-1 flex items-center bg-[#1E1E1E] border border-[#333] rounded-xl h-12 px-3 gap-2">
+            <Search className="h-4 w-4 text-gray-500 flex-shrink-0" />
+            <input
+              placeholder="Search bars by name, city, or state..."
+              value={search}
+              onChange={(e) => setSearch(e.target.value)}
+              className="flex-1 bg-transparent text-white placeholder:text-gray-500 outline-none text-sm"
+            />
+          </div>
+
+          {/* Sort dropdown */}
+          <Select value={sortBy} onValueChange={(v) => {
+            setSortBy(v as SortOption);
+            if (v === "distance" && !coordinates) requestLocation();
+          }}>
+            <SelectTrigger className="w-[130px] h-12 bg-[#1E1E1E] border-[#333] text-gray-300 text-sm flex-shrink-0">
+              <SelectValue placeholder="Sort by" />
+            </SelectTrigger>
+            <SelectContent className="bg-[#1E1E1E] border-[#333]">
+              <SelectItem value="distance" className="text-gray-300">📍 Nearest</SelectItem>
+              <SelectItem value="rating" className="text-gray-300">⭐ Top Rated</SelectItem>
+              <SelectItem value="name" className="text-gray-300">🔤 A–Z</SelectItem>
+              {user && <SelectItem value="favorite" className="text-gray-300">❤️ Favorites</SelectItem>}
+            </SelectContent>
+          </Select>
+
+          {/* List/Map toggle */}
+          <div className="flex items-center bg-[#1E1E1E] border border-[#333] rounded-xl h-12 px-1 gap-0.5 flex-shrink-0">
             <button
               onClick={() => setViewMode("list")}
               className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold transition-all ${
-                viewMode === "list"
-                  ? "bg-[#D35400] text-white"
-                  : "text-gray-400 hover:text-white"
+                viewMode === "list" ? "bg-[#D35400] text-white" : "text-gray-400 hover:text-white"
               }`}
             >
               <List className="h-3.5 w-3.5" />
@@ -215,9 +227,7 @@ export default function Home() {
             <button
               onClick={() => setViewMode("map")}
               className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold transition-all ${
-                viewMode === "map"
-                  ? "bg-[#D35400] text-white"
-                  : "text-gray-400 hover:text-white"
+                viewMode === "map" ? "bg-[#D35400] text-white" : "text-gray-400 hover:text-white"
               }`}
             >
               <Map className="h-3.5 w-3.5" />
@@ -285,9 +295,9 @@ export default function Home() {
                     href={`/kava-bars/${bar.id}`} 
                     className="relative min-w-[calc(50%-12px)] lg:min-w-[calc(33.333%-16px)] h-80 flex-shrink-0 rounded-2xl overflow-hidden block"
                   >
-                    {/* Image - bg-contain to show full image */}
+                    {/* Image */}
                     <div 
-                      className="absolute inset-0 bg-contain bg-no-repeat bg-center bg-black"
+                      className="absolute inset-0 bg-cover bg-center"
                       style={{ backgroundImage: `url('${bar.heroImageUrl || bar.hero_image_url || bar.latestGalleryPhoto || bar.latest_gallery_photo || '/kava-bar-default-hero.jpg'}')` }}
                     />
                     {/* Featured Tag - Top Left */}

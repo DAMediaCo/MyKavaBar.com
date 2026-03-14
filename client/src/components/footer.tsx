@@ -4,11 +4,11 @@ import { Link } from 'wouter';
 export default function Footer() {
   return (
     <footer className="bg-background border-t mt-auto py-6">
-      <div className="container mx-auto px-4 flex justify-between items-center">
-        <div className="text-sm text-muted-foreground">
+      <div className="container mx-auto px-4 flex flex-col sm:flex-row justify-between items-center gap-3">
+        <div className="text-sm text-muted-foreground text-center sm:text-left">
           © {new Date().getFullYear()} MyKavaBar. All rights reserved.
         </div>
-        <nav className="space-x-4">
+        <nav className="flex flex-wrap justify-center gap-x-4 gap-y-1">
           <Link href="/privacy-policy" className="text-sm text-muted-foreground hover:text-foreground">
             Privacy Policy
           </Link>
