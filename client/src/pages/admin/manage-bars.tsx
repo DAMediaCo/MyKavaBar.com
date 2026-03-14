@@ -77,6 +77,7 @@ export default function ManageBars() {
   const [isEditDialogOpen, setIsEditDialogOpen] = useState(false);
   const [sortBy, setSortBy] = useState<"name" | "state" | "city">("name");
   const [showFeaturedOnly, setShowFeaturedOnly] = useState(false);
+  const [showArchived, setShowArchived] = useState(false);
   const [barId, setBarId] = useState<number | null>(null);
   const form = useForm<BarFormValues>({
     resolver: zodResolver(barFormSchema),
@@ -88,9 +89,13 @@ export default function ManageBars() {
   });
 
   const { data: bars = [], isLoading } = useQuery({
-    queryKey: ["admin-bars", sortBy, showFeaturedOnly],
+    queryKey: ["admin-bars", sortBy, showFeaturedOnly, showArchived],
     queryFn: async () => {
-      const response = await fetch(`/api/kava-bars${showFeaturedOnly ? '?featured=true' : ''}`, {
+      const params = new URLSearchParams();
+      if (showFeaturedOnly) params.set('featured', 'true');
+      if (showArchived) params.set('archived', 'true');
+      const qs = params.toString();
+      const response = await fetch(`/api/kava-bars${qs ? `?${qs}` : ''}`, {
         credentials: "include",
         headers: {
           "Content-Type": "application/json",
@@ -263,7 +268,7 @@ export default function ManageBars() {
         method: "POST",
         credentials: "include",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ featured }),
+        body: JSON.stringify({ is_featured: featured }),
       });
       if (!response.ok) throw new Error("Failed to toggle featured status");
       return response.json();
@@ -282,7 +287,7 @@ export default function ManageBars() {
       queryClient.setQueryData(queryKey, (old: any) => {
         if (!old) return old;
         return old.map((bar: any) => 
-          bar.id === id ? { ...bar, is_featured: featured } : bar
+          bar.id === id ? { ...bar, is_sponsored: featured } : bar
         );
       });
       
@@ -292,7 +297,7 @@ export default function ManageBars() {
       queryClient.invalidateQueries({ queryKey: ["admin-bars"] });
       toast({
         title: "Success",
-        description: data.is_featured ? "Bar set as featured" : "Bar removed from featured",
+        description: data.is_featured ? "Bar set as featured" : "Bar removed from featured", // server echoes is_featured
       });
     },
     onError: (error: any, variables, context) => {
@@ -428,6 +433,25 @@ export default function ManageBars() {
           >
             {showFeaturedOnly ? "⭐ Featured Only" : "Show Featured"}
           </button>
+          {/* Active / Archived tabs */}
+          <div className="ml-2 flex rounded-md overflow-hidden border border-gray-300">
+            <button
+              onClick={() => setShowArchived(false)}
+              className={`px-4 py-2 text-sm font-medium transition-colors ${
+                !showArchived ? "bg-[#D35400] text-white" : "bg-white text-gray-700 hover:bg-gray-100"
+              }`}
+            >
+              Active
+            </button>
+            <button
+              onClick={() => setShowArchived(true)}
+              className={`px-4 py-2 text-sm font-medium transition-colors border-l border-gray-300 ${
+                showArchived ? "bg-gray-700 text-white" : "bg-white text-gray-700 hover:bg-gray-100"
+              }`}
+            >
+              Archived
+            </button>
+          </div>
         </div>
 
         <div className="flex items-center flex-col md:flex-row gap-2">
@@ -911,14 +935,14 @@ export default function ManageBars() {
                     <Pencil className="h-4 w-4" />
                   </Button>
                   <Button
-                    variant={bar.is_featured ? "default" : "outline"}
+                    variant={bar.is_sponsored ? "default" : "outline"}
                     size="icon"
-                    onClick={() => toggleFeaturedMutation.mutate({ id: bar.id, featured: !bar.is_featured })}
-                    title={bar.is_featured ? "Remove from featured" : "Set as featured"}
-                    className={`h-8 w-8 ${bar.is_featured ? "bg-yellow-500 hover:bg-yellow-600" : ""}`}
+                    onClick={() => toggleFeaturedMutation.mutate({ id: bar.id, featured: !bar.is_sponsored })}
+                    title={bar.is_sponsored ? "Remove from featured" : "Set as featured"}
+                    className={`h-8 w-8 ${bar.is_sponsored ? "bg-yellow-500 hover:bg-yellow-600" : ""}`}
                     disabled={toggleFeaturedMutation.isPending}
                   >
-                    <Star className={`h-4 w-4 ${bar.is_featured ? "fill-current" : ""}`} />
+                    <Star className={`h-4 w-4 ${bar.is_sponsored ? "fill-current" : ""}`} />
                   </Button>
                   <Button
                     variant="destructive"
