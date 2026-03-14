@@ -123,7 +123,7 @@ export default function AdminUsersPage() {
           return (
             <div
               key={user.id}
-              className={`bg-white rounded-xl border p-4 shadow-sm ${isBanned ? "border-red-200 opacity-80" : "border-gray-200"}`}
+              className={`bg-zinc-700 rounded-xl border p-4 shadow-sm ${isBanned ? "border-red-400 opacity-80" : "border-zinc-600"}`}
             >
               {/* Top row: avatar + info */}
               <div className="flex items-start gap-3">
@@ -136,7 +136,7 @@ export default function AdminUsersPage() {
                 <div className="flex-1 min-w-0">
                   {/* Name + badges */}
                   <div className="flex flex-wrap items-center gap-2 mb-0.5">
-                    <span className="font-semibold text-gray-900 text-sm">{user.username}</span>
+                    <span className="font-semibold text-white text-sm">{user.username}</span>
                     {user.isAdmin && (
                       <span className="flex items-center gap-1 text-[10px] font-bold text-[#D35400] bg-orange-50 border border-orange-200 rounded-full px-2 py-0.5">
                         <Shield className="h-2.5 w-2.5" /> ADMIN
@@ -148,22 +148,22 @@ export default function AdminUsersPage() {
                       </span>
                     )}
                   </div>
-                  <p className="text-gray-700 text-xs font-medium">
-                    {[user.firstName, user.lastName].filter(Boolean).join(" ") || <span className="text-gray-400 italic">No name set</span>}
+                  <p className="text-zinc-200 text-xs font-medium">
+                    {[user.firstName, user.lastName].filter(Boolean).join(" ") || <span className="text-zinc-400 italic">No name set</span>}
                   </p>
-                  <p className="text-gray-500 text-xs truncate">{user.email}</p>
-                  {user.phoneNumber && <p className="text-gray-400 text-xs">{user.phoneNumber}</p>}
+                  <p className="text-zinc-300 text-xs truncate">{user.email}</p>
+                  {user.phoneNumber && <p className="text-zinc-400 text-xs">{user.phoneNumber}</p>}
                   {isBanned && user.banReason && (
                     <p className="text-red-500 text-xs mt-1 italic">Ban reason: {user.banReason}</p>
                   )}
-                  <p className="text-gray-400 text-[10px] mt-1">
+                  <p className="text-zinc-400 text-[10px] mt-1">
                     #{user.id} · {user.points || 0} pts · {user.isPhoneVerified ? "✓ verified" : "unverified"}
                   </p>
                 </div>
               </div>
 
               {/* Action row */}
-              <div className="flex flex-wrap gap-2 mt-3 pt-3 border-t border-gray-100">
+              <div className="flex flex-wrap gap-2 mt-3 pt-3 border-t border-zinc-600">
                 {isBanned ? (
                   <Button size="sm" variant="outline"
                     className="text-green-600 border-green-300 hover:bg-green-50 text-xs h-7"
@@ -188,7 +188,7 @@ export default function AdminUsersPage() {
           );
         })}
         {filtered.length === 0 && (
-          <p className="text-center text-gray-400 py-12">No users found</p>
+          <p className="text-center text-zinc-400 py-12">No users found</p>
         )}
       </div>
 
