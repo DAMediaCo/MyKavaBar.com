@@ -513,6 +513,84 @@ Sitemap: https://mykavabar.com/sitemap.xml
     console.error("Error setting up static file serving:", error);
   }
 
+  // Hosted map view for iOS WebView — serves Leaflet map HTML from real HTTPS origin
+  app.get("/map-view", (req, res) => {
+    const ORANGE = '#D35400';
+    const html = `<!DOCTYPE html>
+<html>
+<head>
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  html, body, #map { width: 100%; height: 100%; background: #111; }
+  .leaflet-popup-content-wrapper { background: #1E1E1E; color: white; border: 1px solid rgba(255,255,255,0.12); border-radius: 12px; box-shadow: 0 8px 32px rgba(0,0,0,0.6); }
+  .leaflet-popup-tip { background: #1E1E1E; }
+  .leaflet-popup-content { margin: 10px 14px; }
+  .bar-name { color: ${ORANGE}; font-size: 14px; font-weight: 700; display: block; margin-bottom: 3px; }
+  .bar-sub { color: rgba(255,255,255,0.6); font-size: 12px; display: block; }
+  .popup-btn { display: block; margin-top: 8px; padding: 6px 12px; background: ${ORANGE}; color: white; border: none; border-radius: 8px; font-size: 12px; font-weight: 700; cursor: pointer; width: 100%; text-align: center; }
+  .leaflet-control-attribution, .leaflet-control-zoom { display: none !important; }
+  .dot-icon { width: 14px; height: 14px; background: ${ORANGE}; border-radius: 50%; border: 2.5px solid white; box-shadow: 0 2px 6px rgba(0,0,0,0.4); }
+</style>
+</head>
+<body>
+<div id="map"></div>
+<script>
+  var map = null;
+  var markerLayer = {};
+  var dotIcon;
+
+  function escHtml(s) {
+    return String(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;').replace(/'/g,'&#39;');
+  }
+  function makePopup(m) {
+    return '<span class="bar-name">' + escHtml(m.name) + '</span>'
+      + (m.sub ? '<span class="bar-sub">' + escHtml(m.sub) + '</span>' : '')
+      + '<button class="popup-btn" onclick="viewBar(\\'' + escHtml(m.id) + '\\')">View Bar \u2192</button>';
+  }
+  function viewBar(id) {
+    window.ReactNativeWebView && window.ReactNativeWebView.postMessage(JSON.stringify({ type: 'barPress', id: id }));
+  }
+
+  window.initMap = function(lat, lng, zoom) {
+    if (map) return;
+    map = L.map('map', { zoomControl: false, attributionControl: false }).setView([lat, lng], zoom);
+    L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', { maxZoom: 19, subdomains: 'abc' }).addTo(map);
+    dotIcon = L.divIcon({ html: '<div class="dot-icon"></div>', className: '', iconSize: [14,14], iconAnchor: [7,7], popupAnchor: [0,-10] });
+    var boundsTimer = null;
+    function postBounds() {
+      var b = map.getBounds(), c = map.getCenter();
+      window.ReactNativeWebView && window.ReactNativeWebView.postMessage(JSON.stringify({ type: 'regionChange', north: b.getNorth(), south: b.getSouth(), east: b.getEast(), west: b.getWest(), centerLat: c.lat, centerLng: c.lng, zoom: map.getZoom() }));
+    }
+    map.on('moveend zoomend', function() { clearTimeout(boundsTimer); boundsTimer = setTimeout(postBounds, 500); });
+  };
+
+  window.addMarkersToMap = function(markers) {
+    if (!map) return;
+    markers.forEach(function(m) {
+      if (markerLayer[m.id] || !m.lat || !m.lng || m.lat === 0 || m.lng === 0) return;
+      var marker = L.marker([m.lat, m.lng], { icon: dotIcon }).addTo(map);
+      marker.bindPopup(makePopup(m), { maxWidth: 240, closeButton: false });
+      marker.on('click', function() { marker.openPopup(); });
+      markerLayer[m.id] = marker;
+    });
+  };
+
+  window.fitMarkers = function() {
+    if (!map) return;
+    var latlngs = Object.values(markerLayer).map(function(m) { return m.getLatLng(); });
+    if (latlngs.length > 1) { try { map.fitBounds(latlngs.map(function(ll) { return [ll.lat, ll.lng]; }), { padding: [40,40], maxZoom: 10 }); } catch(e) {} }
+  };
+</script>
+</body>
+</html>`;
+    res.setHeader('Content-Type', 'text/html');
+    res.setHeader('Cache-Control', 'no-cache');
+    res.send(html);
+  });
+
   // Add proxy route for map tiles
   app.get("/api/map-tiles/:z/:x/:y", async (req, res) => {
     const { z, x, y } = req.params;
