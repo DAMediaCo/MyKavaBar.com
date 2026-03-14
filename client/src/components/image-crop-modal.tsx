@@ -4,8 +4,10 @@
  * Returns a cropped Blob via onCrop callback.
  */
 import { useState, useCallback } from "react";
+import { createPortal } from "react-dom";
 import Cropper from "react-easy-crop";
 import type { Area } from "react-easy-crop";
+import "react-easy-crop/react-easy-crop.css";
 import { Loader2, ZoomIn, ZoomOut, Check, X } from "lucide-react";
 
 interface Props {
@@ -72,8 +74,8 @@ export default function ImageCropModal({ imageSrc, onCrop, onCancel }: Props) {
     }
   };
 
-  return (
-    <div className="fixed inset-0 z-50 flex flex-col bg-black/95 backdrop-blur-sm">
+  const modal = (
+    <div className="fixed inset-0 z-[9999] flex flex-col bg-black/95 backdrop-blur-sm">
       {/* Header */}
       <div className="flex items-center justify-between px-4 py-3 border-b border-white/10">
         <button
@@ -135,4 +137,6 @@ export default function ImageCropModal({ imageSrc, onCrop, onCancel }: Props) {
       </p>
     </div>
   );
+
+  return createPortal(modal, document.body);
 }
