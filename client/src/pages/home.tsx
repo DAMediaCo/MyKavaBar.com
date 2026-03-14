@@ -2,6 +2,7 @@ import { useState, useEffect, useMemo, lazy, Suspense } from "react";
 import { useKavaBars } from "@/hooks/use-kava-bars";
 import { useLocation, calculateDistance } from "@/hooks/use-location";
 import KavaBarCard, { getCardSize } from "@/components/kava-bar-card";
+import { getHappyHourStatus } from "@/lib/barStatus";
 import { useQuery } from "@tanstack/react-query";
 
 import { Search, Map, List, SlidersHorizontal } from "lucide-react";
@@ -10,7 +11,7 @@ import { useUser } from "@/hooks/use-user";
 
 const MapView = lazy(() => import("@/components/map-view"));
 
-type SortOption = "favorite" | "rating" | "distance" | "name";
+type SortOption = "favorite" | "rating" | "distance" | "name" | "happyhour";
 
 export default function Home() {
   const [search, setSearch] = useState("");
@@ -133,6 +134,13 @@ export default function Home() {
           return (b.rating ?? 0) - (a.rating ?? 0);
         case "name":
           return a.name.localeCompare(b.name);
+        case "happyhour": {
+          const hhA = getHappyHourStatus(a.happy_hours ?? a.happyHours, null);
+          const hhB = getHappyHourStatus(b.happy_hours ?? b.happyHours, null);
+          // Active first, then upcoming (has label but not active), then no HH
+          const score = (hh: typeof hhA) => hh.isActive ? 2 : hh.label ? 1 : 0;
+          return score(hhB) - score(hhA);
+        }
         default:
           return 0;
       }
@@ -193,8 +201,9 @@ export default function Home() {
               }}
               className="appearance-none bg-transparent text-gray-300 text-xs font-semibold pl-5 pr-1 outline-none cursor-pointer"
             >
-              <option value="distance" className="bg-[#1E1E1E]">Nearest</option>
-              <option value="rating"   className="bg-[#1E1E1E]">Top Rated</option>
+              <option value="distance"  className="bg-[#1E1E1E]">Nearest</option>
+              <option value="rating"    className="bg-[#1E1E1E]">Top Rated</option>
+              <option value="happyhour" className="bg-[#1E1E1E]">Happy Hour</option>
               <option value="name"     className="bg-[#1E1E1E]">A–Z</option>
               {user && <option value="favorite" className="bg-[#1E1E1E]">Favorites</option>}
             </select>
