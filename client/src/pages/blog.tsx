@@ -1,5 +1,5 @@
 import { useState, useEffect } from "react";
-import { Loader2, ExternalLink } from "lucide-react";
+import { Loader2, ExternalLink, ArrowUpRight } from "lucide-react";
 
 interface BlogArticle {
   id: string;
@@ -11,6 +11,164 @@ interface BlogArticle {
   tags: string[];
 }
 
+function formatDate(iso: string) {
+  return new Date(iso).toLocaleDateString("en-US", {
+    month: "short", day: "numeric", year: "numeric",
+  });
+}
+
+function imgSrc(image: string) {
+  if (!image) return "";
+  if (image.startsWith("http")) return image;
+  return `https://kavaatlas.com${image}`;
+}
+
+/** Hero card — full width, big image */
+function HeroCard({ article }: { article: BlogArticle }) {
+  return (
+    <a
+      href={article.url}
+      target="_blank"
+      rel="noopener noreferrer"
+      className="group col-span-2 lg:col-span-3 relative h-[340px] sm:h-[420px] rounded-2xl overflow-hidden block border border-[#333] hover:border-[#D35400] transition-all duration-300"
+    >
+      {article.image ? (
+        <img
+          src={imgSrc(article.image)}
+          alt={article.title}
+          className="absolute inset-0 w-full h-full object-cover group-hover:scale-105 transition-transform duration-500"
+          onError={(e) => { (e.target as HTMLImageElement).src = "/kava-bar-default-hero.jpg"; }}
+        />
+      ) : (
+        <div className="absolute inset-0 bg-[#252525]" />
+      )}
+      <div className="absolute inset-0 bg-gradient-to-t from-black/90 via-black/40 to-transparent" />
+      <div className="absolute bottom-0 left-0 right-0 p-6">
+        <div className="flex gap-2 mb-3 flex-wrap">
+          {article.tags?.slice(0, 3).map(tag => (
+            <span key={tag} className="bg-[#D35400]/90 text-white text-xs px-2.5 py-0.5 rounded-full font-medium">
+              {tag}
+            </span>
+          ))}
+        </div>
+        <h2 className="text-white font-bold text-2xl sm:text-3xl leading-tight mb-2 group-hover:text-[#E67E22] transition-colors line-clamp-2">
+          {article.title}
+        </h2>
+        <p className="text-gray-300 text-sm line-clamp-2 mb-3 max-w-2xl">{article.summary}</p>
+        <div className="flex items-center justify-between">
+          <span className="text-gray-400 text-xs">{formatDate(article.date_published)}</span>
+          <span className="flex items-center gap-1 text-[#D35400] text-sm font-semibold group-hover:gap-2 transition-all">
+            Read Article <ArrowUpRight className="h-4 w-4" />
+          </span>
+        </div>
+      </div>
+    </a>
+  );
+}
+
+/** Standard card — portrait with image top */
+function StandardCard({ article }: { article: BlogArticle }) {
+  return (
+    <a
+      href={article.url}
+      target="_blank"
+      rel="noopener noreferrer"
+      className="group col-span-2 sm:col-span-1 flex flex-col bg-[#1E1E1E] rounded-2xl overflow-hidden border border-[#333] hover:border-[#D35400] transition-all duration-300 hover:-translate-y-1"
+    >
+      <div className="h-44 overflow-hidden relative flex-shrink-0">
+        {article.image ? (
+          <img
+            src={imgSrc(article.image)}
+            alt={article.title}
+            className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500"
+            onError={(e) => { (e.target as HTMLImageElement).src = "/kava-bar-default-hero.jpg"; }}
+          />
+        ) : (
+          <div className="w-full h-full bg-[#252525] flex items-center justify-center">
+            <span className="text-4xl">🌿</span>
+          </div>
+        )}
+        <div className="absolute inset-0 bg-gradient-to-t from-black/30 to-transparent" />
+      </div>
+      <div className="p-4 flex flex-col flex-1">
+        <div className="flex gap-1.5 mb-2 flex-wrap">
+          {article.tags?.slice(0, 2).map(tag => (
+            <span key={tag} className="bg-[#2A2A2A] text-gray-400 text-[0.65rem] px-2 py-0.5 rounded-full uppercase tracking-wider">
+              {tag}
+            </span>
+          ))}
+        </div>
+        <h2 className="text-white font-bold text-base leading-snug mb-2 group-hover:text-[#D35400] transition-colors line-clamp-3 flex-1">
+          {article.title}
+        </h2>
+        <p className="text-gray-500 text-xs line-clamp-2 mb-3">{article.summary}</p>
+        <div className="flex items-center justify-between mt-auto">
+          <span className="text-gray-600 text-xs">{formatDate(article.date_published)}</span>
+          <ExternalLink className="h-3.5 w-3.5 text-gray-600 group-hover:text-[#D35400] transition-colors" />
+        </div>
+      </div>
+    </a>
+  );
+}
+
+/** Wide card — landscape with image left, text right */
+function WideCard({ article }: { article: BlogArticle }) {
+  return (
+    <a
+      href={article.url}
+      target="_blank"
+      rel="noopener noreferrer"
+      className="group col-span-2 flex bg-[#1E1E1E] rounded-2xl overflow-hidden border border-[#333] hover:border-[#D35400] transition-all duration-300 hover:-translate-y-1"
+    >
+      <div className="w-48 sm:w-56 flex-shrink-0 overflow-hidden relative">
+        {article.image ? (
+          <img
+            src={imgSrc(article.image)}
+            alt={article.title}
+            className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500"
+            onError={(e) => { (e.target as HTMLImageElement).src = "/kava-bar-default-hero.jpg"; }}
+          />
+        ) : (
+          <div className="w-full h-full bg-[#252525] flex items-center justify-center">
+            <span className="text-4xl">🌿</span>
+          </div>
+        )}
+      </div>
+      <div className="flex-1 p-5 flex flex-col justify-between min-w-0">
+        <div>
+          <div className="flex gap-1.5 mb-2 flex-wrap">
+            {article.tags?.slice(0, 2).map(tag => (
+              <span key={tag} className="bg-[#2A2A2A] text-gray-400 text-[0.65rem] px-2 py-0.5 rounded-full uppercase tracking-wider">
+                {tag}
+              </span>
+            ))}
+          </div>
+          <h2 className="text-white font-bold text-lg leading-snug mb-2 group-hover:text-[#D35400] transition-colors line-clamp-2">
+            {article.title}
+          </h2>
+          <p className="text-gray-400 text-sm line-clamp-3">{article.summary}</p>
+        </div>
+        <div className="flex items-center justify-between mt-4">
+          <span className="text-gray-500 text-xs">{formatDate(article.date_published)}</span>
+          <span className="flex items-center gap-1 text-[#D35400] text-xs font-semibold opacity-0 group-hover:opacity-100 transition-opacity">
+            Read <ArrowUpRight className="h-3.5 w-3.5" />
+          </span>
+        </div>
+      </div>
+    </a>
+  );
+}
+
+// Bento pattern: hero (full), 2 standard, wide+standard, 2 standard, wide... repeat
+function getCardType(index: number): "hero" | "standard" | "wide" {
+  if (index === 0) return "hero";
+  const pos = index - 1; // 0-based after hero
+  const cycle = pos % 7;
+  // Cycle: std std wide std std wide std → then repeats
+  if (cycle === 2 || cycle === 5) return "wide";
+  return "standard";
+}
+
 export default function Blog() {
   const [articles, setArticles] = useState<BlogArticle[]>([]);
   const [isLoading, setIsLoading] = useState(true);
@@ -18,22 +176,15 @@ export default function Blog() {
 
   useEffect(() => {
     fetch("https://kavaatlas.com/feed.json")
-      .then((res) => res.json())
-      .then((data) => {
-        setArticles(data.items?.slice(0, 20) || []);
-        setIsLoading(false);
-      })
-      .catch((err) => {
-        console.error("Failed to load blog:", err);
-        setError("Failed to load articles");
-        setIsLoading(false);
-      });
+      .then(r => r.json())
+      .then(data => { setArticles(data.items?.slice(0, 20) || []); setIsLoading(false); })
+      .catch(() => { setError("Failed to load articles"); setIsLoading(false); });
   }, []);
 
   if (isLoading) {
     return (
       <div className="min-h-screen bg-[#121212] flex items-center justify-center">
-        <Loader2 className="h-8 w-8 animate-spin text-gray-400" />
+        <Loader2 className="h-8 w-8 animate-spin text-[#D35400]" />
       </div>
     );
   }
@@ -47,81 +198,28 @@ export default function Blog() {
   }
 
   return (
-    <div className="min-h-screen bg-[#121212]">
+    <div className="min-h-screen bg-[#1A1A1C]">
       <div className="container mx-auto px-4 py-6">
-        <div className="max-w-4xl mx-auto">
-          <div className="mb-8">
-            <h1 className="text-3xl font-bold text-white mb-2">Kava Blog</h1>
-            <p className="text-gray-400">
-              Latest articles from{" "}
-              <a
-                href="https://kavaatlas.com"
-                target="_blank"
-                rel="noopener noreferrer"
-                className="text-[#D35400] hover:underline"
-              >
-                KavaAtlas.com
-              </a>
-            </p>
-          </div>
+        {/* Header */}
+        <div className="mb-8">
+          <p className="text-[#D35400] text-xs font-bold uppercase tracking-widest mb-1">The Kava Blog</p>
+          <h1 className="text-3xl font-bold text-white mb-1">Latest Articles</h1>
+          <p className="text-gray-500 text-sm">
+            Powered by{" "}
+            <a href="https://kavaatlas.com" target="_blank" rel="noopener noreferrer" className="text-[#D35400] hover:underline">
+              KavaAtlas.com
+            </a>
+          </p>
+        </div>
 
-          <div className="grid gap-6">
-            {articles.map((article) => (
-              <a
-                key={article.id}
-                href={article.url}
-                target="_blank"
-                rel="noopener noreferrer"
-                className="group block bg-[#1E1E1E] rounded-xl border border-[#333] overflow-hidden hover:border-[#D35400] transition-colors"
-              >
-                <div className="flex flex-col sm:flex-row">
-                  {article.image && (
-                    <div className="sm:w-48 sm:min-w-[12rem] h-48 sm:h-auto overflow-hidden">
-                      <img
-                        src={`https://kavaatlas.com${article.image}`}
-                        alt={article.title}
-                        className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
-                        onError={(e) => {
-                          (e.target as HTMLImageElement).style.display = "none";
-                        }}
-                      />
-                    </div>
-                  )}
-                  <div className="flex-1 p-4">
-                    <div className="flex items-start justify-between gap-2">
-                      <h2 className="text-lg font-semibold text-white group-hover:text-[#D35400] transition-colors line-clamp-2">
-                        {article.title}
-                      </h2>
-                      <ExternalLink className="h-4 w-4 text-gray-500 flex-shrink-0 mt-1" />
-                    </div>
-                    <p className="text-gray-400 text-sm mt-2 line-clamp-3">
-                      {article.summary}
-                    </p>
-                    <div className="flex items-center gap-3 mt-3">
-                      <span className="text-xs text-gray-500">
-                        {new Date(article.date_published).toLocaleDateString(
-                          "en-US",
-                          {
-                            month: "short",
-                            day: "numeric",
-                            year: "numeric",
-                          }
-                        )}
-                      </span>
-                      {article.tags?.slice(0, 2).map((tag) => (
-                        <span
-                          key={tag}
-                          className="text-xs bg-[#252525] text-gray-400 px-2 py-0.5 rounded-full"
-                        >
-                          {tag}
-                        </span>
-                      ))}
-                    </div>
-                  </div>
-                </div>
-              </a>
-            ))}
-          </div>
+        {/* Bento Grid */}
+        <div className="grid grid-cols-2 lg:grid-cols-3 gap-4 auto-rows-auto">
+          {articles.map((article, i) => {
+            const type = getCardType(i);
+            if (type === "hero") return <HeroCard key={article.id} article={article} />;
+            if (type === "wide") return <WideCard key={article.id} article={article} />;
+            return <StandardCard key={article.id} article={article} />;
+          })}
         </div>
       </div>
     </div>
