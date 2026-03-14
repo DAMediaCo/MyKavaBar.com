@@ -54,6 +54,8 @@ router.get("/users", requireAdmin, async (req, res) => {
       columns: {
         id: true,
         username: true,
+        firstName: true,
+        lastName: true,
         email: true,
         role: true,
         status: true,

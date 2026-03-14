@@ -1,500 +1,251 @@
 import { useState } from "react";
-import { useQuery, useQueryClient } from "@tanstack/react-query";
-import {
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow,
-} from "@/components/ui/table";
-import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogHeader,
-  DialogTitle,
-  DialogTrigger,
-  DialogFooter,
-} from "@/components/ui/dialog";
+import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { useToast } from "@/hooks/use-toast";
-import { UserPlus, Search, Edit, Ban, Info } from "lucide-react";
+import { Search, Ban, Shield, Trash2, UserCheck } from "lucide-react";
 import {
-  Tooltip,
-  TooltipContent,
-  TooltipProvider,
-  TooltipTrigger,
-} from "@/components/ui/tooltip";
-import { z } from "zod";
-import { useForm } from "react-hook-form";
-import { zodResolver } from "@hookform/resolvers/zod";
+  Dialog, DialogContent, DialogDescription, DialogHeader,
+  DialogTitle, DialogFooter,
+} from "@/components/ui/dialog";
 
-// Zod schema for all editable fields
-const AdminUserSchema = z.object({
-  username: z
-    .string()
-    .min(4, { message: "Username must be at least 4 characters" })
-    .max(20, { message: "Username must be 20 characters or less" })
-    .regex(/^[a-zA-Z0-9_]+$/, {
-      message: "Only letters, numbers, and _ allowed",
-    }),
-  email: z.string().email({ message: "Invalid email address" }),
-  phoneNumber: z
-    .string()
-    .min(10, { message: "Must be a valid mobile number" })
-    .max(15, { message: "Number too long" })
-    .regex(/^[+\d][\d\s\-]{7,15}$/, { message: "Invalid phone number" }),
-  password: z
-    .string()
-    .optional()
-    .refine((val) => !val || val.length >= 8, {
-      message: "Password must be at least 8 characters",
-    }),
-});
-
-type AdminUserForm = z.infer<typeof AdminUserSchema>;
+function fullName(user: any) {
+  const f = user.firstName?.trim() || "";
+  const l = user.lastName?.trim() || "";
+  return f || l ? `${f} ${l}`.trim() : null;
+}
 
 export default function AdminUsersPage() {
   const { toast } = useToast();
-  const queryClient = useQueryClient();
-  const [isAddUserOpen, setIsAddUserOpen] = useState(false);
-  const [searchQuery, setSearchQuery] = useState("");
-  const [editUser, setEditUser] = useState<any | null>(null);
-  const [banUser, setBanUser] = useState<any | null>(null);
+  const qc = useQueryClient();
+  const [search, setSearch] = useState("");
+  const [banUser, setBanUser] = useState<any>(null);
   const [banReason, setBanReason] = useState("");
-  const [isBanning, setIsBanning] = useState(false);
-  const [unbanUser, setUnbanUser] = useState<any | null>(null);
-  const [isUnbanning, setIsUnbanning] = useState(false);
+  const [unbanUser, setUnbanUser] = useState<any>(null);
+  const [deleteUser, setDeleteUser] = useState<any>(null);
 
-  async function handleBan() {
-    if (!banUser || !banReason.trim()) return;
-    setIsBanning(true);
-    try {
-      const resp = await fetch(`/api/admin/users/${banUser.id}/ban`, {
-        method: "POST",
-        credentials: "include",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ reason: banReason }),
-      });
-      if (!resp.ok) {
-        const data = await resp.json().catch(() => null);
-        throw new Error(data?.error || "Failed to ban user");
-      }
-      queryClient.invalidateQueries({ queryKey: ["/api/admin/users"] });
-      toast({ title: "User Banned", description: `${banUser.username} has been banned and their phone number blacklisted.` });
-      setBanUser(null);
-      setBanReason("");
-    } catch (err: any) {
-      toast({ title: "Ban Failed", description: err.message, variant: "destructive" });
-    } finally {
-      setIsBanning(false);
-    }
-  }
-
-  async function handleUnban() {
-    if (!unbanUser) return;
-    setIsUnbanning(true);
-    try {
-      const resp = await fetch(`/api/admin/users/${unbanUser.id}/unban`, {
-        method: "POST",
-        credentials: "include",
-      });
-      if (!resp.ok) {
-        const data = await resp.json().catch(() => null);
-        throw new Error(data?.error || "Failed to unban user");
-      }
-      queryClient.invalidateQueries({ queryKey: ["/api/admin/users"] });
-      toast({ title: "User Unbanned", description: `${unbanUser.username} has been restored to active status.` });
-      setUnbanUser(null);
-    } catch (err: any) {
-      toast({ title: "Unban Failed", description: err.message, variant: "destructive" });
-    } finally {
-      setIsUnbanning(false);
-    }
-  }
-
-  // Query for users
-  const {
-    data: users,
-    isLoading,
-    error,
-  } = useQuery({
+  const { data: users = [], isLoading } = useQuery<any[]>({
     queryKey: ["/api/admin/users"],
     queryFn: async () => {
-      const response = await fetch("/api/admin/users", {
-        credentials: "include",
-        headers: { Accept: "application/json" },
-      });
-      if (!response.ok) {
-        const errorData = await response.json();
-        throw new Error(errorData.error || "Failed to fetch users");
-      }
-      return await response.json();
-    },
-    retry: false,
-    onError: (error: any) => {
-      toast({
-        title: "Error Loading Users",
-        description:
-          error.message || "Please check your admin access and try again.",
-        variant: "destructive",
-      });
+      const res = await fetch("/api/admin/users", { credentials: "include" });
+      if (!res.ok) throw new Error("Failed to fetch users");
+      return res.json();
     },
   });
 
-  // Search users
-  const filteredUsers =
-    users?.filter((user: any) => {
-      if (!user) return false;
-      const searchLower = searchQuery.toLowerCase();
-      return (
-        user.username?.toLowerCase().includes(searchLower) ||
-        user.email?.toLowerCase().includes(searchLower) ||
-        user.phoneNumber?.toLowerCase().includes(searchLower)
-      );
-    }) || [];
-
-  // Edit dialog form
-  function EditUserDialog({
-    user,
-    open,
-    setOpen,
-  }: {
-    user: any;
-    open: boolean;
-    setOpen: (v: boolean) => void;
-  }) {
-    const {
-      register,
-      handleSubmit,
-      formState: { errors, isSubmitting },
-      reset,
-    } = useForm<AdminUserForm>({
-      resolver: zodResolver(AdminUserSchema),
-      defaultValues: {
-        username: user?.username || "",
-        email: user?.email || "",
-        phoneNumber: user?.phoneNumber || "",
-        password: "",
-      },
-    });
-    async function onSubmit(data: AdminUserForm) {
-      try {
-        const resp = await fetch(`/api/admin/users/${user.id}`, {
-          method: "PATCH",
-          credentials: "include",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify(data),
-        });
-
-        if (!resp.ok) {
-          // Try to extract error message from response body
-          const errorData = await resp.json().catch(() => null);
-          const errMsg =
-            errorData?.error || errorData?.message || "Could not update user.";
-
-          toast({
-            title: "Update Failed",
-            description: errMsg,
-            variant: "destructive",
-          });
-
-          return;
-        }
-
-        queryClient.invalidateQueries({ queryKey: ["/api/admin/users"] });
-        setOpen(false);
-        toast({
-          title: "User Updated",
-          description: "User details updated successfully.",
-        });
-      } catch (err: any) {
-        toast({
-          title: "Update Failed",
-          description: err.message || "Could not update user.",
-          variant: "destructive",
-        });
-      }
-    }
-
+  const filtered = users.filter((u) => {
+    if (!search) return true;
+    const q = search.toLowerCase();
     return (
-      <Dialog open={open} onOpenChange={setOpen}>
-        <DialogContent>
-          <DialogHeader>
-            <DialogTitle>Edit User</DialogTitle>
-            <DialogDescription>
-              Update user details and reset password if needed.
-            </DialogDescription>
-          </DialogHeader>
-          <form onSubmit={handleSubmit(onSubmit)}>
-            <Label>Username</Label>
-            <Input {...register("username")} />
-            {errors.username && (
-              <span className="text-red-600">{errors.username.message}</span>
-            )}
-
-            <Label>Phone Number</Label>
-            <Input {...register("phoneNumber")} />
-            {errors.phoneNumber && (
-              <span className="text-red-600">{errors.phoneNumber.message}</span>
-            )}
-            {user.provider === "local" && (
-              <>
-                <Label>Email</Label>
-                <Input {...register("email")} />
-                {errors.email && (
-                  <span className="text-red-600">{errors.email.message}</span>
-                )}
-
-                <Label>New Password</Label>
-                <Input type="password" {...register("password")} />
-                {errors.password && (
-                  <span className="text-red-600">
-                    {errors.password.message}
-                  </span>
-                )}
-              </>
-            )}
-            <DialogFooter>
-              <div className="mt-3">
-                <Button type="submit" disabled={isSubmitting}>
-                  Update
-                </Button>
-                <Button
-                  type="button"
-                  variant="outline"
-                  onClick={() => reset()}
-                  disabled={isSubmitting}
-                >
-                  Reset Form
-                </Button>
-              </div>
-            </DialogFooter>
-          </form>
-        </DialogContent>
-      </Dialog>
+      u.username?.toLowerCase().includes(q) ||
+      u.email?.toLowerCase().includes(q) ||
+      u.phoneNumber?.includes(q) ||
+      u.firstName?.toLowerCase().includes(q) ||
+      u.lastName?.toLowerCase().includes(q)
     );
-  }
+  });
 
-  // Error state
-  if (error) {
-    return (
-      <div className="container mx-auto py-6">
-        <div className="text-center">
-          <h2 className="text-2xl font-bold text-red-600">
-            Error Loading Users
-          </h2>
-          <p className="mt-2 text-gray-600">
-            {error instanceof Error
-              ? error.message
-              : "Failed to load users. Please check your admin access and try again."}
-          </p>
-          <Button
-            className="mt-4"
-            onClick={() =>
-              queryClient.invalidateQueries({ queryKey: ["/api/admin/users"] })
-            }
-          >
-            Retry
-          </Button>
-        </div>
-      </div>
-    );
-  }
+  const banMutation = useMutation({
+    mutationFn: async () => {
+      const res = await fetch(`/api/admin/users/${banUser.id}/ban`, {
+        method: "POST", credentials: "include",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ reason: banReason }),
+      });
+      if (!res.ok) { const d = await res.json().catch(() => ({})); throw new Error(d.error || "Failed"); }
+    },
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ["/api/admin/users"] });
+      toast({ title: "User banned" });
+      setBanUser(null); setBanReason("");
+    },
+    onError: (e: any) => toast({ title: "Ban failed", description: e.message, variant: "destructive" }),
+  });
 
-  // Loading state
-  if (isLoading) {
-    return (
-      <div className="container mx-auto py-6">
-        <div className="text-center">
-          <h2 className="text-2xl font-bold">Loading Users...</h2>
-          <p className="mt-2 text-gray-600">
-            Please wait while we fetch the user data.
-          </p>
-        </div>
-      </div>
-    );
-  }
+  const unbanMutation = useMutation({
+    mutationFn: async () => {
+      const res = await fetch(`/api/admin/users/${unbanUser.id}/unban`, {
+        method: "POST", credentials: "include",
+      });
+      if (!res.ok) throw new Error("Failed");
+    },
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ["/api/admin/users"] });
+      toast({ title: "User unbanned" });
+      setUnbanUser(null);
+    },
+    onError: (e: any) => toast({ title: "Unban failed", description: e.message, variant: "destructive" }),
+  });
 
-  // No users found state
-  if (!users || users.length === 0) {
-    return (
-      <div className="container mx-auto py-6">
-        <div className="text-center">
-          <h2 className="text-2xl font-bold">No Users Found</h2>
-          <p className="mt-2 text-gray-600">
-            There are currently no users in the system.
-          </p>
-        </div>
-      </div>
-    );
-  }
+  const deleteMutation = useMutation({
+    mutationFn: async () => {
+      const res = await fetch(`/api/admin/users/${deleteUser.id}`, {
+        method: "DELETE", credentials: "include",
+      });
+      if (!res.ok) { const d = await res.json().catch(() => ({})); throw new Error(d.error || "Failed"); }
+    },
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ["/api/admin/users"] });
+      toast({ title: "User deleted" });
+      setDeleteUser(null);
+    },
+    onError: (e: any) => toast({ title: "Delete failed", description: e.message, variant: "destructive" }),
+  });
+
+  if (isLoading) return <div className="p-8 text-center text-gray-400">Loading users...</div>;
 
   return (
-    <div className="container mx-auto py-6">
-      <div className="flex justify-between items-center mb-6">
-        <h1 className="text-2xl font-bold">User Management</h1>
-        {/* Add user dialog code... (not implemented here) */}
+    <div className="container mx-auto px-4 py-6 max-w-5xl">
+      <div className="flex flex-wrap items-center justify-between gap-3 mb-6">
+        <h1 className="text-2xl font-bold text-white">Manage Users</h1>
+        <span className="text-sm text-gray-400">{filtered.length} / {users.length} users</span>
       </div>
 
-      {/* Search Input */}
-      <div className="relative mb-4">
-        <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+      {/* Search */}
+      <div className="relative mb-5">
+        <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-500" />
         <Input
-          placeholder="Search users..."
-          value={searchQuery}
-          onChange={(e) => setSearchQuery(e.target.value)}
-          className="pl-9"
+          placeholder="Search by name, username, email, phone..."
+          value={search}
+          onChange={(e) => setSearch(e.target.value)}
+          className="pl-9 bg-[#1E1E1E] border-[#333] text-white"
         />
       </div>
 
-      <Table>
-        <TableHeader>
-          <TableRow>
-            <TableHead>Username</TableHead>
-            <TableHead>Email</TableHead>
-            <TableHead>Role</TableHead>
-            <TableHead>Status</TableHead>
-            <TableHead>Phone</TableHead>
-            <TableHead>Actions</TableHead>
-          </TableRow>
-        </TableHeader>
-        <TableBody>
-          {filteredUsers.map((user: any) => (
-            <TableRow key={user.id} className={user.status === "banned" ? "opacity-50" : ""}>
-              <TableCell className="font-medium">{user.username}</TableCell>
-              <TableCell>{user.email}</TableCell>
-              <TableCell>{user.role}</TableCell>
-              <TableCell>
-                {user.status === "banned" ? (
-                  <div className="flex items-center gap-1.5">
-                    <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-semibold bg-red-900/40 text-red-400 border border-red-800">
-                      <Ban className="h-3 w-3" /> Banned
-                    </span>
-                    {user.banReason && (
-                      <TooltipProvider>
-                        <Tooltip>
-                          <TooltipTrigger asChild>
-                            <button className="text-gray-400 hover:text-white transition-colors">
-                              <Info className="h-4 w-4" />
-                            </button>
-                          </TooltipTrigger>
-                          <TooltipContent side="right" className="max-w-[260px] bg-[#1E1E1E] border border-[#444] text-white p-3">
-                            <p className="text-xs font-semibold text-red-400 mb-1">Ban Reason</p>
-                            <p className="text-sm">{user.banReason}</p>
-                            {user.bannedAt && (
-                              <p className="text-xs text-gray-400 mt-1">
-                                Banned: {new Date(user.bannedAt).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" })}
-                              </p>
-                            )}
-                          </TooltipContent>
-                        </Tooltip>
-                      </TooltipProvider>
+      {/* User cards — mobile-first */}
+      <div className="space-y-3">
+        {filtered.map((user) => {
+          const isBanned = user.status === "banned";
+          const name = fullName(user);
+          return (
+            <div
+              key={user.id}
+              className={`bg-[#1E1E1E] rounded-xl border p-4 ${isBanned ? "border-red-900/50 opacity-70" : "border-[#2a2a2b]"}`}
+            >
+              {/* Top row: avatar + info */}
+              <div className="flex items-start gap-3">
+                <div className={`w-10 h-10 rounded-full flex items-center justify-center font-bold text-base shrink-0 ${
+                  user.isAdmin ? "bg-[#D35400]" : isBanned ? "bg-red-900" : "bg-[#333]"
+                } text-white`}>
+                  {(user.username?.[0] || "?").toUpperCase()}
+                </div>
+
+                <div className="flex-1 min-w-0">
+                  {/* Name + badges */}
+                  <div className="flex flex-wrap items-center gap-2 mb-0.5">
+                    <span className="font-bold text-white text-sm">{user.username}</span>
+                    {name && <span className="text-gray-400 text-xs">({name})</span>}
+                    {user.isAdmin && (
+                      <span className="flex items-center gap-1 text-[10px] font-bold text-[#D35400] bg-[#D35400]/10 border border-[#D35400]/30 rounded-full px-2 py-0.5">
+                        <Shield className="h-2.5 w-2.5" /> ADMIN
+                      </span>
+                    )}
+                    {isBanned && (
+                      <span className="text-[10px] font-bold text-red-400 bg-red-900/20 border border-red-800/50 rounded-full px-2 py-0.5">
+                        BANNED
+                      </span>
                     )}
                   </div>
-                ) : (
-                  <span className="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-semibold bg-green-900/40 text-green-400 border border-green-800">
-                    Active
-                  </span>
-                )}
-              </TableCell>
-              <TableCell>{user.phoneNumber}</TableCell>
-              <TableCell>
-                <div className="flex items-center gap-2">
-                  <Button variant="ghost" size="sm" onClick={() => setEditUser(user)} title="Edit user">
-                    <Edit className="h-4 w-4" />
-                  </Button>
-                  {user.status !== "banned" ? (
-                    <Button
-                      variant="ghost"
-                      size="sm"
-                      onClick={() => { setBanUser(user); setBanReason(""); }}
-                      className="text-red-500 hover:text-red-400 hover:bg-red-900/20"
-                      title="Ban user"
-                    >
-                      <Ban className="h-4 w-4" />
-                    </Button>
-                  ) : (
-                    <Button
-                      variant="ghost"
-                      size="sm"
-                      onClick={() => setUnbanUser(user)}
-                      className="text-green-500 hover:text-green-400 hover:bg-green-900/20"
-                      title="Unban user"
-                    >
-                      ✓ Unban
-                    </Button>
+                  <p className="text-gray-400 text-xs truncate">{user.email}</p>
+                  {user.phoneNumber && <p className="text-gray-500 text-xs">{user.phoneNumber}</p>}
+                  {isBanned && user.banReason && (
+                    <p className="text-red-400/70 text-xs mt-1 italic">Ban reason: {user.banReason}</p>
                   )}
+                  <p className="text-gray-600 text-[10px] mt-1">#{user.id} · {user.points || 0} pts · {user.isPhoneVerified ? "✓ verified" : "unverified"}</p>
                 </div>
-                {editUser?.id === user.id && (
-                  <EditUserDialog
-                    user={user}
-                    open={!!editUser}
-                    setOpen={(open) => { if (!open) setEditUser(null); }}
-                  />
-                )}
-              </TableCell>
-            </TableRow>
-          ))}
-        </TableBody>
-      </Table>
+              </div>
 
-      {/* Unban Confirmation Dialog */}
-      <Dialog open={!!unbanUser} onOpenChange={(open) => { if (!open) setUnbanUser(null); }}>
-        <DialogContent>
+              {/* Action row */}
+              <div className="flex flex-wrap gap-2 mt-3 pt-3 border-t border-[#2a2a2b]">
+                {/* Ban / Unban */}
+                {isBanned ? (
+                  <Button size="sm" variant="outline"
+                    className="text-green-400 border-green-800 hover:bg-green-900/20 text-xs h-7"
+                    onClick={() => setUnbanUser(user)}>
+                    <UserCheck className="h-3 w-3 mr-1" /> Unban
+                  </Button>
+                ) : (
+                  <Button size="sm" variant="outline"
+                    className="text-red-400 border-red-900 hover:bg-red-900/20 text-xs h-7"
+                    onClick={() => { setBanUser(user); setBanReason(""); }}>
+                    <Ban className="h-3 w-3 mr-1" /> Ban
+                  </Button>
+                )}
+
+                {/* Delete */}
+                <Button size="sm" variant="outline"
+                  className="text-red-500 border-red-900 hover:bg-red-900/30 text-xs h-7 ml-auto"
+                  onClick={() => setDeleteUser(user)}>
+                  <Trash2 className="h-3 w-3 mr-1" /> Delete
+                </Button>
+              </div>
+            </div>
+          );
+        })}
+        {filtered.length === 0 && (
+          <p className="text-center text-gray-500 py-12">No users found</p>
+        )}
+      </div>
+
+      {/* Ban Dialog */}
+      <Dialog open={!!banUser} onOpenChange={(o) => { if (!o) { setBanUser(null); setBanReason(""); } }}>
+        <DialogContent className="bg-[#1a1a1b] border-[#333] text-white">
           <DialogHeader>
-            <DialogTitle className="text-green-500">Unban User</DialogTitle>
-            <DialogDescription>
-              Restore <strong>{unbanUser?.username}</strong> to active status and remove their phone number{unbanUser?.phoneNumber ? ` (${unbanUser.phoneNumber})` : ""} from the blacklist.
-              {unbanUser?.banReason && (
-                <span className="block mt-2 text-yellow-400 text-sm">⚠️ They were banned for: <em>{unbanUser.banReason}</em></span>
-              )}
+            <DialogTitle className="text-red-400 flex items-center gap-2"><Ban className="h-4 w-4" /> Ban {banUser?.username}</DialogTitle>
+            <DialogDescription className="text-gray-400">
+              Bans user and blacklists phone {banUser?.phoneNumber ? `(${banUser.phoneNumber})` : ""}.
             </DialogDescription>
           </DialogHeader>
+          <div className="space-y-2">
+            <Label className="text-gray-300">Reason <span className="text-red-500">*</span></Label>
+            <Textarea value={banReason} onChange={(e) => setBanReason(e.target.value)}
+              placeholder="e.g. Spam, harassment..." rows={3}
+              className="bg-[#252525] border-[#444] text-white" />
+          </div>
           <DialogFooter className="gap-2">
-            <Button variant="outline" onClick={() => setUnbanUser(null)}>Cancel</Button>
-            <Button onClick={handleUnban} disabled={isUnbanning} className="bg-green-700 hover:bg-green-600 text-white">
-              {isUnbanning ? "Unbanning..." : "Confirm Unban"}
+            <Button variant="outline" onClick={() => { setBanUser(null); setBanReason(""); }}>Cancel</Button>
+            <Button variant="destructive" disabled={!banReason.trim() || banMutation.isPending} onClick={() => banMutation.mutate()}>
+              {banMutation.isPending ? "Banning..." : "Confirm Ban"}
             </Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>
 
-      {/* Ban Confirmation Dialog */}
-      <Dialog open={!!banUser} onOpenChange={(open) => { if (!open) { setBanUser(null); setBanReason(""); } }}>
-        <DialogContent>
+      {/* Unban Dialog */}
+      <Dialog open={!!unbanUser} onOpenChange={(o) => { if (!o) setUnbanUser(null); }}>
+        <DialogContent className="bg-[#1a1a1b] border-[#333] text-white">
           <DialogHeader>
-            <DialogTitle className="flex items-center gap-2 text-red-500">
-              <Ban className="h-5 w-5" /> Ban User
-            </DialogTitle>
-            <DialogDescription>
-              This will permanently ban <strong>{banUser?.username}</strong> and blacklist their phone number{banUser?.phoneNumber ? ` (${banUser.phoneNumber})` : ""}. They will not be able to log in or re-register with this phone number.
+            <DialogTitle className="text-green-400">Unban {unbanUser?.username}?</DialogTitle>
+            <DialogDescription className="text-gray-400">
+              Restores access and removes phone from blacklist.
+              {unbanUser?.banReason && <span className="block mt-2 text-yellow-400 text-sm">Was banned for: {unbanUser.banReason}</span>}
             </DialogDescription>
           </DialogHeader>
-          <div className="space-y-3 py-2">
-            <Label htmlFor="ban-reason">Reason for ban <span className="text-red-500">*</span></Label>
-            <Textarea
-              id="ban-reason"
-              placeholder="e.g. Posted explicit content, repeated profanity in reviews..."
-              value={banReason}
-              onChange={(e) => setBanReason(e.target.value)}
-              rows={3}
-            />
-          </div>
           <DialogFooter className="gap-2">
-            <Button variant="outline" onClick={() => { setBanUser(null); setBanReason(""); }}>
-              Cancel
+            <Button variant="outline" onClick={() => setUnbanUser(null)}>Cancel</Button>
+            <Button className="bg-green-700 hover:bg-green-600" disabled={unbanMutation.isPending} onClick={() => unbanMutation.mutate()}>
+              {unbanMutation.isPending ? "Unbanning..." : "Confirm Unban"}
             </Button>
-            <Button
-              variant="destructive"
-              onClick={handleBan}
-              disabled={isBanning || !banReason.trim()}
-            >
-              {isBanning ? "Banning..." : "Confirm Ban"}
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Delete Dialog */}
+      <Dialog open={!!deleteUser} onOpenChange={(o) => { if (!o) setDeleteUser(null); }}>
+        <DialogContent className="bg-[#1a1a1b] border-[#333] text-white">
+          <DialogHeader>
+            <DialogTitle className="text-red-500 flex items-center gap-2"><Trash2 className="h-4 w-4" /> Delete User</DialogTitle>
+            <DialogDescription className="text-gray-400">
+              Permanently delete <strong className="text-white">{deleteUser?.username}</strong>
+              {fullName(deleteUser) ? ` (${fullName(deleteUser)})` : ""}? This cannot be undone. All their data, reviews, and check-ins will be removed.
+            </DialogDescription>
+          </DialogHeader>
+          <DialogFooter className="gap-2">
+            <Button variant="outline" onClick={() => setDeleteUser(null)}>Cancel</Button>
+            <Button variant="destructive" disabled={deleteMutation.isPending} onClick={() => deleteMutation.mutate()}>
+              {deleteMutation.isPending ? "Deleting..." : "Delete Permanently"}
             </Button>
           </DialogFooter>
         </DialogContent>
