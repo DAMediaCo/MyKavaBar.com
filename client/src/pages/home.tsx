@@ -1,7 +1,7 @@
 import { useState, useEffect, useMemo, lazy, Suspense } from "react";
 import { useKavaBars } from "@/hooks/use-kava-bars";
 import { useLocation, calculateDistance } from "@/hooks/use-location";
-import KavaBarCard from "@/components/kava-bar-card";
+import KavaBarCard, { getCardSize } from "@/components/kava-bar-card";
 import { useQuery } from "@tanstack/react-query";
 
 import { Search, Map, List, SlidersHorizontal } from "lucide-react";
@@ -328,21 +328,21 @@ export default function Home() {
 
         {/* Bar Grid or Map View */}
         {viewMode === "list" ? (
-          <div className="grid grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-3">
-            {sortedBars?.slice(0, displayCount).flatMap((bar, index) => {
-              const cards = [];
-              // Add the regular bar
-              cards.push(
-                <KavaBarCard
+          <div className="grid grid-cols-2 md:grid-cols-4 gap-3" style={{ gridAutoFlow: "dense" }}>
+            {sortedBars?.slice(0, displayCount).map((bar) => {
+              const size = getCardSize(bar);
+              return (
+                <div
                   key={bar.id}
-                  bar={bar}
-                  distance={bar.distance !== Infinity ? bar.distance : undefined}
-                />
+                  className={size === "small" ? "col-span-1" : "col-span-2"}
+                >
+                  <KavaBarCard
+                    bar={bar}
+                    size={size}
+                    distance={bar.distance !== Infinity ? bar.distance : undefined}
+                  />
+                </div>
               );
-              
-              // Featured bars are now shown at the top, not inserted into the grid
-              
-              return cards;
             })}
           </div>
         ) : (
