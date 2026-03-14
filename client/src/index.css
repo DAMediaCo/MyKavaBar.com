@@ -215,6 +215,16 @@ html.light {
   .bg-black\/60 .text-white,
   .backdrop-blur-sm.text-white { color: #ffffff !important; }
 
+  /* Preserve white text inside intentional dark admin cards */
+  .bg-zinc-700 .text-white,
+  .bg-zinc-700.text-white,
+  .bg-zinc-800 .text-white,
+  .bg-zinc-800.text-white,
+  .bg-zinc-700 .text-white.font-bold { color: #ffffff !important; }
+  .bg-zinc-700 .text-zinc-200 { color: rgb(228 228 231) !important; }
+  .bg-zinc-700 .text-zinc-300 { color: rgb(212 212 216) !important; }
+  .bg-zinc-700 .text-zinc-400 { color: rgb(161 161 170) !important; }
+
   /* --- Home page search bar text input --- */
   #home-content input { color: #111827 !important; }
 
