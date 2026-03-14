@@ -112,16 +112,6 @@ export default function Home() {
       (bar.city && bar.city.toLowerCase().includes(q)) ||
       (bar.state && bar.state.toLowerCase().includes(q));
 
-    if (coordinates && radius && bar.location?.lat && bar.location?.lng) {
-      const distance = calculateDistance(
-        coordinates.latitude,
-        coordinates.longitude,
-        bar.location.lat,
-        bar.location.lng,
-      );
-      return matchesSearch && distance <= radius;
-    }
-
     return matchesSearch;
   });
 
