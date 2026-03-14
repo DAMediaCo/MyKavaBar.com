@@ -23,7 +23,7 @@ function getNextOccurrence(dayOfWeek: number): Date {
   const today = new Date();
   const currentDay = today.getDay();
   let daysUntil = dayOfWeek - currentDay;
-  if (daysUntil <= 0) daysUntil += 7;
+  if (daysUntil < 0) daysUntil += 7;
   const nextDate = new Date(today);
   nextDate.setDate(today.getDate() + daysUntil);
   return nextDate;
