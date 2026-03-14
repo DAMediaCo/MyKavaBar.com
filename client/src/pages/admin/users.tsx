@@ -12,6 +12,7 @@ import {
 } from "@/components/ui/dialog";
 
 function fullName(user: any) {
+  if (!user) return null;
   const f = user.firstName?.trim() || "";
   const l = user.lastName?.trim() || "";
   return f || l ? `${f} ${l}`.trim() : null;
