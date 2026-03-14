@@ -569,7 +569,6 @@ Sitemap: https://mykavabar.com/sitemap.xml
                (SELECT url FROM kava_bar_photos WHERE bar_id = k.id ORDER BY created_at DESC LIMIT 1) as latest_gallery_photo
         FROM kava_bars k
         WHERE k.verification_status != 'not_kava_bar' AND k.verification_status IS NOT NULL
-          AND (k.business_status IS NULL OR k.business_status = 'OPERATIONAL')
           AND k.deleted_at IS NULL
           AND k.is_sponsored = true
         ORDER BY k.rating DESC NULLS LAST LIMIT 200
