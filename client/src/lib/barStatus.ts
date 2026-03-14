@@ -195,5 +195,19 @@ export function getHappyHourStatus(
     }
   }
 
+  // All of today's slots are past — find next upcoming slot (up to 6 days ahead)
+  for (let i = 1; i <= 6; i++) {
+    const nextIdx = (DAY_NAMES.indexOf(dayName) + i) % 7;
+    const nextDay = DAY_NAMES[nextIdx];
+    const nextSlots = hh[nextDay];
+    if (!nextSlots || nextSlots.length === 0) continue;
+    const slot = nextSlots[0];
+    const openStr = `${slot.start} ${slot.startPeriod}`;
+    const open = parseTimeTo24Mins(openStr);
+    if (open < 0) continue;
+    const label = i === 1 ? 'tomorrow' : nextDay;
+    return { isActive: false, label: `🍹 Happy Hour ${label} ${minsTo12h(open)}`, color: ORANGE };
+  }
+
   return { isActive: false, label: null, color: ORANGE };
 }
