@@ -96,12 +96,6 @@ function TimePicker({
 
 // ── ScheduleBuilder ───────────────────────────────────────────────────────────
 export function ScheduleBuilder({ rows, onChange }: ScheduleBuilderProps) {
-  const claimedDays = (excludeIdx: number) =>
-    rows.reduce<boolean[]>((acc, row, i) => {
-      if (i === excludeIdx) return acc;
-      return acc.map((v, d) => v || row.days[d]);
-    }, Array(7).fill(false));
-
   const addRow = () =>
     onChange([...rows, { open: "10:00", close: "22:00", days: Array(7).fill(false) }]);
 
@@ -110,9 +104,8 @@ export function ScheduleBuilder({ rows, onChange }: ScheduleBuilderProps) {
   const updateRow = (idx: number, patch: Partial<ScheduleRow>) =>
     onChange(rows.map((row, i) => (i === idx ? { ...row, ...patch } : row)));
 
+  // Allow the same day in multiple rows — each row is an independent time slot
   const toggleDay = (rowIdx: number, dayIdx: number) => {
-    const claimed = claimedDays(rowIdx);
-    if (claimed[dayIdx]) return;
     const newDays = rows[rowIdx].days.map((v, i) => (i === dayIdx ? !v : v));
     updateRow(rowIdx, { days: newDays });
   };
@@ -126,7 +119,6 @@ export function ScheduleBuilder({ rows, onChange }: ScheduleBuilderProps) {
       )}
 
       {rows.map((row, rowIdx) => {
-        const claimed = claimedDays(rowIdx);
         const selectedDays = row.days.filter(Boolean).length;
 
         return (
@@ -172,20 +164,16 @@ export function ScheduleBuilder({ rows, onChange }: ScheduleBuilderProps) {
               <div className="flex gap-2 flex-wrap">
                 {DAY_LABELS.map((day, dayIdx) => {
                   const isChecked = row.days[dayIdx];
-                  const isClaimed = claimed[dayIdx];
                   return (
                     <button
                       key={day}
                       type="button"
                       onClick={() => toggleDay(rowIdx, dayIdx)}
-                      disabled={isClaimed}
                       className={cn(
-                        "w-10 h-10 rounded-xl text-xs font-bold border transition-all select-none",
+                        "w-10 h-10 rounded-xl text-xs font-bold border transition-all select-none active:scale-95",
                         isChecked
                           ? "bg-[#D35400] border-[#D35400] text-white shadow-md"
-                          : isClaimed
-                          ? "bg-[#1a1a1b] border-[#1e1e1f] text-gray-700 cursor-not-allowed opacity-40"
-                          : "bg-[#1a1a1b] border-[#333] text-gray-400 active:scale-95"
+                          : "bg-[#1a1a1b] border-[#333] text-gray-400"
                       )}
                     >
                       {day}

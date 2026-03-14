@@ -123,7 +123,7 @@ export function HappyHours({ barId }: { barId: number }) {
   return (
     <div className="space-y-5">
       <p className="text-xs text-gray-400">
-        Set your happy hour time range and check which days it runs. Add another row for different days with different times.
+        Add a row per time slot. The same day can appear in multiple rows — e.g. Mon 8am–2pm, Mon 4pm–6pm, Mon 8pm–10pm. Up to 4 slots per day.
       </p>
       <ScheduleBuilder rows={rows} onChange={setRows} label="happy hours" />
       <Button
