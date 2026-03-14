@@ -125,7 +125,7 @@ function getHappyHourStatus(happyHours: any): { active: boolean; label: string }
       return { active: true, label: `🍹 Happy Hour til ${fmt12(closeStr)}` };
     }
     if (currentTime < openTime) {
-      return { active: false, label: `🍹 HH at ${fmt12(openStr)}` };
+      return { active: false, label: `🍹 Happy Hour at ${fmt12(openStr)}` };
     }
   }
 
@@ -137,7 +137,7 @@ function getHappyHourStatus(happyHours: any): { active: boolean; label: string }
     const slot = slots[0];
     const openStr = `${slot.start} ${slot.startPeriod}`;
     const label = i === 1 ? "Tomorrow" : nextDay.slice(0, 3);
-    return { active: false, label: `🍹 HH ${label} ${fmt12(openStr)}` };
+    return { active: false, label: `🍹 Happy Hour ${label} ${fmt12(openStr)}` };
   }
 
   return null;
