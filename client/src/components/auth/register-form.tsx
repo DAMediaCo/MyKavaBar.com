@@ -1,4 +1,4 @@
-import { useState, useRef, useEffect } from "react";
+import { useState, useEffect } from "react";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
@@ -15,13 +15,7 @@ import {
   FormMessage,
 } from "@/components/ui/form";
 import { Input } from "@/components/ui/input";
-import { Loader2, Camera, Upload, X } from "lucide-react";
-import {
-  Dialog,
-  DialogContent,
-  DialogHeader,
-  DialogTitle,
-} from "@/components/ui/dialog";
+import { Loader2 } from "lucide-react";
 import { Checkbox } from "@/components/ui/checkbox";
 import { ShowTermsDialog } from "@/components/show-terms-dialog";
 
@@ -36,12 +30,10 @@ const registerSchema = z.object({
   termsAccepted: z.boolean().refine((val) => val === true, {
     message: "You must accept the terms and conditions",
   }),
-  marketingConsent: z.boolean().default(false),
-
-  referralCode: z.string().optional(),
   ageConfirmed: z.boolean().refine((val) => val === true, {
-    message: "You must confirm that you are at least 18 years old",
+    message: "You must confirm you are at least 18 years old",
   }),
+  referralCode: z.string().optional(),
 });
 
 type RegisterValues = z.infer<typeof registerSchema>;
@@ -53,22 +45,14 @@ export default function RegisterForm({
 }) {
   const { toast } = useToast();
   const [_, setLocation] = useLocation();
+  const queryClient = useQueryClient();
 
   const [isVerifying, setIsVerifying] = useState(false);
   const [codeSent, setCodeSent] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
-  const [profilePhoto, setProfilePhoto] = useState<File | null>(null);
-  const [photoPreviewUrl, setPhotoPreviewUrl] = useState<string | null>(null);
-  const [showCamera, setShowCamera] = useState(false);
-  const [isCameraActive, setIsCameraActive] = useState(false);
-  const videoRef = useRef<HTMLVideoElement>(null);
-  const streamRef = useRef<MediaStream | null>(null);
   const [showTerms, setShowTerms] = useState(false);
-  const queryClient = useQueryClient();
-
-  // OTP resend management state
   const [otpRequestCount, setOtpRequestCount] = useState(0);
-  const [otpCooldown, setOtpCooldown] = useState(0); // seconds remaining cooldown
+  const [otpCooldown, setOtpCooldown] = useState(0);
 
   const form = useForm<RegisterValues>({
     resolver: zodResolver(registerSchema),
@@ -82,55 +66,42 @@ export default function RegisterForm({
       phoneNumber: "",
       verificationCode: "",
       termsAccepted: false,
-      marketingConsent: false,
-      referralCode: referralCode || "",
       ageConfirmed: false,
+      referralCode: referralCode || "",
     },
   });
 
-  // Cooldown countdown timer effect
   useEffect(() => {
     if (otpCooldown > 0) {
-      const timerId = setTimeout(() => setOtpCooldown(otpCooldown - 1), 1000);
-      return () => clearTimeout(timerId);
+      const t = setTimeout(() => setOtpCooldown((c) => c - 1), 1000);
+      return () => clearTimeout(t);
     }
   }, [otpCooldown]);
 
-  // Reuse existing function but without changing codeSent inside it
   async function requestVerificationCode(phoneNumber: string) {
     try {
-      const response = await fetch("/api/phone/verify", {
+      const res = await fetch("/api/phone/verify", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ phoneNumber }),
         credentials: "include",
       });
-
-      const result = await response.json();
-
-      if (!response.ok) {
-        console.error("Verification request failed:", result);
+      const result = await res.json();
+      if (!res.ok) {
         toast({
           variant: "destructive",
-          title: "Phone number exists",
-          description:
-            "Please use a different phone number or login with your existing account.",
+          title: "Phone number already in use",
+          description: "Use a different number or log in to your existing account.",
         });
         return false;
       }
-      toast({
-        title: "Verification Code Sent",
-        description: "Please check your phone for the verification code.",
-      });
+      toast({ title: "Code sent", description: "Check your phone for the verification code." });
       return true;
-    } catch (error: any) {
-      const errorDetails = error.details ? `: ${error.details}` : "";
+    } catch {
       toast({
         variant: "destructive",
-        title: "SMS Service Unavailable",
-        description:
-          "Our SMS verification service is currently unavailable. Please try again later or contact support." +
-          errorDetails,
+        title: "SMS unavailable",
+        description: "Could not send SMS. Please try again later.",
       });
       return false;
     } finally {
@@ -140,219 +111,77 @@ export default function RegisterForm({
 
   async function handleRequestOtp() {
     if (otpRequestCount > 2) {
-      toast({
-        variant: "destructive",
-        title: "OTP Limit Reached",
-        description: "You have reached the maximum number of OTP requests.",
-      });
+      toast({ variant: "destructive", title: "Too many attempts", description: "Maximum OTP requests reached." });
       return;
     }
-
-    setIsVerifying(true);
     const phoneNumber = form.getValues("phoneNumber");
     if (!phoneNumber || phoneNumber.length < 10) {
-      toast({
-        variant: "destructive",
-        title: "Invalid Phone Number",
-        description: "Please enter a valid phone number before requesting OTP.",
-      });
-      setIsVerifying(false);
+      toast({ variant: "destructive", title: "Invalid phone number", description: "Enter a valid phone number first." });
       return;
     }
-
+    setIsVerifying(true);
     const success = await requestVerificationCode(phoneNumber);
-    setIsVerifying(false);
-
     if (success) {
-      setOtpRequestCount(otpRequestCount + 1);
-      // Set cooldown timer according to attempts
-      if (otpRequestCount === 0) {
-        setOtpCooldown(15);
-      } else if (otpRequestCount === 1) {
-        setOtpCooldown(30);
-      }
+      setOtpRequestCount((n) => n + 1);
+      setOtpCooldown(otpRequestCount === 0 ? 15 : 30);
       setCodeSent(true);
     }
   }
 
-  const handlePhotoCapture = async () => {
-    try {
-      setShowCamera(true);
-      const stream = await navigator.mediaDevices.getUserMedia({
-        video: {
-          facingMode: "user",
-          width: { ideal: 1280 },
-          height: { ideal: 720 },
-        },
-      });
-      if (videoRef.current) {
-        videoRef.current.srcObject = stream;
-        setIsCameraActive(true);
-      }
-    } catch (error) {
-      console.error("Error accessing camera:", error);
-      toast({
-        title: "Camera Error",
-        description: "Unable to access camera. Please check permissions.",
-        variant: "destructive",
-      });
-    }
-  };
-
-  const capturePhoto = () => {
-    if (videoRef.current) {
-      const video = videoRef.current;
-      const canvas = document.createElement("canvas");
-
-      canvas.width = video.videoWidth;
-      canvas.height = video.videoHeight;
-
-      const ctx = canvas.getContext("2d");
-      if (ctx) {
-        ctx.scale(-1, 1);
-        ctx.translate(-canvas.width, 0);
-        ctx.drawImage(video, 0, 0);
-
-        canvas.toBlob(
-          (blob) => {
-            if (blob) {
-              const file = new File([blob], "profile-photo.jpg", {
-                type: "image/jpeg",
-              });
-              handlePhotoFile(file);
-
-              const previewUrl = URL.createObjectURL(blob);
-              setPhotoPreviewUrl(previewUrl);
-            }
-          },
-          "image/jpeg",
-          0.8,
-        );
-      }
-
-      const stream = video.srcObject as MediaStream;
-      if (stream) {
-        stream.getTracks().forEach((track) => track.stop());
-      }
-
-      setShowCamera(false);
-      setIsCameraActive(false);
-    }
-  };
-
-  const handlePhotoFile = (file: File) => {
-    setProfilePhoto(file);
-  };
-
-  const closeCamera = () => {
-    if (streamRef.current) {
-      streamRef.current.getTracks().forEach((track) => track.stop());
-    }
-    setShowCamera(false);
-    setIsCameraActive(false);
-  };
-
-  const handlePhotoUpload = (event: React.ChangeEvent<HTMLInputElement>) => {
-    const file = event.target.files?.[0];
-    if (file) {
-      setProfilePhoto(file);
-      setPhotoPreviewUrl(URL.createObjectURL(file));
-    }
-  };
-
   async function onSubmit(values: RegisterValues) {
-    if (Object.keys(form.formState.errors).length > 0) {
-      console.error("Form validation errors:", form.formState.errors);
-      return;
-    }
-
+    if (Object.keys(form.formState.errors).length > 0) return;
     try {
       setIsSubmitting(true);
 
-      // If code not sent yet, send first OTP and exit
       if (!codeSent) {
         await handleRequestOtp();
         return;
       }
 
       if (!values.verificationCode) {
-        toast({
-          variant: "destructive",
-          title: "Error",
-          description: "Please enter the verification code",
-        });
+        toast({ variant: "destructive", title: "Enter verification code", description: "Check your phone for the code." });
         return;
       }
 
-      const verifyResponse = await fetch("/api/phone/confirm", {
+      // Verify OTP
+      const verifyRes = await fetch("/api/phone/confirm", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         credentials: "include",
-        body: JSON.stringify({
-          code: values.verificationCode,
-          phoneNumber: values.phoneNumber,
-        }),
+        body: JSON.stringify({ code: values.verificationCode, phoneNumber: values.phoneNumber }),
       });
+      const verifyResult = await verifyRes.json();
+      if (!verifyRes.ok) throw new Error(verifyResult.message || "Invalid verification code");
 
-      const verifyResult = await verifyResponse.json();
-
-      if (!verifyResponse.ok) {
-        throw new Error(verifyResult.message || "Invalid verification code");
-      }
-
+      // Register
       const formData = new FormData();
-
       formData.append("firstName", values.firstName);
       formData.append("lastName", values.lastName);
       formData.append("username", values.username);
       formData.append("email", values.email);
       formData.append("password", values.password);
       formData.append("phoneNumber", values.phoneNumber);
-      if (values.verificationCode) {
-        formData.append("verificationCode", values.verificationCode);
-      }
-
-      formData.append("termsAccepted", values.termsAccepted ? "1" : "0");
-      formData.append("marketingConsent", values.marketingConsent ? "1" : "0");
-      formData.append("ageConfirmed", values.ageConfirmed ? "1" : "0");
+      formData.append("verificationCode", values.verificationCode);
+      formData.append("termsAccepted", "1");
+      formData.append("ageConfirmed", "1");
+      formData.append("marketingConsent", "0");
       formData.append("isPhoneVerified", "1");
       formData.append("referralCode", values.referralCode || "");
 
-      if (profilePhoto) {
-        formData.append("profilePhoto", profilePhoto);
-      }
-
-      const registerResponse = await fetch("/api/register", {
+      const registerRes = await fetch("/api/register", {
         method: "POST",
         credentials: "include",
         body: formData,
       });
+      const registerResult = await registerRes.json();
+      if (!registerRes.ok) throw new Error(registerResult.error || registerResult.message || "Registration failed");
 
-      const registerResult = await registerResponse.json();
-
-      if (!registerResponse.ok) {
-        throw new Error(
-          registerResult.error ||
-            registerResult.message ||
-            "Registration failed",
-        );
-      }
       queryClient.invalidateQueries({ queryKey: ["user"] });
-
-      toast({
-        title: "Registration Successful",
-        description: "Welcome to MyKavaBar!",
-      });
-
-      await new Promise((resolve) => setTimeout(resolve, 1000));
+      toast({ title: "Welcome to MyKavaBar! 🌿" });
+      await new Promise((r) => setTimeout(r, 800));
       setLocation("/");
     } catch (error: any) {
-      console.error("Error in form submission:", error);
-      toast({
-        variant: "destructive",
-        title: "Error",
-        description: error.message || "Registration failed",
-      });
+      toast({ variant: "destructive", title: "Error", description: error.message || "Registration failed" });
       if (error.message?.includes("verification code")) {
         setCodeSent(false);
         setOtpRequestCount(0);
@@ -367,326 +196,139 @@ export default function RegisterForm({
     <>
       <Form {...form}>
         <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
-          <div className="space-y-2">
-            <FormLabel>Profile Photo</FormLabel>
-            <div className="flex flex-col items-center space-y-4">
-              {photoPreviewUrl && (
-                <div className="relative w-24 h-24 rounded-full overflow-hidden">
-                  <img
-                    src={photoPreviewUrl}
-                    alt="Profile preview"
-                    className="w-full h-full object-cover"
-                  />
-                </div>
-              )}
-              <div className="flex space-x-2">
-                <Button
-                  type="button"
-                  variant="outline"
-                  onClick={handlePhotoCapture}
-                >
-                  <Camera className="mr-2 h-4 w-4" />
-                  Take Photo
-                </Button>
-                <div className="relative">
-                  <Button type="button" variant="outline">
-                    <Upload className="mr-2 h-4 w-4" />
-                    Upload Photo
-                    <input
-                      type="file"
-                      className="absolute inset-0 w-full h-full opacity-0 cursor-pointer"
-                      accept="image/*"
-                      onChange={handlePhotoUpload}
-                    />
-                  </Button>
-                </div>
-              </div>
-            </div>
+
+          {/* Name row */}
+          <div className="grid grid-cols-2 gap-3">
+            <FormField control={form.control} name="firstName" render={({ field }) => (
+              <FormItem>
+                <FormLabel>First Name</FormLabel>
+                <FormControl><Input placeholder="First" {...field} /></FormControl>
+                <FormMessage className="text-red-600 text-xs" />
+              </FormItem>
+            )} />
+            <FormField control={form.control} name="lastName" render={({ field }) => (
+              <FormItem>
+                <FormLabel>Last Name</FormLabel>
+                <FormControl><Input placeholder="Last" {...field} /></FormControl>
+                <FormMessage className="text-red-600 text-xs" />
+              </FormItem>
+            )} />
           </div>
 
-          <div className="grid grid-cols-2 gap-4">
-            <FormField
-              control={form.control}
-              name="firstName"
-              render={({ field }) => (
-                <FormItem>
-                  <FormLabel>First Name</FormLabel>
-                  <FormControl>
-                    <Input placeholder="First name" {...field} />
-                  </FormControl>
-                  <FormMessage className="text-red-600 mt-1" />
-                </FormItem>
-              )}
-            />
+          <FormField control={form.control} name="username" render={({ field }) => (
+            <FormItem>
+              <FormLabel>Username</FormLabel>
+              <FormControl><Input placeholder="username" {...field} /></FormControl>
+              <FormMessage className="text-red-600 text-xs" />
+            </FormItem>
+          )} />
 
-            <FormField
-              control={form.control}
-              name="lastName"
-              render={({ field }) => (
-                <FormItem>
-                  <FormLabel>Last Name</FormLabel>
-                  <FormControl>
-                    <Input placeholder="Last name" {...field} />
-                  </FormControl>
-                  <FormMessage className="text-red-600 mt-1" />
-                </FormItem>
-              )}
-            />
-          </div>
+          <FormField control={form.control} name="email" render={({ field }) => (
+            <FormItem>
+              <FormLabel>Email</FormLabel>
+              <FormControl><Input type="email" placeholder="you@example.com" {...field} /></FormControl>
+              <FormMessage className="text-red-600 text-xs" />
+            </FormItem>
+          )} />
 
-          <FormField
-            control={form.control}
-            name="username"
-            render={({ field }) => (
-              <FormItem>
-                <FormLabel>Username</FormLabel>
-                <FormControl>
-                  <Input placeholder="username" {...field} />
-                </FormControl>
-                <FormMessage className="text-red-600 mt-1" />
-              </FormItem>
-            )}
-          />
+          <FormField control={form.control} name="password" render={({ field }) => (
+            <FormItem>
+              <FormLabel>Password</FormLabel>
+              <FormControl><Input type="password" placeholder="8+ characters" {...field} /></FormControl>
+              <FormMessage className="text-red-600 text-xs" />
+            </FormItem>
+          )} />
 
-          <FormField
-            control={form.control}
-            name="email"
-            render={({ field }) => (
-              <FormItem>
-                <FormLabel>Email</FormLabel>
-                <FormControl>
-                  <Input
-                    type="email"
-                    placeholder="email@example.com"
-                    {...field}
-                  />
-                </FormControl>
-                <FormMessage className="text-red-600 mt-1" />
-              </FormItem>
-            )}
-          />
+          {/* Phone + OTP */}
+          <FormField control={form.control} name="phoneNumber" render={({ field }) => (
+            <FormItem>
+              <FormLabel>Phone Number</FormLabel>
+              <FormControl>
+                <Input type="tel" placeholder="(123) 456-7890" disabled={codeSent} {...field} />
+              </FormControl>
+              <FormMessage className="text-red-600 text-xs" />
+            </FormItem>
+          )} />
 
-          <FormField
-            control={form.control}
-            name="password"
-            render={({ field }) => (
-              <FormItem>
-                <FormLabel>Password</FormLabel>
-                <FormControl>
-                  <Input type="password" placeholder="********" {...field} />
-                </FormControl>
-                <FormMessage className="text-red-600 mt-1" />
-              </FormItem>
-            )}
-          />
-
-          <FormField
-            control={form.control}
-            name="phoneNumber"
-            render={({ field }) => (
-              <FormItem>
-                <FormLabel>Phone Number</FormLabel>
-                <FormControl>
-                  <Input
-                    type="tel"
-                    placeholder="(123) 456-7890"
-                    disabled={codeSent}
-                    {...field}
-                  />
-                </FormControl>
-                <FormMessage className="text-red-600 mt-1" />
-              </FormItem>
-            )}
-          />
-
-          <FormField
-            control={form.control}
-            name="referralCode"
-            render={({ field }) => (
-              <FormItem>
-                <FormLabel>Referral Code (Optional)</FormLabel>
-                <FormControl>
-                  <Input type="text" placeholder="K-ABC123" {...field} />
-                </FormControl>
-                <FormMessage />
-              </FormItem>
-            )}
-          />
           {codeSent && (
-            <>
-              <FormField
-                control={form.control}
-                name="verificationCode"
-                render={({ field }) => (
-                  <FormItem>
-                    <FormLabel>Verification Code</FormLabel>
-                    <FormControl>
-                      <Input
-                        type="text"
-                        placeholder="Enter code"
-                        maxLength={6}
-                        {...field}
-                      />
-                    </FormControl>
-                    <FormMessage className="text-red-600 mt-1" />
-                  </FormItem>
-                )}
-              />
+            <div className="space-y-2">
+              <FormField control={form.control} name="verificationCode" render={({ field }) => (
+                <FormItem>
+                  <FormLabel>Verification Code</FormLabel>
+                  <FormControl>
+                    <Input type="text" placeholder="6-digit code" maxLength={6} {...field} />
+                  </FormControl>
+                  <FormMessage className="text-red-600 text-xs" />
+                </FormItem>
+              )} />
               <button
                 type="button"
                 onClick={handleRequestOtp}
                 disabled={isVerifying || otpCooldown > 0 || otpRequestCount > 2}
-                className={`
-                  font-medium text-sm underline text-primary
-                  ${isVerifying || otpCooldown > 0 || otpRequestCount > 2 ? "pointer-events-none opacity-50 cursor-default" : "cursor-pointer"}
-                `}
+                className="text-sm text-primary underline disabled:opacity-40 disabled:cursor-default"
               >
-                {otpCooldown > 0
-                  ? `Resend OTP in ${otpCooldown}s`
-                  : otpRequestCount > 2
-                    ? "No More OTP Attempts"
-                    : "Resend OTP"}
+                {otpCooldown > 0 ? `Resend in ${otpCooldown}s` : otpRequestCount > 2 ? "No more attempts" : "Resend code"}
               </button>
-            </>
+            </div>
           )}
 
-          <div className="space-y-6 border-t pt-6">
-            <FormField
-              control={form.control}
-              name="termsAccepted"
-              render={({ field }) => (
-                <FormItem className="flex flex-row items-start space-x-3 space-y-0">
-                  <FormControl>
-                    <Checkbox
-                      checked={field.value}
-                      onCheckedChange={field.onChange}
-                    />
-                  </FormControl>
-                  <div className="space-y-1 leading-none">
-                    <FormLabel className="text-sm text-muted-foreground">
-                      I have read, understand, and agree to MyKavaBar.com's{" "}
-                      <button
-                        type="button"
-                        className="text-primary hover:underline"
-                        onClick={() => setShowTerms(true)}
-                      >
-                        Terms of Service
-                      </button>{" "}
-                      and Privacy Policy.
-                    </FormLabel>
-                    <FormMessage className="text-red-600 mt-1" />
-                  </div>
-                </FormItem>
-              )}
-            />
+          {/* Referral code — only show if pre-filled */}
+          {referralCode && (
+            <FormField control={form.control} name="referralCode" render={({ field }) => (
+              <FormItem>
+                <FormLabel>Referral Code</FormLabel>
+                <FormControl><Input type="text" placeholder="K-ABC123" {...field} /></FormControl>
+                <FormMessage />
+              </FormItem>
+            )} />
+          )}
 
-            <FormField
-              control={form.control}
-              name="marketingConsent"
-              render={({ field }) => (
-                <FormItem className="flex flex-row items-start space-x-3 space-y-0">
-                  <FormControl>
-                    <Checkbox
-                      checked={field.value}
-                      onCheckedChange={field.onChange}
-                    />
-                  </FormControl>
-                  <div className="space-y-1 leading-none">
-                    <FormLabel className="text-sm text-muted-foreground">
-                      I consent to receiving marketing communications and
-                      understand I can unsubscribe at any time.
-                    </FormLabel>
-                    <FormMessage />
-                  </div>
-                </FormItem>
-              )}
-            />
+          {/* Checkboxes */}
+          <div className="space-y-3 border-t pt-4">
+            <FormField control={form.control} name="termsAccepted" render={({ field }) => (
+              <FormItem className="flex items-start gap-3">
+                <FormControl>
+                  <Checkbox checked={field.value} onCheckedChange={field.onChange} className="mt-0.5" />
+                </FormControl>
+                <div>
+                  <FormLabel className="text-sm text-muted-foreground font-normal">
+                    I agree to the{" "}
+                    <button type="button" className="text-primary underline" onClick={() => setShowTerms(true)}>
+                      Terms of Service
+                    </button>{" "}
+                    and Privacy Policy.
+                  </FormLabel>
+                  <FormMessage className="text-red-600 text-xs" />
+                </div>
+              </FormItem>
+            )} />
 
-            <FormField
-              control={form.control}
-              name="ageConfirmed"
-              render={({ field }) => (
-                <FormItem className="flex flex-row items-start space-x-3 space-y-0">
-                  <FormControl>
-                    <Checkbox
-                      checked={field.value}
-                      onCheckedChange={field.onChange}
-                    />
-                  </FormControl>
-                  <div className="space-y-1 leading-none">
-                    <FormLabel className="text-sm text-muted-foreground">
-                      I confirm that I am at least 18 years old.
-                    </FormLabel>
-                    <FormMessage className="text-red-600 mt-1" />
-                  </div>
-                </FormItem>
-              )}
-            />
+            <FormField control={form.control} name="ageConfirmed" render={({ field }) => (
+              <FormItem className="flex items-start gap-3">
+                <FormControl>
+                  <Checkbox checked={field.value} onCheckedChange={field.onChange} className="mt-0.5" />
+                </FormControl>
+                <div>
+                  <FormLabel className="text-sm text-muted-foreground font-normal">
+                    I confirm I am at least 18 years old.
+                  </FormLabel>
+                  <FormMessage className="text-red-600 text-xs" />
+                </div>
+              </FormItem>
+            )} />
           </div>
 
-          <div className="space-y-4">
-            <p className="text-sm text-muted-foreground">
-              By submitting this form, you agree to receive texts, emails, and
-              push notifications from MyKavaBar.com and bars you follow or
-              subscribe to. These may include updates, promotions, and event
-              reminders. Message and data rates may apply. Frequency may vary.
-              You can unsubscribe anytime by replying STOP, clicking unsubscribe
-              links, or updating your preferences.
-            </p>
+          <Button type="submit" className="w-full" disabled={isVerifying || isSubmitting}>
+            {isVerifying || isSubmitting ? (
+              <>
+                <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                {isVerifying ? "Sending code…" : "Creating account…"}
+              </>
+            ) : codeSent ? "Create Account" : "Verify Phone"}
+          </Button>
 
-            <Button
-              type="submit"
-              className="w-full"
-              disabled={isVerifying || isSubmitting}
-            >
-              {isVerifying || isSubmitting ? (
-                <>
-                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                  {isVerifying ? "Sending Code" : "Creating Account"}
-                </>
-              ) : codeSent ? (
-                "Create Account"
-              ) : (
-                "Verify Phone"
-              )}
-            </Button>
-          </div>
         </form>
       </Form>
-
-      <Dialog
-        open={showCamera}
-        onOpenChange={() => {
-          if (showCamera) {
-            closeCamera();
-          }
-        }}
-      >
-        <DialogContent className="sm:max-w-md">
-          <DialogHeader>
-            <DialogTitle>Take Profile Photo</DialogTitle>
-          </DialogHeader>
-          <div className="relative w-full" style={{ aspectRatio: "1/1" }}>
-            <video
-              ref={videoRef}
-              autoPlay
-              playsInline
-              className="w-full h-full object-cover rounded-md"
-              style={{ transform: "scaleX(-1)" }}
-            />
-            <div className="absolute bottom-4 left-0 right-0 flex justify-center gap-4">
-              <Button type="button" variant="secondary" onClick={closeCamera}>
-                <X className="mr-2 h-4 w-4" />
-                Cancel
-              </Button>
-              <Button type="button" onClick={capturePhoto}>
-                <Camera className="mr-2 h-4 w-4" />
-                Capture
-              </Button>
-            </div>
-          </div>
-        </DialogContent>
-      </Dialog>
 
       <ShowTermsDialog open={!!showTerms} onOpenChange={setShowTerms} />
     </>
