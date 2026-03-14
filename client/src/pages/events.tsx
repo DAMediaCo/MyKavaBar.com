@@ -137,7 +137,7 @@ export default function EventsPage() {
                           </h3>
 
                           {/* Bar Name */}
-                          <Link href={`/bars/${event.barId}`}>
+                          <Link href={`/kava-bars/${event.barId}`}>
                             <a className="inline-flex items-center gap-2 text-[#D35400] hover:text-[#E67E22] transition-colors mb-3">
                               <MapPin className="h-4 w-4" />
                               <span className="font-medium">{event.barName}</span>
@@ -190,7 +190,7 @@ export default function EventsPage() {
                           }}
                           barId={event.barId}
                         />
-                        <Link href={`/bars/${event.barId}`}>
+                        <Link href={`/kava-bars/${event.barId}`}>
                           <Button
                             variant="outline"
                             className="border-[#333] text-gray-300 hover:bg-[#252525]"
