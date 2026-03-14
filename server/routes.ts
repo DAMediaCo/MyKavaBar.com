@@ -3206,11 +3206,7 @@ Sitemap: https://mykavabar.com/sitemap.xml
     }
   });
 
-  app.put(
-    "/api/user/profile",
-    upload.single("profilePhoto"),
-    async (req, res) => {},
-  );
+
 
   // Admin endpoints for bar verification
   app.put("/api/admin/bars/:id/verify", async (req, res) => {
@@ -4610,11 +4606,7 @@ Sitemap: https://mykavabar.com/sitemap.xml
     }
   });
 
-  app.put(
-    "/api/user/profile",
-    upload.single("profilePhoto"),
-    async (req, res) => {},
-  );
+
 
   // Admin endpoints for bar verification
   app.put("/api/admin/bars/:id/verify", async (req, res) => {
@@ -5327,11 +5319,7 @@ Sitemap: https://mykavabar.com/sitemap.xml
     }
   });
 
-  app.put(
-    "/api/user/profile",
-    upload.single("profilePhoto"),
-    async (req, res) => {},
-  );
+
 
   // Admin endpoints for bar verification
   app.put("/api/admin/bars/:id/verify", async (req, res) => {

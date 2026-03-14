@@ -1348,8 +1348,30 @@ export function setupAuth(app: Express) {
     "/api/user/profile",
     upload.single("profilePhoto"),
     async (req, res) => {
+      // Support both session auth (web) and Bearer token auth (mobile)
       if (!req.isAuthenticated()) {
-        return res.status(401).json({ error: "Not authenticated" });
+        const authHeader = req.headers.authorization;
+        if (authHeader?.startsWith("Bearer ")) {
+          try {
+            const token = authHeader.slice(7);
+            const secret = process.env.JWT_SECRET!;
+            const decoded = jwt.verify(token, secret) as { userId: number };
+            const [userRow] = await db
+              .select()
+              .from(users)
+              .where(eq(users.id, decoded.userId))
+              .limit(1);
+            if (userRow) {
+              req.user = userRow as Express.User;
+            } else {
+              return res.status(401).json({ error: "Not authenticated" });
+            }
+          } catch {
+            return res.status(401).json({ error: "Not authenticated" });
+          }
+        } else {
+          return res.status(401).json({ error: "Not authenticated" });
+        }
       }
 
       try {
@@ -1384,14 +1406,19 @@ export function setupAuth(app: Express) {
 
         const { password: _, ...userWithoutPassword } = updatedUser;
 
-        // Update session
-        req.login(userWithoutPassword, (err) => {
-          if (err) {
-            console.error("Error updating session:", err);
-            return res.status(500).json({ error: "Failed to update session" });
-          }
-          res.json(userWithoutPassword);
-        });
+        // Update session (web) and return user object wrapped for mobile compatibility
+        const respond = () => res.json({ user: userWithoutPassword, ...userWithoutPassword });
+        if (req.isAuthenticated()) {
+          req.login(userWithoutPassword, (err) => {
+            if (err) {
+              console.error("Error updating session:", err);
+              return res.status(500).json({ error: "Failed to update session" });
+            }
+            respond();
+          });
+        } else {
+          respond();
+        }
       } catch (error: any) {
         console.error("Profile update error:", error);
 
