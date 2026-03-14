@@ -12,8 +12,9 @@ import {
 import { Textarea } from "@/components/ui/textarea";
 import { useToast } from "@/hooks/use-toast";
 import { useUser } from "@/hooks/use-user";
-import { MapPin, Loader2 } from "lucide-react";
+import { Loader2 } from "lucide-react";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
+import { useLocation } from "wouter";
 
 interface PassportCheckinButtonProps {
   barId: number;
@@ -128,8 +129,19 @@ export function PassportCheckinButton({
     );
   };
 
+  const [, navigate] = useLocation();
+
   if (!user) {
-    return null;
+    return (
+      <Button
+        variant="outline"
+        className="gap-2 border-[#333] text-gray-300 hover:bg-[#252525]"
+        onClick={() => navigate("/auth")}
+      >
+        <span className="text-base">🛂</span>
+        Stamp Your Passport
+      </Button>
+    );
   }
 
   return (
