@@ -131,26 +131,39 @@ export function PassportCheckinButton({
 
   const [, navigate] = useLocation();
 
+  const buttonClass = `
+    relative overflow-hidden
+    flex items-center gap-2.5 px-5 py-2.5
+    rounded-2xl font-semibold text-sm
+    text-white
+    border border-white/20
+    bg-white/10 backdrop-blur-md
+    shadow-[inset_0_1px_0_rgba(255,255,255,0.15),0_4px_24px_rgba(0,0,0,0.4)]
+    hover:bg-white/15 hover:border-white/30 hover:shadow-[inset_0_1px_0_rgba(255,255,255,0.2),0_6px_32px_rgba(0,0,0,0.5)]
+    active:scale-95
+    transition-all duration-200
+    cursor-pointer
+  `.trim().replace(/\s+/g, ' ');
+
   if (!user) {
     return (
-      <Button
-        variant="outline"
-        className="gap-2 border-[#333] text-gray-300 hover:bg-[#252525]"
-        onClick={() => navigate("/auth")}
-      >
-        <span className="text-base">🛂</span>
-        Stamp Your Passport
-      </Button>
+      <button className={buttonClass} onClick={() => navigate("/auth")}>
+        {/* Glass shimmer layer */}
+        <span className="absolute inset-0 bg-gradient-to-br from-white/10 via-transparent to-transparent pointer-events-none" />
+        <span className="text-lg">🛂</span>
+        <span>Stamp Your Passport</span>
+      </button>
     );
   }
 
   return (
     <Dialog open={open} onOpenChange={setOpen}>
       <DialogTrigger asChild>
-        <Button variant="outline" className="gap-2 border-[#333] text-gray-300 hover:bg-[#252525]">
-          <span className="text-base">🛂</span>
-          Stamp Your Passport
-        </Button>
+        <button className={buttonClass}>
+          <span className="absolute inset-0 bg-gradient-to-br from-white/10 via-transparent to-transparent pointer-events-none" />
+          <span className="text-lg">🛂</span>
+          <span>Stamp Your Passport</span>
+        </button>
       </DialogTrigger>
       <DialogContent className="sm:max-w-md">
         <DialogHeader>
@@ -181,7 +194,7 @@ export function PassportCheckinButton({
           <Button
             onClick={handleCheckin}
             disabled={isGettingLocation || checkinMutation.isPending}
-            className="w-full"
+            className="w-full bg-[#D35400] hover:bg-[#E67E22] text-white font-bold rounded-xl py-6 text-base"
           >
             {isGettingLocation || checkinMutation.isPending ? (
               <>
@@ -189,10 +202,7 @@ export function PassportCheckinButton({
                 {isGettingLocation ? "Getting location..." : "Checking in..."}
               </>
             ) : (
-              <>
-                🛂
-                Stamp It!
-              </>
+              <>🛂 Stamp It!</>
             )}
           </Button>
         </DialogFooter>
