@@ -202,22 +202,26 @@ export default function Home() {
 
           {/* Sort — mobile: compact abbreviated, desktop: full labels */}
           <div className="relative flex-shrink-0">
-            {/* Mobile compact sort (no icon, short labels) */}
-            <select
-              value={sortBy}
-              onChange={(e) => {
-                setSortBy(e.target.value as SortOption);
-                if (e.target.value === "distance" && !coordinates) requestLocation();
-              }}
-              className="sm:hidden appearance-none bg-transparent text-gray-300 text-xs font-semibold px-1 outline-none cursor-pointer max-w-[58px]"
-            >
-              <option value="distance"  className="bg-[#1E1E1E]">Near</option>
-              <option value="rating"    className="bg-[#1E1E1E]">Top</option>
-              <option value="happyhour" className="bg-[#1E1E1E]">HH</option>
-              <option value="name"      className="bg-[#1E1E1E]">A–Z</option>
-              {user && <option value="favorite" className="bg-[#1E1E1E]">Favs</option>}
-            </select>
-            {/* Desktop full sort */}
+            {/* Mobile: "Sort" label overlay + invisible native select beneath */}
+            <div className="sm:hidden relative flex items-center gap-1 cursor-pointer">
+              <span className="text-xs text-gray-300 font-semibold pointer-events-none">Sort</span>
+              <svg className="h-3 w-3 text-gray-400 pointer-events-none" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M6 9l6 6 6-6"/></svg>
+              <select
+                value={sortBy}
+                onChange={(e) => {
+                  setSortBy(e.target.value as SortOption);
+                  if (e.target.value === "distance" && !coordinates) requestLocation();
+                }}
+                className="absolute inset-0 opacity-0 cursor-pointer w-full"
+              >
+                <option value="distance">📍 Nearest</option>
+                <option value="rating">⭐ Top Rated</option>
+                <option value="happyhour">🍹 Happy Hour</option>
+                <option value="name">🔤 A–Z</option>
+                {user && <option value="favorite">❤️ Favorites</option>}
+              </select>
+            </div>
+            {/* Desktop: full labels with emoji + sliders icon */}
             <SlidersHorizontal className="hidden sm:block h-3.5 w-3.5 text-gray-400 absolute left-0 top-1/2 -translate-y-1/2 pointer-events-none" />
             <select
               value={sortBy}
@@ -227,11 +231,11 @@ export default function Home() {
               }}
               className="hidden sm:block appearance-none bg-transparent text-gray-300 text-xs font-semibold pl-5 pr-1 outline-none cursor-pointer"
             >
-              <option value="distance"  className="bg-[#1E1E1E]">Nearest</option>
-              <option value="rating"    className="bg-[#1E1E1E]">Top Rated</option>
-              <option value="happyhour" className="bg-[#1E1E1E]">Happy Hour</option>
-              <option value="name"      className="bg-[#1E1E1E]">A–Z</option>
-              {user && <option value="favorite" className="bg-[#1E1E1E]">Favorites</option>}
+              <option value="distance"  className="bg-[#1E1E1E]">📍 Nearest</option>
+              <option value="rating"    className="bg-[#1E1E1E]">⭐ Top Rated</option>
+              <option value="happyhour" className="bg-[#1E1E1E]">🍹 Happy Hour</option>
+              <option value="name"      className="bg-[#1E1E1E]">🔤 A–Z</option>
+              {user && <option value="favorite" className="bg-[#1E1E1E]">❤️ Favorites</option>}
             </select>
           </div>
 
