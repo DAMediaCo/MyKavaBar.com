@@ -1,4 +1,4 @@
-import { useState, useEffect, useMemo, lazy, Suspense } from "react";
+import { useState, useEffect, useRef, useMemo, lazy, Suspense } from "react";
 import { useKavaBars } from "@/hooks/use-kava-bars";
 import { useLocation, calculateDistance } from "@/hooks/use-location";
 import KavaBarCard, { getCardSize } from "@/components/kava-bar-card";
@@ -16,6 +16,7 @@ type SortOption = "favorite" | "rating" | "distance" | "name" | "happyhour";
 export default function Home() {
   const [search, setSearch] = useState("");
   const [displayCount, setDisplayCount] = useState(48);
+  const sentinelRef = useRef<HTMLDivElement>(null);
   const { data: kavaBars, isLoading } = useKavaBars();
   const [sortBy, setSortBy] = useState<SortOption>("distance");
   const [viewMode, setViewMode] = useState<"list" | "map">("list");
@@ -44,6 +45,21 @@ export default function Home() {
 
     handleLocationRequest();
   }, [requestLocation, toast]);
+
+  // Infinite scroll — load 48 more when sentinel enters viewport
+  useEffect(() => {
+    if (!sentinelRef.current) return;
+    const observer = new IntersectionObserver(
+      (entries) => {
+        if (entries[0].isIntersecting) {
+          setDisplayCount(prev => prev + 48);
+        }
+      },
+      { rootMargin: "200px" }
+    );
+    observer.observe(sentinelRef.current);
+    return () => observer.disconnect();
+  }, [sentinelRef.current]);
 
   const { data: favoriteBars, isLoading: isLoadingFavorites } = useQuery({
     queryKey: ["favoriteBars"],
@@ -401,15 +417,10 @@ export default function Home() {
           </div>
         )}
 
-        {/* Load More Button — list view only */}
+        {/* Infinite scroll sentinel — list view only */}
         {viewMode === "list" && sortedBars && sortedBars.length > displayCount && (
-          <div className="flex justify-center mt-8">
-            <button
-              onClick={() => setDisplayCount(prev => prev + 48)}
-              className="bg-[#D35400] hover:bg-[#E67E22] text-white px-8 py-3 rounded-lg font-semibold transition-colors"
-            >
-              Show more bars ({sortedBars.length - displayCount} remaining)
-            </button>
+          <div ref={sentinelRef} className="h-16 flex items-center justify-center">
+            <div className="w-6 h-6 border-2 border-[#D35400] border-t-transparent rounded-full animate-spin" />
           </div>
         )}
       </div>

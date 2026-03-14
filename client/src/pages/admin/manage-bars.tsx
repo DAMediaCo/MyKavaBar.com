@@ -413,7 +413,7 @@ export default function ManageBars() {
         <h1 className="text-2xl font-bold mr-2">Manage Kava Bars</h1>
         <div className="flex flex-wrap items-center gap-2 flex-1">
           <select
-            className="p-2 border rounded-md text-sm"
+            className="p-2 border rounded-md text-sm bg-white text-gray-900"
             value={sortBy}
             onChange={(e) =>
               setSortBy(e.target.value as "name" | "state" | "city")
