@@ -27,6 +27,7 @@ import {
 import { db } from "@db";
 import { RedisStore } from "connect-redis";
 import { createClient } from "redis";
+import connectPgSimple from "connect-pg-simple";
 
 import { eq, and, sql, desc } from "drizzle-orm";
 import { crypto } from "./utils/crypto";
@@ -85,16 +86,25 @@ function parseBool(val: any): boolean {
   return Boolean(val); // fallback
 }
 
-// Initialize Redis session store — fall back to memory store if REDIS_URL not set
+// Initialize session store: Redis > Postgres > MemoryStore
 let redisStore: any;
 if (process.env.REDIS_URL) {
   const redisClient = createClient({ url: process.env.REDIS_URL });
   redisClient.connect().catch(console.error);
   redisStore = new RedisStore({ client: redisClient, prefix: "kava-auth:" });
+  console.log("[auth] Using Redis session store");
+} else if (process.env.DATABASE_URL) {
+  // Use Postgres session store — works across multiple machines
+  const PgSession = connectPgSimple(session);
+  redisStore = new PgSession({
+    conString: process.env.DATABASE_URL,
+    tableName: "user_sessions",
+    createTableIfMissing: true,
+  });
+  console.log("[auth] Using Postgres session store");
 } else {
-  // No Redis configured — use default MemoryStore (fine for single-instance fly.io)
   redisStore = undefined;
-  console.warn("[auth] REDIS_URL not set — using MemoryStore for sessions");
+  console.warn("[auth] No session store configured — using MemoryStore (single-instance only)");
 }
 // User type definitions
 interface BaseUser {
