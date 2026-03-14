@@ -194,27 +194,43 @@ export default function Home() {
             title="Blog"
           >
             <BookOpen className="h-3.5 w-3.5" />
-            <span className="hidden sm:inline">Blog</span>
+            <span>Blog</span>
           </a>
 
           {/* Divider */}
           <div className="w-px h-6 bg-[#444] flex-shrink-0" />
 
-          {/* Sort — native select for reliability across devices */}
+          {/* Sort — mobile: compact abbreviated, desktop: full labels */}
           <div className="relative flex-shrink-0">
-            <SlidersHorizontal className="h-3.5 w-3.5 text-gray-400 absolute left-0 top-1/2 -translate-y-1/2 pointer-events-none" />
+            {/* Mobile compact sort (no icon, short labels) */}
             <select
               value={sortBy}
               onChange={(e) => {
                 setSortBy(e.target.value as SortOption);
                 if (e.target.value === "distance" && !coordinates) requestLocation();
               }}
-              className="appearance-none bg-transparent text-gray-300 text-xs font-semibold pl-5 pr-1 outline-none cursor-pointer"
+              className="sm:hidden appearance-none bg-transparent text-gray-300 text-xs font-semibold px-1 outline-none cursor-pointer max-w-[58px]"
+            >
+              <option value="distance"  className="bg-[#1E1E1E]">Near</option>
+              <option value="rating"    className="bg-[#1E1E1E]">Top</option>
+              <option value="happyhour" className="bg-[#1E1E1E]">HH</option>
+              <option value="name"      className="bg-[#1E1E1E]">A–Z</option>
+              {user && <option value="favorite" className="bg-[#1E1E1E]">Favs</option>}
+            </select>
+            {/* Desktop full sort */}
+            <SlidersHorizontal className="hidden sm:block h-3.5 w-3.5 text-gray-400 absolute left-0 top-1/2 -translate-y-1/2 pointer-events-none" />
+            <select
+              value={sortBy}
+              onChange={(e) => {
+                setSortBy(e.target.value as SortOption);
+                if (e.target.value === "distance" && !coordinates) requestLocation();
+              }}
+              className="hidden sm:block appearance-none bg-transparent text-gray-300 text-xs font-semibold pl-5 pr-1 outline-none cursor-pointer"
             >
               <option value="distance"  className="bg-[#1E1E1E]">Nearest</option>
               <option value="rating"    className="bg-[#1E1E1E]">Top Rated</option>
               <option value="happyhour" className="bg-[#1E1E1E]">Happy Hour</option>
-              <option value="name"     className="bg-[#1E1E1E]">A–Z</option>
+              <option value="name"      className="bg-[#1E1E1E]">A–Z</option>
               {user && <option value="favorite" className="bg-[#1E1E1E]">Favorites</option>}
             </select>
           </div>
