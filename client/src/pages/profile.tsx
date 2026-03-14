@@ -1,4 +1,5 @@
-import { useState, useRef, useEffect } from "react";
+import { useState, useRef, useEffect, useCallback } from "react";
+import ImageCropModal from "@/components/image-crop-modal";
 import { useToast } from "@/hooks/use-toast";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import {
@@ -69,6 +70,8 @@ export default function ProfilePage() {
   const [showCamera, setShowCamera] = useState(false);
   const [profilePhoto, setProfilePhoto] = useState<File | null>(null);
   const [photoPreviewUrl, setPhotoPreviewUrl] = useState<string | null>(null);
+  const [cropSrc, setCropSrc] = useState<string | null>(null);   // raw image for crop modal
+  const [cropFileName, setCropFileName] = useState<string>("profile.jpg");
   const [showPasswordForm, setShowPasswordForm] = useState(false);
   const [currentPassword, setCurrentPassword] = useState("");
   const [newPassword, setNewPassword] = useState("");
@@ -185,10 +188,23 @@ export default function ProfilePage() {
   const handlePhotoUpload = (event: React.ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0];
     if (file) {
-      setProfilePhoto(file);
-      setPhotoPreviewUrl(URL.createObjectURL(file));
+      setCropFileName(file.name);
+      setCropSrc(URL.createObjectURL(file));
     }
+    // reset so same file can be re-selected
+    event.target.value = "";
   };
+
+  const handleCropDone = useCallback((blob: Blob) => {
+    const file = new File([blob], cropFileName, { type: "image/jpeg" });
+    setProfilePhoto(file);
+    setPhotoPreviewUrl(URL.createObjectURL(blob));
+    setCropSrc(null);
+  }, [cropFileName]);
+
+  const handleCropCancel = useCallback(() => {
+    setCropSrc(null);
+  }, []);
 
   const capturePhoto = () => {
     if (!videoRef.current || !isCameraActive) return;
@@ -292,6 +308,14 @@ export default function ProfilePage() {
 
   return (
     <div className="container max-w-2xl mx-auto px-4 py-8">
+      {/* Crop modal — rendered fullscreen above everything */}
+      {cropSrc && (
+        <ImageCropModal
+          imageSrc={cropSrc}
+          onCrop={handleCropDone}
+          onCancel={handleCropCancel}
+        />
+      )}
       <Card>
         <CardHeader>
           <CardTitle>Profile Photo</CardTitle>
