@@ -750,11 +750,16 @@ Sitemap: https://mykavabar.com/sitemap.xml
             if (bar.hours_json) {
               try {
                 const hoursData = JSON.parse(bar.hours_json);
+                // hours can be stored as a plain array ["Monday: 9 AM - 5 PM", ...]
+                // OR as an object { weekday_text: [...], open_now: bool, ... }
+                const weekdayText = Array.isArray(hoursData)
+                  ? hoursData
+                  : (hoursData.weekday_text || []);
                 parsedHours = {
-                  weekday_text: hoursData.weekday_text || [],
+                  weekday_text: weekdayText,
                   open_now: hoursData.open_now || false,
                   periods: hoursData.periods || [],
-                  hours_available: true,
+                  hours_available: weekdayText.length > 0,
                 };
               } catch (e) {
                 console.log(`Error parsing hours for ${bar.name}:`, e);
@@ -946,11 +951,14 @@ Sitemap: https://mykavabar.com/sitemap.xml
           if (bar.hours_json) {
             try {
               const hoursData = JSON.parse(bar.hours_json);
+              const weekdayText = Array.isArray(hoursData)
+                ? hoursData
+                : (hoursData.weekday_text || []);
               parsedHours = {
-                weekday_text: hoursData.weekday_text || [],
+                weekday_text: weekdayText,
                 open_now: hoursData.open_now || false,
                 periods: hoursData.periods || [],
-                hours_available: true,
+                hours_available: weekdayText.length > 0,
               };
             } catch (e) {
               console.log(`Error parsing hours for ${bar.name}:`, e);
