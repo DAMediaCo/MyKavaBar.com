@@ -1,33 +1,45 @@
 import { Request, Response, NextFunction } from "express";
+import jwt from "jsonwebtoken";
+import { db } from "@db";
+import { users } from "@db/schema";
+import { eq } from "drizzle-orm";
 
-export function requireAdmin(req: Request, res: Response, next: NextFunction) {
-  console.log('Checking admin access:', {
-    isAuthenticated: req.isAuthenticated(),
-    user: req.user ? {
-      id: req.user.id,
-      isAdmin: req.user.isAdmin,
-      username: req.user.username
-    } : null,
-    session: req.session ? {
-      id: req.session.id,
-      cookie: req.session.cookie
-    } : null,
-    headers: {
-      cookie: req.headers.cookie,
-      authorization: req.headers.authorization
+/**
+ * requireAdmin — supports both session auth (web) and Bearer JWT (mobile)
+ */
+export async function requireAdmin(
+  req: Request,
+  res: Response,
+  next: NextFunction,
+) {
+  // 1. Session auth (web)
+  if (req.isAuthenticated()) {
+    if (!req.user?.isAdmin) {
+      return res.status(403).json({ error: "Admin access required" });
     }
-  });
-
-  if (!req.isAuthenticated()) {
-    console.log('Admin access denied: Not authenticated');
-    return res.status(401).json({ error: "Not authenticated" });
+    return next();
   }
 
-  if (!req.user?.isAdmin) {
-    console.log('Admin access denied: User is not an admin');
-    return res.status(403).json({ error: "Admin access required" });
+  // 2. Bearer token auth (mobile)
+  const authHeader = req.headers.authorization;
+  if (authHeader?.startsWith("Bearer ")) {
+    const token = authHeader.slice(7);
+    try {
+      const secret = process.env.JWT_SECRET || "fallback-secret";
+      const decoded = jwt.verify(token, secret) as { userId: number };
+      const [user] = await db
+        .select()
+        .from(users)
+        .where(eq(users.id, decoded.userId))
+        .limit(1);
+      if (!user) return res.status(401).json({ error: "Not authenticated" });
+      if (!user.isAdmin) return res.status(403).json({ error: "Admin access required" });
+      req.user = user as Express.User;
+      return next();
+    } catch {
+      return res.status(401).json({ error: "Invalid or expired token" });
+    }
   }
 
-  console.log('Admin access granted for user:', req.user.username);
-  next();
+  return res.status(401).json({ error: "Not authenticated" });
 }

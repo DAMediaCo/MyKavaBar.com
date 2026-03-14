@@ -5,7 +5,7 @@ import KavaBarCard, { getCardSize } from "@/components/kava-bar-card";
 import { getHappyHourStatus } from "@/lib/barStatus";
 import { useQuery } from "@tanstack/react-query";
 
-import { Search, Map, List, SlidersHorizontal } from "lucide-react";
+import { Search, Map, List, SlidersHorizontal, BookOpen } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { useUser } from "@/hooks/use-user";
 
@@ -186,6 +186,16 @@ export default function Home() {
             onChange={(e) => setSearch(e.target.value)}
             className="flex-1 min-w-0 bg-transparent text-white placeholder:text-gray-500 outline-none text-sm"
           />
+
+          {/* Blog link */}
+          <a
+            href="/blog"
+            className="flex items-center gap-1 px-2 py-1.5 rounded-lg text-xs font-semibold text-gray-400 hover:text-[#D35400] transition-colors flex-shrink-0"
+            title="Blog"
+          >
+            <BookOpen className="h-3.5 w-3.5" />
+            <span className="hidden sm:inline">Blog</span>
+          </a>
 
           {/* Divider */}
           <div className="w-px h-6 bg-[#444] flex-shrink-0" />

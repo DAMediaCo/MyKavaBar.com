@@ -568,6 +568,25 @@ router.post("/users/:id/unban", requireAdmin, async (req, res) => {
   }
 });
 
+// Toggle admin status for a user
+router.post("/users/:id/toggle-admin", requireAdmin, async (req, res) => {
+  try {
+    const userId = parseInt(req.params.id);
+    const [user] = await db.select().from(users).where(eq(users.id, userId)).limit(1);
+    if (!user) return res.status(404).json({ error: "User not found" });
+    const newAdminStatus = !user.isAdmin;
+    const [updated] = await db
+      .update(users)
+      .set({ isAdmin: newAdminStatus, updatedAt: new Date() })
+      .where(eq(users.id, userId))
+      .returning({ id: users.id, isAdmin: users.isAdmin, username: users.username });
+    res.json({ success: true, user: updated });
+  } catch (error: any) {
+    console.error("Error toggling admin:", error);
+    res.status(500).json({ error: error.message });
+  }
+});
+
 // Google Maps API update endpoint
 router.post("/update-google-maps-data", requireAdmin, async (req, res) => {
   try {

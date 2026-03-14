@@ -1764,9 +1764,9 @@ Sitemap: https://mykavabar.com/sitemap.xml
   });
 
   // Add owner dashboard endpoint with enhanced debug logging
-  app.get("/api/owner/bars", async (req, res) => {
+  app.get("/api/owner/bars", isAuthenticated, async (req, res) => {
     try {
-      if (!req.isAuthenticated()) {
+      if (!req.user) {
         return res.status(401).json({ error: "Not authenticated" });
       }
 
@@ -2002,8 +2002,8 @@ Sitemap: https://mykavabar.com/sitemap.xml
   });
 
   // Add hours update endpoint after the existing bar routes
-  app.put("/api/kava-bars/:id/hours", async (req, res) => {
-    if (!req.isAuthenticated()) {
+  app.put("/api/kava-bars/:id/hours", isAuthenticated, async (req, res) => {
+    if (!req.user) {
       return res.status(401).send("Not authenticated");
     }
 
@@ -2176,8 +2176,8 @@ Sitemap: https://mykavabar.com/sitemap.xml
   });
 
   // Update bar vibe and menu info (Owner Dashboard)
-  app.put("/api/kava-bars/:id/details", async (req, res) => {
-    if (!req.isAuthenticated()) {
+  app.put("/api/kava-bars/:id/details", isAuthenticated, async (req, res) => {
+    if (!req.user) {
       return res.status(401).json({ error: "Not authenticated" });
     }
 
@@ -2435,12 +2435,8 @@ Sitemap: https://mykavabar.com/sitemap.xml
   // Admin CRUD endpoints for kava bars management
 
   // Create a new kava bar
-  app.post("/api/admin/bars", async (req, res) => {
-    if (!req.isAuthenticated()) {
-      return res.status(401).json({ error: "Not authenticated" });
-    }
-
-    if (!req.user.isAdmin) {
+  app.post("/api/admin/bars", isAuthenticated, async (req, res) => {
+    if (!req.user?.isAdmin) {
       return res.status(403).json({ error: "Admin access required" });
     }
 
