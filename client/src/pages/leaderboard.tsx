@@ -124,12 +124,15 @@ export default function LeaderboardPage() {
   const [scope, setScope] = useState<Scope>("global");
   const [location, setLocation] = useState("");
 
+  const needsLocation = (scope === "state" || scope === "city") && location.trim().length < 2;
+
   const { data, isLoading, error } = useQuery({
     queryKey: ["leaderboard", scope, location],
+    enabled: !needsLocation,
     queryFn: async () => {
       const params = new URLSearchParams({ scope });
       if ((scope === "state" || scope === "city") && location) {
-        params.append("location", location);
+        params.append("location", location.trim());
       }
       const res = await fetch(`/api/passport/leaderboard?${params}`, { credentials: "include" });
       if (!res.ok) throw new Error("Failed to fetch leaderboard");
@@ -197,7 +200,16 @@ export default function LeaderboardPage() {
         <div className="text-center py-12 text-red-400">Failed to load leaderboard</div>
       )}
 
-      {!isLoading && !error && entries.length === 0 && (
+      {needsLocation && (
+        <div className="text-center py-16">
+          <MapPin className="h-10 w-10 mx-auto mb-3 text-gray-700" />
+          <p className="text-gray-400 font-medium">
+            {scope === "state" ? "Enter a state code (e.g. FL, CA)" : "Enter a city name (e.g. Tampa)"}
+          </p>
+        </div>
+      )}
+
+      {!needsLocation && !isLoading && !error && entries.length === 0 && (
         <div className="text-center py-16">
           <Trophy className="h-12 w-12 mx-auto mb-3 text-gray-700" />
           <p className="text-gray-500">No entries yet</p>
@@ -205,7 +217,7 @@ export default function LeaderboardPage() {
       )}
 
       {/* Podium — top 3 bento */}
-      {!isLoading && top3.length > 0 && (
+      {!needsLocation && !isLoading && top3.length > 0 && (
         <div className={`grid gap-3 ${top3.length === 3 ? "grid-cols-3" : top3.length === 2 ? "grid-cols-2" : "grid-cols-1 max-w-xs mx-auto"}`}>
           {podiumOrder.map((entry, i) => (
             <div key={entry.userId} className={podiumPositions[i] === 1 ? "row-span-1 scale-[1.03]" : ""}>
@@ -216,7 +228,7 @@ export default function LeaderboardPage() {
       )}
 
       {/* Rest of leaderboard */}
-      {!isLoading && rest.length > 0 && (
+      {!needsLocation && !isLoading && rest.length > 0 && (
         <div className="space-y-2">
           {rest.map((entry, i) => {
             const position = i + 4;

@@ -39,10 +39,13 @@ function calculateStreak(checkins: Array<{ checkedInAt: Date }>): {
     return { currentStreak: 0, longestStreak: 0 };
   }
 
-  // Sort by date descending
-  const sorted = checkins
-    .map((c) => startOfDay(new Date(c.checkedInAt)))
-    .sort((a, b) => b.getTime() - a.getTime());
+  // Deduplicate by day, then sort descending
+  const daySet = new Map<number, Date>();
+  checkins.forEach((c) => {
+    const d = startOfDay(new Date(c.checkedInAt));
+    daySet.set(d.getTime(), d);
+  });
+  const sorted = Array.from(daySet.values()).sort((a, b) => b.getTime() - a.getTime());
 
   let currentStreak = 0;
   let longestStreak = 0;
