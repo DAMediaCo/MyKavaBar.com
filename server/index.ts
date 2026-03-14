@@ -193,7 +193,18 @@ if (process.env.NODE_ENV === "production") {
     if (app.get("env") === "development") {
       await setupVite(app, server);
     } else {
-      app.use(express.static(path.join(__dirname, "../dist/public")));
+      // Static assets: 1-year cache for hashed files, no-cache for HTML
+      app.use(express.static(path.join(__dirname, "../dist/public"), {
+        maxAge: '1y',
+        immutable: true,
+        setHeaders: (res, filePath) => {
+          if (filePath.endsWith('.html')) {
+            res.setHeader('Cache-Control', 'public, max-age=0, must-revalidate');
+          } else if (/\.(webp|jpg|jpeg|png|gif|svg|ico|woff2|woff|ttf)$/.test(filePath)) {
+            res.setHeader('Cache-Control', 'public, max-age=31536000, immutable');
+          }
+        }
+      }));
     }
 
     app.use(

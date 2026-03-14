@@ -26,13 +26,13 @@ export default function Welcome() {
   };
 
   const secondGalleryImages = [
-    { src: "/images/islandvibes.png", alt: "Kava Bar 2" },
-    { src: "/images/tf.jpg", alt: "Kava Bar 3" },
-    { src: "/images/costal.png", alt: "Kava Bar 4" },
-    { src: "/images/kp.png", alt: "Kava Bar 4" },
-    { src: "/images/twinfalme.png", alt: "Kava Bar 5" },
-    { src: "/images/zenc.jpg", alt: "Kava Bar 6" },
-    { src: "/images/costalgirl.jpg", alt: "Kava Bar 6" },
+    { src: "/images/islandvibes.webp", alt: "Kava Bar 2" },
+    { src: "/images/tf.webp", alt: "Kava Bar 3" },
+    { src: "/images/costal.webp", alt: "Kava Bar 4" },
+    { src: "/images/kp.webp", alt: "Kava Bar 4" },
+    { src: "/images/twinfalme.webp", alt: "Kava Bar 5" },
+    { src: "/images/zenc.webp", alt: "Kava Bar 6" },
+    { src: "/images/costalgirl.webp", alt: "Kava Bar 6" },
   ];
 
   return (
@@ -90,7 +90,7 @@ export default function Welcome() {
         </div>
         <div className="rounded-lg overflow-hidden shadow-xl">
           <img
-            src="/images/chiyo.png"
+            src="/images/chiyo.webp"
             alt="Kava Experience"
             className="w-full h-auto object-cover"
           />
