@@ -659,12 +659,7 @@ export default function ManageBars() {
                 {bar.phone && (
                   <p className="text-sm text-muted-foreground">{bar.phone}</p>
                 )}
-                {bar.location && (
-                  <p className="text-xs text-muted-foreground mt-1">
-                    Lat: {bar.location.lat.toFixed(6)}, Lng:{" "}
-                    {bar.location.lng.toFixed(6)}
-                  </p>
-                )}
+
               </div>
 
               <div className="flex flex-col sm:items-end gap-2 w-full sm:w-auto">
