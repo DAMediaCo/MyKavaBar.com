@@ -96,22 +96,22 @@ function PodiumCard({ entry, position }: { entry: LeaderboardEntry; position: 1 
         <p className={`text-xs font-semibold mt-0.5 ${c.label}`}>#{position}</p>
       </div>
 
-      {/* Stats row */}
-      <div className="w-full flex justify-around text-center mt-1">
-        <div>
-          <p className="text-white font-bold text-lg leading-none">{entry.uniqueBars}</p>
-          <p className="text-gray-500 text-[0.6rem] mt-0.5">bars</p>
+      {/* Stats — stacked rows so labels never squish on narrow cards */}
+      <div className="w-full mt-2 space-y-1.5 border-t border-white/10 pt-2">
+        <div className="flex justify-between items-center">
+          <span className="text-gray-500 text-xs">Bars</span>
+          <span className="text-white font-bold text-sm">{entry.uniqueBars}</span>
         </div>
-        <div>
-          <p className="text-white font-bold text-lg leading-none">{entry.totalCheckins}</p>
-          <p className="text-gray-500 text-[0.6rem] mt-0.5">stamps</p>
+        <div className="flex justify-between items-center">
+          <span className="text-gray-500 text-xs">Stamps</span>
+          <span className="text-white font-bold text-sm">{entry.totalCheckins}</span>
         </div>
         {entry.currentStreak > 0 && (
-          <div>
-            <p className="text-orange-400 font-bold text-lg leading-none flex items-center gap-0.5 justify-center">
+          <div className="flex justify-between items-center">
+            <span className="text-gray-500 text-xs">Streak</span>
+            <span className="text-orange-400 font-bold text-sm flex items-center gap-0.5">
               <Flame className="w-3 h-3" />{entry.currentStreak}
-            </p>
-            <p className="text-gray-500 text-[0.6rem] mt-0.5">streak</p>
+            </span>
           </div>
         )}
       </div>
