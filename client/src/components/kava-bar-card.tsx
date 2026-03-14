@@ -12,7 +12,17 @@ interface KavaBarCardProps {
   size?: CardSize;
 }
 
-const FALLBACK_IMAGE = "/kava-bar-default-hero.jpg";
+// Pool of kava/tropical themed fallback photos — seeded per bar.id so each bar gets a consistent one
+const FALLBACK_POOL = [
+  "/kava-bar-default-hero.jpg",
+  "https://images.unsplash.com/photo-1571091718767-18b5b1457add?w=800&q=75&auto=format&fit=crop",
+  "https://images.unsplash.com/photo-1514362545857-3bc16c4c7d1b?w=800&q=75&auto=format&fit=crop",
+  "https://images.unsplash.com/photo-1504674900247-0877df9cc836?w=800&q=75&auto=format&fit=crop",
+  "https://images.unsplash.com/photo-1544787219-7f47ccb76574?w=800&q=75&auto=format&fit=crop",
+  "https://images.unsplash.com/photo-1555396273-367ea4eb4db5?w=800&q=75&auto=format&fit=crop",
+  "https://images.unsplash.com/photo-1470338745628-171cf53de3a8?w=800&q=75&auto=format&fit=crop",
+  "https://images.unsplash.com/photo-1559329007-40df8a9345d8?w=800&q=75&auto=format&fit=crop",
+];
 
 function stateFromAddress(address?: string): string | null {
   if (!address) return null;
@@ -74,9 +84,11 @@ export default function KavaBarCard({ bar, distance, size = "small" }: KavaBarCa
   const happyHoursRaw = bar.happy_hours ?? bar.happyHours ?? null;
   const hhStatus = getHappyHourStatus(happyHoursRaw, state);
 
+  const seededFallback = FALLBACK_POOL[Math.abs(Math.floor(seededRandom(bar.id ?? 0) * FALLBACK_POOL.length)) % FALLBACK_POOL.length];
+
   const getHeroImage = () => {
-    if (imageError) return FALLBACK_IMAGE;
-    return bar.heroImageUrl || bar.latestGalleryPhoto || bar.latest_gallery_photo || bar.hero_image_url || FALLBACK_IMAGE;
+    if (imageError) return seededFallback;
+    return bar.heroImageUrl || bar.latestGalleryPhoto || bar.latest_gallery_photo || bar.hero_image_url || seededFallback;
   };
 
   const vibes = bar.vibes || bar.amenities || bar.tags || [];
