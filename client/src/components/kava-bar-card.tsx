@@ -114,14 +114,19 @@ function getHappyHourStatus(happyHours: any): { active: boolean; label: string }
   const todaySlots: any[] = happyHours[currentDay] ?? [];
 
   for (const slot of todaySlots) {
-    // slot: { start: "4:00", startPeriod: "PM", end: "7:00", endPeriod: "PM" }
+    // slot: { start: "8:00", startPeriod: "PM", end: "12:00", endPeriod: "AM" }
     const openStr = `${slot.start} ${slot.startPeriod}`;
     const closeStr = `${slot.end} ${slot.endPeriod}`;
     const openTime = parseTime12(openStr);
     const closeTime = parseTime12(closeStr);
     if (openTime === -1 || closeTime === -1) continue;
 
-    if (currentTime >= openTime && currentTime < closeTime) {
+    const crossesMidnight = closeTime < openTime; // e.g. 8 PM → 12 AM
+    const isActive = crossesMidnight
+      ? currentTime >= openTime || currentTime < closeTime
+      : currentTime >= openTime && currentTime < closeTime;
+
+    if (isActive) {
       return { active: true, label: `🍹 Happy Hour til ${fmt12(closeStr)}` };
     }
     if (currentTime < openTime) {
