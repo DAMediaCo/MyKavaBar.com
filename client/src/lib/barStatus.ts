@@ -47,7 +47,7 @@ export function nowInTz(tz: string): { dayName: string; totalMins: number } {
     weekday: 'long',
   }).formatToParts(now);
   const dayName = parts.find(p => p.type === 'weekday')?.value || '';
-  const hour = parseInt(parts.find(p => p.type === 'hour')?.value || '0');
+  const hour = parseInt(parts.find(p => p.type === 'hour')?.value || '0') % 24; // guard against "24" at midnight
   const minute = parseInt(parts.find(p => p.type === 'minute')?.value || '0');
   return { dayName, totalMins: hour * 60 + minute };
 }
@@ -85,6 +85,8 @@ export function minsTo12h(mins: number): string {
 
 /** Parse hours string "Monday: 9:00 AM – 11:00 PM" → {open, close} in mins */
 function parseHoursString(str: string): { open: number; close: number } | null {
+  // Google Places sometimes returns "Monday: Open 24 hours"
+  if (/open 24 hours/i.test(str)) return { open: 0, close: 24 * 60 };
   const match = str.match(/:\s*(.+?)\s*[–\-]\s*(.+)/);
   if (!match) return null;
   const openStr = match[1].trim();
