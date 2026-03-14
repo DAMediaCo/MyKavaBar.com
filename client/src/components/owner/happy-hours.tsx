@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { Loader2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -91,13 +91,15 @@ export function HappyHours({ barId }: { barId: number }) {
   const { toast } = useToast();
   const [rows, setRows] = useState<ScheduleRow[]>([]);
 
-  const { isLoading } = useQuery({
+  const { isLoading, data: savedRows } = useQuery({
     queryKey: ["happyHours", barId],
     queryFn: () => fetchHappyHours(barId),
-    onSuccess: (data: ScheduleRow[]) => {
-      setRows(data.length > 0 ? data : []);
-    },
   });
+
+  // React Query v5 removed onSuccess — sync loaded data into local state
+  useEffect(() => {
+    if (savedRows) setRows(savedRows);
+  }, [savedRows]);
 
   const mutation = useMutation({
     mutationFn: () => saveHappyHours(barId, rows),
