@@ -17,14 +17,26 @@ function formatDate(iso: string) {
   });
 }
 
-function imgSrc(image: string) {
-  if (!image) return "";
-  if (image.startsWith("http")) return image;
-  return `https://kavaatlas.com${image}`;
+const FALLBACK_IMAGES = [
+  "https://images.unsplash.com/photo-1544787219-7f47ccb76574?w=800&auto=format&fit=crop",
+  "https://images.unsplash.com/photo-1530530488745-5e79f4ea7b48?w=800&auto=format&fit=crop",
+  "https://images.unsplash.com/photo-1504674900247-0877df9cc836?w=800&auto=format&fit=crop",
+  "https://images.unsplash.com/photo-1606914501449-5a96b6ce24ca?w=800&auto=format&fit=crop",
+  "https://images.unsplash.com/photo-1558618666-fcd25c85cd64?w=800&auto=format&fit=crop",
+  "https://images.unsplash.com/photo-1514362545857-3bc16c4c7d1b?w=800&auto=format&fit=crop",
+  "https://images.unsplash.com/photo-1571091718767-18b5b1457add?w=800&auto=format&fit=crop",
+];
+
+function imgSrc(image: string, index: number = 0) {
+  if (image && image.trim()) {
+    if (image.startsWith("http")) return image;
+    return `https://kavaatlas.com${image}`;
+  }
+  return FALLBACK_IMAGES[index % FALLBACK_IMAGES.length];
 }
 
 /** Hero card — full width, big image */
-function HeroCard({ article }: { article: BlogArticle }) {
+function HeroCard({ article, index }: { article: BlogArticle; index: number }) {
   return (
     <a
       href={article.url}
@@ -32,16 +44,12 @@ function HeroCard({ article }: { article: BlogArticle }) {
       rel="noopener noreferrer"
       className="group col-span-2 lg:col-span-3 relative h-[340px] sm:h-[420px] rounded-2xl overflow-hidden block border border-[#333] hover:border-[#D35400] transition-all duration-300"
     >
-      {article.image ? (
-        <img
-          src={imgSrc(article.image)}
-          alt={article.title}
-          className="absolute inset-0 w-full h-full object-cover group-hover:scale-105 transition-transform duration-500"
-          onError={(e) => { (e.target as HTMLImageElement).src = "/kava-bar-default-hero.jpg"; }}
-        />
-      ) : (
-        <div className="absolute inset-0 bg-[#252525]" />
-      )}
+      <img
+        src={imgSrc(article.image, index)}
+        alt={article.title}
+        className="absolute inset-0 w-full h-full object-cover group-hover:scale-105 transition-transform duration-500"
+        onError={(e) => { (e.target as HTMLImageElement).src = FALLBACK_IMAGES[index % FALLBACK_IMAGES.length]; }}
+      />
       <div className="absolute inset-0 bg-gradient-to-t from-black/90 via-black/40 to-transparent" />
       <div className="absolute bottom-0 left-0 right-0 p-6">
         <div className="flex gap-2 mb-3 flex-wrap">
@@ -67,7 +75,7 @@ function HeroCard({ article }: { article: BlogArticle }) {
 }
 
 /** Standard card — portrait with image top */
-function StandardCard({ article }: { article: BlogArticle }) {
+function StandardCard({ article, index }: { article: BlogArticle; index: number }) {
   return (
     <a
       href={article.url}
@@ -76,18 +84,12 @@ function StandardCard({ article }: { article: BlogArticle }) {
       className="group col-span-2 sm:col-span-1 flex flex-col bg-[#1E1E1E] rounded-2xl overflow-hidden border border-[#333] hover:border-[#D35400] transition-all duration-300 hover:-translate-y-1"
     >
       <div className="h-44 overflow-hidden relative flex-shrink-0">
-        {article.image ? (
-          <img
-            src={imgSrc(article.image)}
-            alt={article.title}
-            className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500"
-            onError={(e) => { (e.target as HTMLImageElement).src = "/kava-bar-default-hero.jpg"; }}
-          />
-        ) : (
-          <div className="w-full h-full bg-[#252525] flex items-center justify-center">
-            <span className="text-4xl">🌿</span>
-          </div>
-        )}
+        <img
+          src={imgSrc(article.image, index)}
+          alt={article.title}
+          className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500"
+          onError={(e) => { (e.target as HTMLImageElement).src = FALLBACK_IMAGES[index % FALLBACK_IMAGES.length]; }}
+        />
         <div className="absolute inset-0 bg-gradient-to-t from-black/30 to-transparent" />
       </div>
       <div className="p-4 flex flex-col flex-1">
@@ -112,7 +114,7 @@ function StandardCard({ article }: { article: BlogArticle }) {
 }
 
 /** Wide card — landscape with image left, text right */
-function WideCard({ article }: { article: BlogArticle }) {
+function WideCard({ article, index }: { article: BlogArticle; index: number }) {
   return (
     <a
       href={article.url}
@@ -121,18 +123,12 @@ function WideCard({ article }: { article: BlogArticle }) {
       className="group col-span-2 flex bg-[#1E1E1E] rounded-2xl overflow-hidden border border-[#333] hover:border-[#D35400] transition-all duration-300 hover:-translate-y-1"
     >
       <div className="w-48 sm:w-56 flex-shrink-0 overflow-hidden relative">
-        {article.image ? (
-          <img
-            src={imgSrc(article.image)}
-            alt={article.title}
-            className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500"
-            onError={(e) => { (e.target as HTMLImageElement).src = "/kava-bar-default-hero.jpg"; }}
-          />
-        ) : (
-          <div className="w-full h-full bg-[#252525] flex items-center justify-center">
-            <span className="text-4xl">🌿</span>
-          </div>
-        )}
+        <img
+          src={imgSrc(article.image, index)}
+          alt={article.title}
+          className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500"
+          onError={(e) => { (e.target as HTMLImageElement).src = FALLBACK_IMAGES[index % FALLBACK_IMAGES.length]; }}
+        />
       </div>
       <div className="flex-1 p-5 flex flex-col justify-between min-w-0">
         <div>
@@ -216,9 +212,9 @@ export default function Blog() {
         <div className="grid grid-cols-2 lg:grid-cols-3 gap-4 auto-rows-auto">
           {articles.map((article, i) => {
             const type = getCardType(i);
-            if (type === "hero") return <HeroCard key={article.id} article={article} />;
-            if (type === "wide") return <WideCard key={article.id} article={article} />;
-            return <StandardCard key={article.id} article={article} />;
+            if (type === "hero") return <HeroCard key={article.id} article={article} index={i} />;
+            if (type === "wide") return <WideCard key={article.id} article={article} index={i} />;
+            return <StandardCard key={article.id} article={article} index={i} />;
           })}
         </div>
       </div>
