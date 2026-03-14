@@ -328,17 +328,36 @@ export const getLeaderboard = async (req: Request, res: Response) => {
       const monthlyCheckins = await db
         .select({
           userId: passportCheckins.userId,
-          count: sql<number>`count(distinct ${passportCheckins.barId})`,
+          username: users.username,
+          firstName: users.firstName,
+          lastName: users.lastName,
+          profilePhotoUrl: users.profilePhotoUrl,
+          uniqueBars: sql<number>`count(distinct ${passportCheckins.barId})`,
+          totalCheckins: sql<number>`count(${passportCheckins.id})`,
         })
         .from(passportCheckins)
+        .leftJoin(users, eq(passportCheckins.userId, users.id))
         .where(gte(passportCheckins.checkedInAt, firstDayOfMonth))
-        .groupBy(passportCheckins.userId)
+        .groupBy(
+          passportCheckins.userId,
+          users.username,
+          users.firstName,
+          users.lastName,
+          users.profilePhotoUrl,
+        )
         .orderBy(desc(sql`count(distinct ${passportCheckins.barId})`))
         .limit(limit);
 
       return res.json({
         scope,
-        leaderboard: monthlyCheckins,
+        leaderboard: monthlyCheckins.map((r, i) => ({
+          ...r,
+          count: Number(r.uniqueBars),
+          uniqueBars: Number(r.uniqueBars),
+          totalCheckins: Number(r.totalCheckins),
+          currentStreak: 0,
+          rank: i + 1,
+        })),
       });
     }
 
@@ -379,7 +398,13 @@ export const getLeaderboard = async (req: Request, res: Response) => {
       return res.json({
         scope,
         location: locationFilter,
-        leaderboard: result,
+        leaderboard: result.map((r, i) => ({
+          ...r,
+          uniqueBars: Number(r.uniqueBars),
+          totalCheckins: 0,
+          currentStreak: 0,
+          rank: i + 1,
+        })),
       });
     }
 
