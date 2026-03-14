@@ -82,7 +82,7 @@ export default function NavBar() {
     { href: "/admin/users",             label: "Manage Users",        icon: <Users className="h-4 w-4" /> },
     { href: "/admin/manage-features",   label: "Manage Features",     icon: <Settings className="h-4 w-4" /> },
     { href: "/admin/payouts",           label: "Referral Payouts",    icon: <DollarSign className="h-4 w-4" /> },
-    { href: "/admin/verification-codes",label: "Verification Codes",  icon: <Shield className="h-4 w-4" /> },
+
   ];
 
   function handleSheetNav(to: string) {
