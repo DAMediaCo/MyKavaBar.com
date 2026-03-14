@@ -160,8 +160,9 @@ export function useLocation() {
 
     setError(message);
 
-    // Show error toast only once per session
-    if (!hasShownErrorToast.current) {
+    // Show error toast only once per session, and only if we have no cached coordinates
+    const hasCached = !!localStorage.getItem("lastKnownLocation");
+    if (!hasShownErrorToast.current && !hasCached) {
       toast({
         variant: "destructive",
         title: "Location Error",

@@ -137,7 +137,6 @@ export default function AdminUsersPage() {
                   {/* Name + badges */}
                   <div className="flex flex-wrap items-center gap-2 mb-0.5">
                     <span className="font-semibold text-gray-900 text-sm">{user.username}</span>
-                    {name && <span className="text-gray-500 text-xs">({name})</span>}
                     {user.isAdmin && (
                       <span className="flex items-center gap-1 text-[10px] font-bold text-[#D35400] bg-orange-50 border border-orange-200 rounded-full px-2 py-0.5">
                         <Shield className="h-2.5 w-2.5" /> ADMIN
@@ -149,6 +148,9 @@ export default function AdminUsersPage() {
                       </span>
                     )}
                   </div>
+                  <p className="text-gray-700 text-xs font-medium">
+                    {[user.firstName, user.lastName].filter(Boolean).join(" ") || <span className="text-gray-400 italic">No name set</span>}
+                  </p>
                   <p className="text-gray-500 text-xs truncate">{user.email}</p>
                   {user.phoneNumber && <p className="text-gray-400 text-xs">{user.phoneNumber}</p>}
                   {isBanned && user.banReason && (
