@@ -17,26 +17,24 @@ function formatDate(iso: string) {
   });
 }
 
-const FALLBACK_IMAGES = [
-  "https://images.unsplash.com/photo-1544787219-7f47ccb76574?w=800&auto=format&fit=crop",
-  "https://images.unsplash.com/photo-1530530488745-5e79f4ea7b48?w=800&auto=format&fit=crop",
-  "https://images.unsplash.com/photo-1504674900247-0877df9cc836?w=800&auto=format&fit=crop",
-  "https://images.unsplash.com/photo-1606914501449-5a96b6ce24ca?w=800&auto=format&fit=crop",
-  "https://images.unsplash.com/photo-1558618666-fcd25c85cd64?w=800&auto=format&fit=crop",
-  "https://images.unsplash.com/photo-1514362545857-3bc16c4c7d1b?w=800&auto=format&fit=crop",
-  "https://images.unsplash.com/photo-1571091718767-18b5b1457add?w=800&auto=format&fit=crop",
-];
+function imgSrc(image: string): string | null {
+  if (!image || !image.trim()) return null;
+  if (image.startsWith("http")) return image;
+  return `https://kavaatlas.com${image}`;
+}
 
-function imgSrc(image: string, index: number = 0) {
-  if (image && image.trim()) {
-    if (image.startsWith("http")) return image;
-    return `https://kavaatlas.com${image}`;
-  }
-  return FALLBACK_IMAGES[index % FALLBACK_IMAGES.length];
+/** Gradient placeholder for articles without a real photo */
+function NoImage({ title }: { title: string }) {
+  return (
+    <div className="w-full h-full bg-gradient-to-br from-[#2A1A0E] via-[#1E1E1E] to-[#0D0D0D] flex flex-col items-center justify-center gap-3 p-4">
+      <span className="text-4xl">🌿</span>
+      <p className="text-gray-500 text-xs text-center line-clamp-2 max-w-[160px]">{title}</p>
+    </div>
+  );
 }
 
 /** Hero card — full width, big image */
-function HeroCard({ article, index }: { article: BlogArticle; index: number }) {
+function HeroCard({ article }: { article: BlogArticle }) {
   return (
     <a
       href={article.url}
@@ -44,12 +42,15 @@ function HeroCard({ article, index }: { article: BlogArticle; index: number }) {
       rel="noopener noreferrer"
       className="group col-span-2 lg:col-span-3 relative h-[340px] sm:h-[420px] rounded-2xl overflow-hidden block border border-[#333] hover:border-[#D35400] transition-all duration-300"
     >
-      <img
-        src={imgSrc(article.image, index)}
-        alt={article.title}
-        className="absolute inset-0 w-full h-full object-cover group-hover:scale-105 transition-transform duration-500"
-        onError={(e) => { (e.target as HTMLImageElement).src = FALLBACK_IMAGES[index % FALLBACK_IMAGES.length]; }}
-      />
+      {imgSrc(article.image) ? (
+        <img
+          src={imgSrc(article.image)!}
+          alt={article.title}
+          className="absolute inset-0 w-full h-full object-cover group-hover:scale-105 transition-transform duration-500"
+        />
+      ) : (
+        <div className="absolute inset-0 bg-gradient-to-br from-[#2A1A0E] via-[#1E1E1E] to-[#0D0D0D]" />
+      )}
       <div className="absolute inset-0 bg-gradient-to-t from-black/90 via-black/40 to-transparent" />
       <div className="absolute bottom-0 left-0 right-0 p-6">
         <div className="flex gap-2 mb-3 flex-wrap">
@@ -75,7 +76,7 @@ function HeroCard({ article, index }: { article: BlogArticle; index: number }) {
 }
 
 /** Standard card — portrait with image top */
-function StandardCard({ article, index }: { article: BlogArticle; index: number }) {
+function StandardCard({ article }: { article: BlogArticle }) {
   return (
     <a
       href={article.url}
@@ -84,12 +85,15 @@ function StandardCard({ article, index }: { article: BlogArticle; index: number 
       className="group col-span-2 sm:col-span-1 flex flex-col bg-[#1E1E1E] rounded-2xl overflow-hidden border border-[#333] hover:border-[#D35400] transition-all duration-300 hover:-translate-y-1"
     >
       <div className="h-44 overflow-hidden relative flex-shrink-0">
-        <img
-          src={imgSrc(article.image, index)}
-          alt={article.title}
-          className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500"
-          onError={(e) => { (e.target as HTMLImageElement).src = FALLBACK_IMAGES[index % FALLBACK_IMAGES.length]; }}
-        />
+        {imgSrc(article.image) ? (
+          <img
+            src={imgSrc(article.image)!}
+            alt={article.title}
+            className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500"
+          />
+        ) : (
+          <NoImage title={article.title} />
+        )}
         <div className="absolute inset-0 bg-gradient-to-t from-black/30 to-transparent" />
       </div>
       <div className="p-4 flex flex-col flex-1">
@@ -114,7 +118,7 @@ function StandardCard({ article, index }: { article: BlogArticle; index: number 
 }
 
 /** Wide card — landscape with image left, text right */
-function WideCard({ article, index }: { article: BlogArticle; index: number }) {
+function WideCard({ article }: { article: BlogArticle }) {
   return (
     <a
       href={article.url}
@@ -123,12 +127,15 @@ function WideCard({ article, index }: { article: BlogArticle; index: number }) {
       className="group col-span-2 flex bg-[#1E1E1E] rounded-2xl overflow-hidden border border-[#333] hover:border-[#D35400] transition-all duration-300 hover:-translate-y-1"
     >
       <div className="w-48 sm:w-56 flex-shrink-0 overflow-hidden relative">
-        <img
-          src={imgSrc(article.image, index)}
-          alt={article.title}
-          className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500"
-          onError={(e) => { (e.target as HTMLImageElement).src = FALLBACK_IMAGES[index % FALLBACK_IMAGES.length]; }}
-        />
+        {imgSrc(article.image) ? (
+          <img
+            src={imgSrc(article.image)!}
+            alt={article.title}
+            className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500"
+          />
+        ) : (
+          <NoImage title={article.title} />
+        )}
       </div>
       <div className="flex-1 p-5 flex flex-col justify-between min-w-0">
         <div>
@@ -212,9 +219,9 @@ export default function Blog() {
         <div className="grid grid-cols-2 lg:grid-cols-3 gap-4 auto-rows-auto">
           {articles.map((article, i) => {
             const type = getCardType(i);
-            if (type === "hero") return <HeroCard key={article.id} article={article} index={i} />;
-            if (type === "wide") return <WideCard key={article.id} article={article} index={i} />;
-            return <StandardCard key={article.id} article={article} index={i} />;
+            if (type === "hero") return <HeroCard key={article.id} article={article} />;
+            if (type === "wide") return <WideCard key={article.id} article={article} />;
+            return <StandardCard key={article.id} article={article} />;
           })}
         </div>
       </div>
