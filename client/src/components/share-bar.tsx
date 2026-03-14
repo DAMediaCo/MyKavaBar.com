@@ -54,13 +54,26 @@ export default function ShareBar({ bar }: Props) {
     }
   };
 
+  const glassClass = `
+    relative overflow-hidden
+    flex items-center gap-2.5 px-5 py-2.5
+    rounded-2xl font-semibold text-sm
+    text-white cursor-pointer
+    border border-white/20
+    bg-white/10 backdrop-blur-md
+    shadow-[inset_0_1px_0_rgba(255,255,255,0.15),0_4px_24px_rgba(0,0,0,0.4)]
+    hover:bg-white/15 hover:border-white/30 hover:shadow-[inset_0_1px_0_rgba(255,255,255,0.2),0_6px_32px_rgba(0,0,0,0.5)]
+    active:scale-95 transition-all duration-200
+  `.trim().replace(/\s+/g, ' ');
+
   return (
     <DropdownMenu>
       <DropdownMenuTrigger asChild>
-        <Button variant="outline" size="icon">
+        <button className={glassClass}>
+          <span className="absolute inset-0 bg-gradient-to-br from-white/10 via-transparent to-transparent pointer-events-none" />
           <Share2 className="h-4 w-4" />
-          <span className="sr-only">Share bar</span>
-        </Button>
+          <span>Share</span>
+        </button>
       </DropdownMenuTrigger>
       <DropdownMenuContent align="end">
         <DropdownMenuItem onClick={() => handleShare('facebook')} className="gap-2">
