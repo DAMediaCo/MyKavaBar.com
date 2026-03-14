@@ -132,16 +132,12 @@ export default function KavaBarCard({ bar, distance }: KavaBarCardProps) {
             )}
 
             {/* Happy hour */}
-            {hhStatus.label ? (
+            {hhStatus.label && (
               <div className="flex flex-col items-end leading-tight">
                 <span className={`text-xs font-bold ${hhStatus.isActive ? "text-purple-400" : "text-gray-500"}`}>
                   {hhStatus.label}
                 </span>
               </div>
-            ) : (
-              <span className="hidden md:inline-block bg-[#D35400] hover:bg-[#E67E22] text-white px-3 py-1.5 rounded-lg text-xs font-semibold transition-colors shrink-0">
-                View Details
-              </span>
             )}
           </div>
         </div>
