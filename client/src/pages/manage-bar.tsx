@@ -39,6 +39,19 @@ const isHHMM24 = (time: string) => {
   return /^([01]\d|2[0-3]):([0-5]\d)$/.test(time);
 };
 
+/** Convert "HH:MM[:SS]" (24hr) → "h:MM AM/PM" */
+const fmt12 = (time?: string | null): string => {
+  if (!time) return '';
+  const [hStr, mStr] = time.split(':');
+  let h = parseInt(hStr, 10);
+  const m = mStr ?? '00';
+  if (isNaN(h)) return time;
+  const period = h >= 12 ? 'PM' : 'AM';
+  if (h === 0) h = 12;
+  else if (h > 12) h -= 12;
+  return `${h}:${m} ${period}`;
+};
+
 const hoursFormSchema = z.object({
   hours: z.array(z.object({
     day: z.enum(daysOfWeek),
@@ -590,7 +603,7 @@ export default function ManageBar() {
                         <div>
                           <p className="text-sm font-medium text-white">{event.title}</p>
                           <p className="text-xs text-gray-500 mt-0.5">
-                            {daysOfWeek[event.dayOfWeek]} · {event.startTime?.slice(0, 5)} – {event.endTime?.slice(0, 5)}
+                            {daysOfWeek[event.dayOfWeek]} · {fmt12(event.startTime)} – {fmt12(event.endTime)}
                           </p>
                           {event.description && <p className="text-xs text-gray-400 mt-0.5 line-clamp-1">{event.description}</p>}
                         </div>
