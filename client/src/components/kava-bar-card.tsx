@@ -98,7 +98,7 @@ export default function KavaBarCard({ bar, distance, size = "small" }: KavaBarCa
   const imgHeight = size === "hero" ? "h-52" : size === "wide" ? "h-40" : "h-36";
 
   return (
-    <div className={`group h-full bg-[#1E1E1E] rounded-2xl overflow-hidden shadow-lg hover:-translate-y-1 transition-transform duration-200 ${bar.is_sponsored ? "ring-2 ring-[#D35400]" : ""}`}>
+    <div className={`group h-full bg-[#1E1E1E] dark:bg-[#1E1E1E] light:bg-white rounded-2xl overflow-hidden shadow-lg hover:-translate-y-1 transition-transform duration-200 ${bar.is_sponsored ? "ring-2 ring-[#D35400]" : ""}`}>
       <Link href={`/kava-bars/${bar.id}`} className="flex flex-col h-full">
         {/* Hero image — object-cover ensures any aspect ratio fills the box cleanly */}
         <div className={`${imgHeight} w-full relative flex-shrink-0 overflow-hidden bg-[#111]`}>
@@ -132,7 +132,7 @@ export default function KavaBarCard({ bar, distance, size = "small" }: KavaBarCa
         <div className="p-3 flex flex-col flex-1">
           {/* Name + rating */}
           <div className="flex justify-between items-start mb-1 gap-2">
-            <h3 className={`font-bold text-[#f5f5f5] leading-tight ${size === "hero" ? "text-lg" : "text-base"} line-clamp-2`}>
+            <h3 className={`font-bold text-[#f5f5f5] dark:text-[#f5f5f5] leading-tight ${size === "hero" ? "text-lg" : "text-base"} line-clamp-2`}>
               {bar.name}
             </h3>
             <div className={`rounded-full flex items-center justify-center font-bold shrink-0 ${size === "hero" ? "w-9 h-9 text-sm" : "w-8 h-8 text-xs"} ${rating ? "bg-amber-400 text-[#121212]" : "bg-gray-600 text-gray-300"}`}>
@@ -144,7 +144,7 @@ export default function KavaBarCard({ bar, distance, size = "small" }: KavaBarCa
           {displayVibes.length > 0 && (
             <div className="flex gap-1 mb-1.5 flex-wrap">
               {displayVibes.map((vibe: string, i: number) => (
-                <span key={i} className="bg-[#333] text-gray-300 text-[0.65rem] px-2 py-0.5 rounded-md uppercase tracking-wider">
+                <span key={i} className="bg-[#333] dark:bg-[#333] text-gray-300 dark:text-gray-300 text-[0.65rem] px-2 py-0.5 rounded-md uppercase tracking-wider">
                   {vibe}
                 </span>
               ))}

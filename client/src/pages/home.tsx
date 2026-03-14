@@ -190,17 +190,17 @@ export default function Home() {
   }
 
   return (
-    <div className="min-h-screen bg-[#1A1A1C]" id="home-content">
+    <div className="min-h-screen bg-[#1A1A1C] dark:bg-[#1A1A1C]" id="home-content">
       <div className="container mx-auto px-4 py-6">
         {/* Unified search bar: search | sort | list/map — all in one pill */}
-        <div className="mb-4 flex items-center bg-[#1E1E1E] border border-[#333] rounded-xl h-12 px-3 gap-2 w-full min-w-0">
+        <div className="mb-4 flex items-center bg-[#1E1E1E] dark:bg-[#1E1E1E] border border-[#333] dark:border-[#333] rounded-xl h-12 px-3 gap-2 w-full min-w-0">
           {/* Search icon + input */}
           <Search className="h-4 w-4 text-gray-500 flex-shrink-0" />
           <input
             placeholder="Search bars..."
             value={search}
             onChange={(e) => setSearch(e.target.value)}
-            className="flex-1 min-w-0 bg-transparent text-white placeholder:text-gray-500 outline-none text-sm"
+            className="flex-1 min-w-0 bg-transparent text-white dark:text-white placeholder:text-gray-500 outline-none text-sm"
           />
 
           {/* Blog link */}
