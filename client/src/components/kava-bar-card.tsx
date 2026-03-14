@@ -2,6 +2,7 @@ import { Link } from "wouter";
 import { useState } from "react";
 import { MapPin } from "lucide-react";
 import { format, isBefore, startOfDay } from "date-fns";
+import { getOpenStatus, getHappyHourStatus } from "@/lib/barStatus";
 
 interface KavaBarCardProps {
   bar: any;
@@ -10,141 +11,18 @@ interface KavaBarCardProps {
 
 const FALLBACK_IMAGE = "/kava-bar-default-hero.jpg";
 
-const DAY_NAMES = ["Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"];
-
-function parseTime12(time: string): number {
-  const match = time.match(/(\d{1,2}):?(\d{2})?\s*(AM|PM)?/i);
-  if (!match) return -1;
-  let [, hour, minute = "00", period] = match;
-  let h = parseInt(hour, 10);
-  const m = parseInt(minute, 10);
-  if (period) {
-    period = period.toUpperCase();
-    if (period === "PM" && h !== 12) h += 12;
-    if (period === "AM" && h === 12) h = 0;
-  }
-  return h * 100 + m;
+/** Extract 2-letter state code from address string e.g. "123 Main St, Tampa, FL 33601" */
+function stateFromAddress(address?: string): string | null {
+  if (!address) return null;
+  const m = address.match(/,\s*([A-Z]{2})\s*\d{5}/);
+  return m ? m[1] : null;
 }
 
-function fmt12(raw: string): string {
-  // "10:00 PM" → "10 PM", "9:00 AM" → "9 AM", "10:30 PM" → "10:30 PM"
-  const match = raw.match(/(\d{1,2}):(\d{2})\s*(AM|PM)/i);
-  if (!match) return raw;
-  const [, h, m, p] = match;
-  return m === "00" ? `${h} ${p.toUpperCase()}` : `${h}:${m} ${p.toUpperCase()}`;
-}
-
-/** Returns open/closed status + time label for the card footer */
-function getHoursStatus(hours: any): { isOpen: boolean; label: string; sub: string } | null {
-  // hours can be an array of strings OR an object with weekday_text array
-  const weekdayText: string[] = Array.isArray(hours)
-    ? hours
-    : hours?.weekday_text ?? [];
-
-  if (!weekdayText.length) return null;
-
-  const now = new Date();
-  const currentDay = DAY_NAMES[now.getDay()];
-  const currentTime = now.getHours() * 100 + now.getMinutes();
-
-  const todayStr = weekdayText.find((h: string) => h.startsWith(currentDay));
-  if (!todayStr) return null;
-
-  const timeRange = todayStr.split(": ")[1]?.trim();
-  if (!timeRange || timeRange.toLowerCase() === "closed") {
-    // Find next open day
-    for (let i = 1; i <= 7; i++) {
-      const nextDay = DAY_NAMES[(now.getDay() + i) % 7];
-      const nextStr = weekdayText.find((h: string) => h.startsWith(nextDay));
-      if (!nextStr) continue;
-      const nextRange = nextStr.split(": ")[1]?.trim();
-      if (!nextRange || nextRange.toLowerCase() === "closed") continue;
-      const clean = nextRange.replace(/\s*[\u2013\u2014–-]\s*/g, " - ");
-      const openStr = clean.split(" - ")[0]?.trim();
-      if (!openStr) continue;
-      const label = i === 1 ? "Tomorrow" : nextDay.slice(0, 3);
-      return { isOpen: false, label: "Closed", sub: `Opens ${label} ${fmt12(openStr)}` };
-    }
-    return { isOpen: false, label: "Closed Today", sub: "" };
-  }
-
-  const clean = timeRange.replace(/\s*[\u2013\u2014–-]\s*/g, " - ").trim();
-  const [openStr, closeStr] = clean.split(" - ").map((t: string) => t.trim());
-  if (!openStr || !closeStr) return null;
-
-  const openTime = parseTime12(openStr);
-  const closeTime = parseTime12(closeStr);
-  if (openTime === -1 || closeTime === -1) return null;
-
-  const crossesMidnight = closeTime < openTime;
-  const isOpen = crossesMidnight
-    ? currentTime >= openTime || currentTime < closeTime
-    : currentTime >= openTime && currentTime < closeTime;
-
-  if (isOpen) {
-    return { isOpen: true, label: "Open", sub: `Closes ${fmt12(closeStr)}` };
-  } else if (currentTime < openTime) {
-    return { isOpen: false, label: "Closed", sub: `Opens ${fmt12(openStr)}` };
-  } else {
-    // Already closed for today — show tomorrow's open time if available
-    for (let i = 1; i <= 7; i++) {
-      const nextDay = DAY_NAMES[(now.getDay() + i) % 7];
-      const nextStr = weekdayText.find((h: string) => h.startsWith(nextDay));
-      if (!nextStr) continue;
-      const nextRange = nextStr.split(": ")[1]?.trim();
-      if (!nextRange || nextRange.toLowerCase() === "closed") continue;
-      const nextClean = nextRange.replace(/\s*[\u2013\u2014–-]\s*/g, " - ");
-      const nextOpen = nextClean.split(" - ")[0]?.trim();
-      if (!nextOpen) continue;
-      const label = i === 1 ? "Tomorrow" : nextDay.slice(0, 3);
-      return { isOpen: false, label: "Closed", sub: `Opens ${label} ${fmt12(nextOpen)}` };
-    }
-    return { isOpen: false, label: "Closed", sub: "" };
-  }
-}
-
-/** Returns happy hour status for the card footer */
-function getHappyHourStatus(happyHours: any): { active: boolean; label: string } | null {
-  if (!happyHours || typeof happyHours !== "object") return null;
-
-  const now = new Date();
-  const currentDay = DAY_NAMES[now.getDay()];
-  const currentTime = now.getHours() * 100 + now.getMinutes();
-
-  const todaySlots: any[] = happyHours[currentDay] ?? [];
-
-  for (const slot of todaySlots) {
-    // slot: { start: "8:00", startPeriod: "PM", end: "12:00", endPeriod: "AM" }
-    const openStr = `${slot.start} ${slot.startPeriod}`;
-    const closeStr = `${slot.end} ${slot.endPeriod}`;
-    const openTime = parseTime12(openStr);
-    const closeTime = parseTime12(closeStr);
-    if (openTime === -1 || closeTime === -1) continue;
-
-    const crossesMidnight = closeTime < openTime; // e.g. 8 PM → 12 AM
-    const isActive = crossesMidnight
-      ? currentTime >= openTime || currentTime < closeTime
-      : currentTime >= openTime && currentTime < closeTime;
-
-    if (isActive) {
-      return { active: true, label: `🍹 Happy Hour til ${fmt12(closeStr)}` };
-    }
-    if (currentTime < openTime) {
-      return { active: false, label: `🍹 Happy Hour at ${fmt12(openStr)}` };
-    }
-  }
-
-  // Check upcoming days (next 6)
-  for (let i = 1; i <= 6; i++) {
-    const nextDay = DAY_NAMES[(now.getDay() + i) % 7];
-    const slots: any[] = happyHours[nextDay] ?? [];
-    if (slots.length === 0) continue;
-    const slot = slots[0];
-    const openStr = `${slot.start} ${slot.startPeriod}`;
-    const label = i === 1 ? "Tomorrow" : nextDay.slice(0, 3);
-    return { active: false, label: `🍹 Happy Hour ${label} ${fmt12(openStr)}` };
-  }
-
+/** Normalise hours from API into string[] for barStatus.ts */
+function toWeekdayText(hours: any): string[] | null {
+  if (!hours) return null;
+  if (Array.isArray(hours)) return hours;
+  if (Array.isArray(hours.weekday_text)) return hours.weekday_text;
   return null;
 }
 
@@ -156,9 +34,9 @@ export default function KavaBarCard({ bar, distance }: KavaBarCardProps) {
   const rating = bar.rating ? Number(bar.rating) : null;
   const displayRating = rating ? rating.toFixed(1) : "N/A";
 
+  // Coming soon logic
   const rawDateString = bar.grand_opening_date;
   let comingSoonText: string | null = null;
-
   if (bar.coming_soon) {
     if (rawDateString) {
       const grandOpeningDate = new Date(rawDateString);
@@ -171,10 +49,12 @@ export default function KavaBarCard({ bar, distance }: KavaBarCardProps) {
     }
   }
 
-  const hoursStatus = getHoursStatus(bar.hours);
-  // API returns snake_case happy_hours from k.*, try both
-  const happyHoursData = bar.happy_hours ?? bar.happyHours ?? null;
-  const hhStatus = getHappyHourStatus(happyHoursData);
+  // Use barStatus.ts — timezone-aware, cross-midnight-safe
+  const state = stateFromAddress(bar.address);
+  const weekdayText = toWeekdayText(bar.hours);
+  const openStatus = getOpenStatus(weekdayText, state);
+  const happyHoursRaw = bar.happy_hours ?? bar.happyHours ?? null;
+  const hhStatus = getHappyHourStatus(happyHoursRaw, state);
 
   const getHeroImage = () => {
     if (imageError) return FALLBACK_IMAGE;
@@ -192,10 +72,9 @@ export default function KavaBarCard({ bar, distance }: KavaBarCardProps) {
           className="h-36 w-full bg-cover bg-center relative"
           style={{ backgroundImage: `url('${getHeroImage()}')` }}
         >
-          {/* Open/closed badge top-right */}
-          {!comingSoonText && hoursStatus && (
-            <div className={`absolute top-3 right-3 text-white text-xs font-bold px-2.5 py-1 rounded-full backdrop-blur-sm ${hoursStatus.isOpen ? "bg-green-500/90" : "bg-gray-700/90"}`}>
-              {hoursStatus.isOpen ? "OPEN" : "CLOSED"}
+          {!comingSoonText && weekdayText && weekdayText.length > 0 && (
+            <div className={`absolute top-3 right-3 text-white text-xs font-bold px-2.5 py-1 rounded-full backdrop-blur-sm ${openStatus.isOpen ? "bg-green-500/90" : "bg-gray-700/90"}`}>
+              {openStatus.isOpen ? "OPEN" : "CLOSED"}
             </div>
           )}
           {comingSoonText && (
@@ -239,13 +118,13 @@ export default function KavaBarCard({ bar, distance }: KavaBarCardProps) {
           {/* Footer: hours left | happy hour right */}
           <div className="flex justify-between items-end gap-2 min-h-[32px]">
             {/* Open/closed */}
-            {hoursStatus ? (
+            {weekdayText && weekdayText.length > 0 ? (
               <div className="flex flex-col leading-tight">
-                <span className={`text-xs font-bold ${hoursStatus.isOpen ? "text-green-400" : "text-gray-400"}`}>
-                  {hoursStatus.label}
+                <span className={`text-xs font-bold ${openStatus.isOpen ? "text-green-400" : "text-gray-400"}`}>
+                  {openStatus.isOpen ? "Open" : "Closed"}
                 </span>
-                {hoursStatus.sub && (
-                  <span className="text-[0.65rem] text-gray-500">{hoursStatus.sub}</span>
+                {openStatus.label && (
+                  <span className="text-[0.65rem] text-gray-500">{openStatus.label.replace(/^Open · /i, "").replace(/^Opens /i, "Opens ")}</span>
                 )}
               </div>
             ) : (
@@ -253,9 +132,9 @@ export default function KavaBarCard({ bar, distance }: KavaBarCardProps) {
             )}
 
             {/* Happy hour */}
-            {hhStatus ? (
+            {hhStatus.label ? (
               <div className="flex flex-col items-end leading-tight">
-                <span className={`text-xs font-bold ${hhStatus.active ? "text-purple-400" : "text-gray-500"}`}>
+                <span className={`text-xs font-bold ${hhStatus.isActive ? "text-purple-400" : "text-gray-500"}`}>
                   {hhStatus.label}
                 </span>
               </div>
