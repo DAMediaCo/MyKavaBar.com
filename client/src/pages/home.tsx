@@ -3,14 +3,8 @@ import { useKavaBars } from "@/hooks/use-kava-bars";
 import { useLocation, calculateDistance } from "@/hooks/use-location";
 import KavaBarCard from "@/components/kava-bar-card";
 import { useQuery } from "@tanstack/react-query";
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
-import { Search, Map, List } from "lucide-react";
+
+import { Search, Map, List, SlidersHorizontal } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { useUser } from "@/hooks/use-user";
 
@@ -174,40 +168,46 @@ export default function Home() {
   return (
     <div className="min-h-screen bg-[#1A1A1C]" id="home-content">
       <div className="container mx-auto px-4 py-6">
-        {/* Search Bar + Sort + List/Map toggle */}
-        <div className="mb-4 flex items-center gap-2">
-          {/* Search input */}
-          <div className="flex-1 flex items-center bg-[#1E1E1E] border border-[#333] rounded-xl h-12 px-3 gap-2">
-            <Search className="h-4 w-4 text-gray-500 flex-shrink-0" />
-            <input
-              placeholder="Search bars by name, city, or state..."
-              value={search}
-              onChange={(e) => setSearch(e.target.value)}
-              className="flex-1 bg-transparent text-white placeholder:text-gray-500 outline-none text-sm"
-            />
+        {/* Unified search bar: search | sort | list/map — all in one pill */}
+        <div className="mb-4 flex items-center bg-[#1E1E1E] border border-[#333] rounded-xl h-12 px-3 gap-2 w-full min-w-0">
+          {/* Search icon + input */}
+          <Search className="h-4 w-4 text-gray-500 flex-shrink-0" />
+          <input
+            placeholder="Search bars..."
+            value={search}
+            onChange={(e) => setSearch(e.target.value)}
+            className="flex-1 min-w-0 bg-transparent text-white placeholder:text-gray-500 outline-none text-sm"
+          />
+
+          {/* Divider */}
+          <div className="w-px h-6 bg-[#444] flex-shrink-0" />
+
+          {/* Sort — native select for reliability across devices */}
+          <div className="relative flex-shrink-0">
+            <SlidersHorizontal className="h-3.5 w-3.5 text-gray-400 absolute left-0 top-1/2 -translate-y-1/2 pointer-events-none" />
+            <select
+              value={sortBy}
+              onChange={(e) => {
+                setSortBy(e.target.value as SortOption);
+                if (e.target.value === "distance" && !coordinates) requestLocation();
+              }}
+              className="appearance-none bg-transparent text-gray-300 text-xs font-semibold pl-5 pr-1 outline-none cursor-pointer"
+            >
+              <option value="distance" className="bg-[#1E1E1E]">Nearest</option>
+              <option value="rating"   className="bg-[#1E1E1E]">Top Rated</option>
+              <option value="name"     className="bg-[#1E1E1E]">A–Z</option>
+              {user && <option value="favorite" className="bg-[#1E1E1E]">Favorites</option>}
+            </select>
           </div>
 
-          {/* Sort dropdown */}
-          <Select value={sortBy} onValueChange={(v) => {
-            setSortBy(v as SortOption);
-            if (v === "distance" && !coordinates) requestLocation();
-          }}>
-            <SelectTrigger className="w-[130px] h-12 bg-[#1E1E1E] border-[#333] text-gray-300 text-sm flex-shrink-0">
-              <SelectValue placeholder="Sort by" />
-            </SelectTrigger>
-            <SelectContent className="bg-[#1E1E1E] border-[#333]">
-              <SelectItem value="distance" className="text-gray-300">📍 Nearest</SelectItem>
-              <SelectItem value="rating" className="text-gray-300">⭐ Top Rated</SelectItem>
-              <SelectItem value="name" className="text-gray-300">🔤 A–Z</SelectItem>
-              {user && <SelectItem value="favorite" className="text-gray-300">❤️ Favorites</SelectItem>}
-            </SelectContent>
-          </Select>
+          {/* Divider */}
+          <div className="w-px h-6 bg-[#444] flex-shrink-0" />
 
           {/* List/Map toggle */}
-          <div className="flex items-center bg-[#1E1E1E] border border-[#333] rounded-xl h-12 px-1 gap-0.5 flex-shrink-0">
+          <div className="flex items-center gap-0.5 flex-shrink-0">
             <button
               onClick={() => setViewMode("list")}
-              className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold transition-all ${
+              className={`flex items-center gap-1 px-2.5 py-1.5 rounded-lg text-xs font-semibold transition-all ${
                 viewMode === "list" ? "bg-[#D35400] text-white" : "text-gray-400 hover:text-white"
               }`}
             >
@@ -216,7 +216,7 @@ export default function Home() {
             </button>
             <button
               onClick={() => setViewMode("map")}
-              className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold transition-all ${
+              className={`flex items-center gap-1 px-2.5 py-1.5 rounded-lg text-xs font-semibold transition-all ${
                 viewMode === "map" ? "bg-[#D35400] text-white" : "text-gray-400 hover:text-white"
               }`}
             >
