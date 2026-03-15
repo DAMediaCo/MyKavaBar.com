@@ -1821,6 +1821,42 @@ Sitemap: https://mykavabar.com/sitemap.xml
     });
   }
 
+  // One-shot migration: Apply Google Places hero photos
+  app.post("/api/admin/apply-hero-photos", async (req, res) => {
+    try {
+      const fs = await import("fs");
+      const path = await import("path");
+      const mappingsPath = path.join(process.cwd(), "scripts", "hero-photo-mappings.json");
+      
+      if (!fs.existsSync(mappingsPath)) {
+        return res.json({ error: "No photo mappings file found", path: mappingsPath });
+      }
+      
+      const mappings = JSON.parse(fs.readFileSync(mappingsPath, "utf8"));
+      const barIds = Object.keys(mappings);
+      let updated = 0;
+      let errors = 0;
+      
+      for (const barId of barIds) {
+        try {
+          await db.execute(sql`
+            UPDATE kava_bars 
+            SET hero_image_url = ${mappings[barId]}
+            WHERE id = ${parseInt(barId)} 
+            AND (hero_image_url IS NULL OR hero_image_url = '' OR hero_image_url LIKE '%catbox%')
+          `);
+          updated++;
+        } catch (err: any) {
+          errors++;
+        }
+      }
+      
+      res.json({ success: true, updated, errors, total: barIds.length });
+    } catch (err: any) {
+      res.status(500).json({ error: err.message });
+    }
+  });
+
   // Add fetch data endpoint (admin only)
   app.post("/api/admin/fetch-kava-bars", async (req, res) => {
     if (!req.isAuthenticated()) {
